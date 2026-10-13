@@ -4455,3 +4455,15 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **最强的一条**：两侧的 `kernel.o` `cmp` **rc=0 —— 产物逐字节相同**。这就是清单那句"No control flow, config, pass construction or emitted IR changed"里"emitted IR"那一半的**直接测量**，而不是从源码 diff 推断；也顺带把 D054 的前提（marker 是**加在**每次运行的 stderr 上）测实了。
 
 **边界**：只证了这两条路由上的可观测等价；未证未跑到的路由（其他 fixture、P2-C 的 tail、opt 工具），也**不是**对未提交源码 diff 的陈述——那份 diff 里同时含 step 3 的 tail 工作，两者不可混为一谈（D048）。证据：`lead/scratch/routing-pair/run-20261013T202128Z/stage-p2b-contrast/`，独立复现归 verifier。
+
+### §24 追加 24（对修正件的**新增**代码同样执行 D049/D057 纪律：v3 的 `freshness` 守卫**正确但无人调用**，2026-10-14）
+
+测法：把在改的 v3 当模块加载（sha256 `c60df625…`，104 159 B），**注入** `RUN_UTC = 2026-10-13T17:00:00Z`（P2-B 验收运行的起跑时刻），对**真实文件**调用 `freshness`：
+
+| 文件 | mtime (UTC) | 返回 |
+|---|---|---|
+| `C6.b03_cache_bad7.mlir.stderr`（D046 已知陈旧组） | 15:55:25Z | `(True, …, predates_run=True)` |
+| `B4.stderr`（本次运行的） | 17:11:40Z | `(True, …, predates_run=False)` |
+| 不存在的路径 | — | `(False, None, None)` |
+
+**函数判别正确**；缺陷在于**模块体内调用点 = 0**，而 docstring 与 `:2236-2248` 的注释却断言"陈旧 fixture **绝不会**被当作本次运行的证据 / 带该标记的一律不得引用"。三处读取 per-row 文件的引用点（`:813`、`:939`、`:1019` 的 `read_text()`）都没有做新鲜度或 run-id 检查。新增的 per-run 日志目录（`logs/suite-v3/<RUN_ID>`）是**实质修复**，对上述读取也顺带堵住了覆盖路径（目录是新的 → `FileNotFoundError` → main 的 `except Exception` 报 BLOCKED 而非 PASS）；但"新鲜度"这一**断言**仍是无强制力的文字。**两条路选一条，不要两条都沉默**：在引用点调用 `freshness` 并对 `predates_run` 为真者判 FAIL/BLOCK；或把那句断言从 docstring/注释里删掉。
