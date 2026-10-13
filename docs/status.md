@@ -4082,3 +4082,47 @@ routing 行 → `late`/`stage`/`entry`；`inferLayoutOptimization` 行 → `entr
 **证据路径**：`lead/scratch/d040-first-match-scan.py`、`lead/scratch/d040-first-match-logs-suite-p2b.txt`、
 `lead/scratch/p2-instrumentation.diff`（八条字面量取自**脏工作树**，不是取自任何报告）、
 `verify/work/p2b-acceptance/logs-suite-p2b/`。
+
+### §24 追加 5（同日 01:41–01:50）：**复核 Verifier 的验收记录** —— 三处更正（其中一处把结果从"重跑一次"改成"先还原再重跑"）
+
+Verifier 的 `verify/work/p2b-acceptance/ACCEPTANCE-P2B.txt`（17:40Z，12428 B）写在我 D042 落地**之前**，
+所以它与 D042 冲突的那一句必须改。我逐条量了它的三处：
+
+**① `B12a`/`B12b` 被它算作 PASS**（原文 "PASS highlights: … B12a-d bitcode/option policy rows"）。
+按 D042，这两条是**假 PASS**：`stderr` 恰好 223 B / 2 行、`stdout` 0 B，第一命中行是**本 build 自己的
+fail-closed 样板行**，两行里没有 `lib`/`empty`/`missing`/任何路径。它没有做 D040 第 (4) 项的 first-match 判别，
+只看 runner 的返回值 ⇒ 把假绿抄进了验收记录。**要求**：补 first-match 三元组，且对**所有** `rc != 0` 行补，不只这两条。
+
+**② `C6` 的归因（以及同段另一处）在时间上是错的。** 它把 BLOCKED 写成"implementor 的并发重建在 17:00Z
+正在写 `build/bin`，与本次验收并发"。**实测**：`build/bin/bishengir-compile` 与 `bishengir-opt` 的 mtime
+都是 **01:00:24 本地 = 17:00:24Z**，且与 `impl/stage-p2b-r1/bin/*` 的 mtime 与大小**逐字节相同**；
+而本次套件的 stderr/stdout 写在 **01:11:28 / 01:11:50**。也就是说 `build/bin` 在验收**开始前 11 分钟**
+就已经离开 D031 销钉，之后**再没有任何进程写过它**（现在仍不在销钉上）。**没有并发、没有竞态**。
+同段的另一处同型错误："implementor 未提交的 P2-B 源码改动（mtime 落在本次验收窗口内）" ——
+那四个源文件 mtime 实测是 **00:52:44–00:53:10**，也在窗口**之前**。
+**这条更正改变处置**：不是"重跑一次躲开竞态"，而是**按 D041 在最后一次性构建之后还原 `build/bin`，再重跑 C6**。
+
+**③ `A15` 的处置只说对一半。** 它写"逐 flag 的 accept 分支（rc==0 + ELF + cache4）需要 P2-C 的产物" ——
+这句本身对，但**该行不需要走那个分支**：`t_a15` 接受**二选一**，`rc==0` 且 ELF machine `0x1029` 且 store cache
+operand == 4，**或者** `rc != 0` 且诊断**点名**该 option/policy。所以 A15 在 P2-B **可以**由拒绝分支满足 ——
+只要 option 表把五个选项点名；而 `A15.flag0` 已证明机制是好的。**它不是"P2-C 依赖"，是本阶段敞开的口子。**
+要求 implementor 逐 flag 给出：冻结契约意图走哪个分支，**依据必须是从 ordinary A5 路径量出来的值**；
+若某个 flag 确实是"应当被接受"而非被钉，就说清楚并记为**已披露的 P2-C 依赖**，但不许用"需要 P2-C 产物"
+把这五个一起盖过去。另**披露**（不动 oracle）：`t_a15` 的兜底 token 是自由词 —— `enable` 就在这五个 flag
+自己的拼写里，`option` 出现在每条 option-policy 消息里 —— 任何回显 flag 的诊断都能满足它。这是 D040 家族
+的**行弱点**，记在弱点栏，不记成实现缺陷。
+
+**还量到一个日志卫生隐患**：`logs-suite-p2b/` 里 `C6.vadd_late_p1v2.mlir.rc.txt` 的 mtime 是 **23:55:22**，
+即上一轮的残留。BLOCKED 行**不写**新的 rc 文件，所以陈旧文件会留在共享日志目录里 ——
+谁把那个文件当成本次 C6 的证据，谁就读错了轮次。已要求它在 retention 记录里点名。
+
+**它做对、我不要求改的部分**（一并记录，免得只留下批评）：trace harness 的自纠（四个 checker 改成**实测**
+拼写 —— `arith.constant N : i..`、`functionType=#ave.func_dist_type<pb32>`、D8 按函数而非模块 grep、
+多行签名；attempt1/attempt2 都留档，且断言**只改得更具体，从不放松**）做法正确；D4/D7/D8/D9 首跑 FAIL
+是**它自己 checker 的字面量**造成的**假证伪**，它照实报告了 —— 这正是
+`check-literals-must-be-measured-against-the-artifact` 第 1 例。它对 D-a…D-d 的独立复现、
+带牙齿的 D11 负控（同一个 checker 因**正当理由**拒 b07）、E3 tree 摘要（58 文件）都站得住。
+
+**待办**：Verifier 出 ACCEPTANCE-P2B 的**增补**（三处更正），并在**最终 bundle** 上重跑；
+Implementor 完成八条字面量改写 + A15 五项表态 → 一次构建 → stage → 还原 `build/bin` → 两次提交。
+**P2-B 仍未验收**。看门狗上一轮 30 分钟只有一个事件（建树无变化），已按新谓词重挂。
