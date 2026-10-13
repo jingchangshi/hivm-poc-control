@@ -4370,3 +4370,23 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **已确认良好、无需重做**：逐子运行上报在（`:1052` 的 `A13.{tag}` 子运行 + 头部第 9 条）；入口作用域 terminal-barrier 检查 `_entry_terminal_state`（`:1341-1356`）在，B6/B7/B8 都在用；负对照族 N1–N4 已列（头部第 5 条）。
 
 **封版时要再查的**：N1–N4 四条是否**各自真的失败**其原因检查；逐子运行的记录是否由证据导出而非手写字符串；路由对（一旦存在）是否在**缺少** marker 时拒绝，而不只是在 marker 出现时接受。
+
+### §24 追加 19（挑战者两项裁决入账；**D056(b) 的 provenance 门禁由 implementor 自己的记录直接答复**，2026-10-14）
+
+挑战者又给两项裁决，已逐字入账：
+
+- **D056**：D049 **关闭**（29/58 记作完整设计 scope）；routing 对**批准现在就跑** `stage-p2b-r1`，但只算**临时性产物证据**——不得升格为最终记录产物，因为 `p2b-r1-build.log` 自身零 `in-container.sh` provenance；**这不是推迟这次运行的理由**。D045 普查须**按两个维度重述**且**不得压平**：hash 只是精确 `STUB-BARE` **绑定标签**，末尾通用拒绝才是**语义**检测器且有优先权；按行期望分类后——**`A10`/`A11`/`A12`/`C2` 是正例门 FAIL，不是假绿**；`A13.env`/`B12a`/`B12b` 才是原因特异假绿；**`C3` 是独立的假 ABI 覆盖/免费词问题，terminal-stub 分类不能解决它**。
+- **D057**：D054 相关 PASS 主张 **REVISE/BLOCK**；该类是 D040 治理下假阳性族的**独立因果子类**（插桩诱发的 oracle 关键词碰撞/毒化），**不是**新的生产语义缺陷；我"不改措辞、改匹配器"的边界**被确认**；`B7` 若无法绑定到入口作用域 terminal-barrier 校验证据就必须 **NOT_RUN 并写明理由**；`B4` 需要 **V6 校验器/类别 + 实际违规对齐/操作证据**（loc 路径或 marker 里的词不算）；**预跑普查升为常设要求**，且普查**必要但不充分**——执行后仍须做首个命中/terminal-stub 扫描、行分类与结构化原因检查，动态字符串要用真实捕获流触达；任何新免费词要么走 **ERRATUM 修正流程**做结构化匹配器修正，要么该行保持 NOT_RUN/BLOCKED，**不得用生产文本变通**。
+
+**D056(b) 的 provenance 门禁：答上了，而且是四源互证。** 我按本项目已经确立过的先例（transcript 作为见证——D034 的 B4 子主张正是靠它未被撤回）去 implementor 的 transcript 里找构建命令，结果拿到完整链条（详见 D058）：
+
+| 见证 | 内容 | 时间 |
+|---|---|---|
+| W1 命令 | `timeout 5400 …/scripts/in-container.sh bash -c "cd …/build && ninja -j 96 bishengir-compile bishengir-opt"; echo "NINJA_RC=$?"` → `p2b-r1-build.log`，后台任务 `bxcoymtrf` | transcript rec 2296 @ **17:00:06Z** |
+| W2 任务自身输出 | `tasks/bxcoymtrf.output`，sha256 `92853a8e…`，30 B，`started` + `[exited with code 0]` | mtime 17:00Z |
+| W3 它产生的日志 | `p2b-r1-build.log` **2479 行**，结尾 `Linking CXX executable bin/bishengir-opt` + `NINJA_RC=0`；`bishengir-compile` mtime 早 **0.19 s** | mtime 17:00:24Z |
+| W4 独立回读 | transcript rec 2306/2307 报**同样的 2479 行**与同样的结尾 | **17:00:35Z** |
+
+链条还解释了一个原本费解的细节：**同一路径**上的前一次是 rec 2224 @ 16:54:15Z 的 `cd …/build && (time ninja -j 96 …)`——**没有走 wrapper**，4702 边时 rc=1 失败，正是 **D041 宿主构建事故**——而 wrapper 那次用 `>` **截断了**它的日志，所以现存的日志头是 `[1/4278]`（清理后的边数）而不是宿主那次的 `[1/4702]`。
+
+**明确写下的限度**：transcript 是**见证**不是**背书**——它记录的是**发出过的命令**，对 transcript 或日志有写权限的人可以伪造其中任何一个；W2/W3/W4 互相印证但共用同一个文件系统。W3 里的 `ninja` 输出行本身与宿主运行的行**肉眼不可区分**，所以这条 provenance 立在 **W1 的命令**加 **W2 的退出码**上，而不是立在日志内容上。此链条提交挑战者判断是否满足 D056(b)；若判不足，退路就是一次新的容器内构建——**两种走法的产物 SHA 相同，routing 对绑定的是那个 SHA**，所以不影响结论。
