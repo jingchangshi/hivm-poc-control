@@ -4531,3 +4531,38 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **裁定（D068）**：错的是**标识符**，不是行。所以——v3 **尚未封版**，改名是纯文本改动、不弱化任何断言——**封版前把 v3 的四条控制行改名**（建议 `S1–S4`；顺带 `P1` 也不宜作行 id，因为 P1 在本项目里到处是**阶段名**）。验收报告中，P2-C 的 bitcode 反例一律用 **B12\* 家族 id** 引用，计划的 N 策略用文字写出来。**不动任何冻结字节，不改计划里的 N 标签。**
 
 **已派发**：`verify`（封版前执行，成本极低）；`review-2` 已被问到同一批封版问题。
+
+### §24 追加 28（P2-C 之前必须补齐的验收框：目标 §6.3 的十一条 ABI 检查，实测 **5 覆盖 / 2 部分 / 4 完全没有行**；§5 的十一条不变式则**只**落在无自动 oracle 的 trace 行上，2026-10-14）
+
+**为什么现在做**：CLAUDE.md 要求"测试与期望值必须在实现之前、独立于实现确定"。P2-C 的 bitcode 身份门尚未实现，此刻正是把验收框定死的时点；目标 §7 又明说"文件存在或编译器 exit 0 不足以宣布 P2 成功"。
+
+**实测手段**：在两个 runner（sealed `run_p2_suite.py` 与未封版 `run_p2_suite_v3.py`）里 grep 目标文档自己的词汇，并逐个读可能承载它的行。
+
+| 词汇 | v2 命中 | v3 命中 | 含义 |
+|---|---|---|---|
+| `FunctionInfo` / `symbol` | 0 / 0 | 0 / 0 | 从不读符号表 |
+| `num_inputs` / `blockIdx` | 0 / 0 | 0 / 0 | 从不查入口参数个数 |
+| `unrealized` / `HIVMAVE` | 0 / 0 | 0 / 0 | 从不查是否有未合法化算子残留 |
+| `readelf` / `objdump` / `nm` | 0 / 0 / 0 | 0 / 0 / 0 | 无任何二进制检查工具 |
+
+**承载行的实际内容**：`t_a1`（v3 `:861`）断言的只有 `rc==0`、产物存在、`is_elf`、`machine == 0x1029`，外加写 identity sidecar；`t_d1`（`:2026`）是同四个哈希在读时复验、输入 sha 钉死在 `d1023ac1…`；`t_a12`（`:1149`）是 `count_pass(...) == 1`。**没有任何一行读符号表或入口参数。**
+
+| §6.3 项 | 覆盖 | 判定 |
+|---|---|---|
+| 1 设备入口对应三个 GM 指针参数 | 无 | **无行** |
+| 2 Kernel symbol 与 FunctionInfo 一致 | 无 | **无行** |
+| 3 AIV core type + Ascend950PR target | A1 的 ELF machine + 命令行 `--target`；A6/A9 只在 IR 层 | **部分** |
+| 4 不产生额外设备入口参数 | 无 | **无行** |
+| 5 blockIdx 与 GM 偏移符合 Golden | trace D2（IR 层，**无自动 oracle**） | **部分** |
+| 6 pb32 保持 b32 | trace D9 + pb32 反例 | 覆盖 |
+| 7 DMA 地址与范围 | trace D5 + B10/B11 | 覆盖 |
+| 8 set/wait 与终止屏障 | trace D10/D11 + A11 + B6/B7/B8 | 覆盖 |
+| 9 dynamic UB=196608 作启动契约 | trace D6 + A7/A8 + 输入件自己的 N2 注释（`UB_SIZE = 2031616` 与 `dyn_shared_memory_buf = 196608` 的单位区分**写在这里**） | 覆盖 |
+| 10 无未合法化 HIVM/HIVMAVE 或 unrealized cast | 无（A10 断言的是**禁用的流水线没跑**，不是**没有算子残留**） | **无行** |
+| 11 `ConvertHIVMToLLVM` 恰好一次 | A12 | 覆盖 |
+
+**§5 的十一条不变式**（AIV grid=64、per-block GM indexing、8192 f32/block、UB 0/65536/131072、32768 B DMA、dynamic UB 196608、cache4、128×64、pb32、四个 set/wait、入口末尾 PIPE_ALL）**全部**落在 `p2-pass-trace.md` D1–D11，而 D1–D11 按记录是**Lead 手读、无自动 oracle** 的较弱证据类——每次引用都必须声明这一点。
+
+**期望值现在就能定**（这正是"实现前定义"的关键）：冻结的 Golden 输入 `verify/tests/negatives/vadd_late_p1v2.mlir`（`d1023ac1fdfd22c8d7f2aed5c71241fdd83039744b383e43b19255d10a31f36b`，本轮复测）自带 `func.func @main_kernel`（符号名）、`hacc.block_dim = 64 : i64`（grid）、`dyn_shared_memory_buf = 196608 : i64`（arena）、`hivm.module_core_type<AIV>` 与 `hacc.target<"Ascend950PR_9579">`（core/target）、以及三个 GM `memref` 操作数（入口元数）。
+
+**处置（D069）**：记下这张图；把四条**无行**检查作为**P2-C 前置测试定义**派给 Verifier，期望值只许取自冻结输入；凡引用第 3/5 项及 §5/trace 各行，一律标注"无自动 oracle"；**新增行的载体**（进 suite 还是独立 P2-C 产物）**等 review-2 的再封版裁定**——本条不给任何封版 runner 加行。
