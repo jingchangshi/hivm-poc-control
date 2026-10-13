@@ -4252,3 +4252,22 @@ Challenger `review-2` 于 `2026-10-14T18:27:04Z` 给出书面裁定，已按其�
 机理由 `scripts/in-container.sh:14-20` 读出：`exec docker exec -i -u … -e HOME=… -e HIVM_CONDA_ENV=… -w … container bash -c '<source CANN; source conda; conda activate; exec "$@">' _ "$@"`——只转发两个变量；让 B 成立的是内层第 19 行的 `exec "$@"`：赋值由**容器自己的 shell** 在 `exec` 载荷之前完成。
 
 三点结论：(i) **D044 的根因从"推断"升级为"已证明"**——宿主赋值无法到达这一机制被直接测到，335 B 的具名 env 冲突诊断是它的**效果**；两者合起来才闭环，而单靠诊断不闭环，这正是 D047 要求补对照的原因。(ii) **修法不需要改包装器**——D044 留着的第二分支（包装器级 allowlist，需单独评审，因为 `in-container.sh` 是所有构建与 P2-C/P2-D 运行的共享生产路径）就此关闭；非侵入式形式足够。(iii) **证据归属**：本次是 Lead 的独立测量，确立了机制；执行证据属 Verifier，修正案必须带上**含 C 在内**的 A–D 四行验证者复现，D047 的要求才算在记录里被解除。
+
+### §24 追加 14（Lead 独立审计：把 v3 的**每一个**正则字面量都打到真实流上——D-b/D049 那一类现在干净了，2026-10-14）
+
+工具：`lead/scratch/exercise-runner-literals.py`（sha256 `8a6d128e215b7d209ca0f5608599266e4ba5d7e0983f108e354d4e67b8d487b8`）——把 runner 里每个 `re.compile`／`re.match|search|findall` 的字符串常量用 `ast` 抽出，逐条打到给定的真实流上，同时给出**逐行 `match`／逐行 `search`／整段 `findall`** 三个计数（带 `^` 的 pattern 在这三种用法下行为完全不同，runner 可能任一使用，所以三个都报）。输出：`exercise-runner-literals-v3.out.txt`（sha256 `9b7cdf4886f0c9a5ba67c8e6…`）。
+
+被审对象：`run_p2_suite_v3.py`（03:47:35，93 025 B）。喂入的真实流：`logs-suite-p2b/{A10.stderr, A10.stdout, A13.env.stderr, A2.stderr}`、`impl/scratch/p2b-trace/{inline.out, compile.out}`、`verify/work/p2b-acceptance/trace/{trace.stdout, trace.stderr}`。
+
+结果（这是 D-b／D049 那个类别的独立复核）：
+
+| pattern | 逐行 match | 逐行 search | 说明 |
+|---|---|---|---|
+| `DUMP_RE` | **29** | 29 | 修复已落到真实字节上 |
+| `DUMP_WITH_BODY_RE` | **58** | 58 | 同上；58/58 与真实 header 行数一致 |
+| `PASSID_RE` | **132** | 132 | 33 × 4 条 PassID 流，活跃 |
+| `CLI_DIAG_RE` | 3 | 3 | `[ERROR] Late mode:` 行 |
+
+另有 **12** 条 pattern 在这批流上全为 0。**逐条看过，全部是"目标不同"而非失效**：`DIAG_LINE_RE`（MLIR `loc(...)` 诊断，这批流里没有解析错误）、`UNKNOWN_OPTION_RE`（未知选项错误路径）、`BOUNDARY_LINE_RES` 的两条通用级联行（这批流带的是 stub 错误而不是级联）、692/695 的常量解析（作用于 dump body 的操作数而非整条流）、以及 1327/1432/1445/1458 四条 fixture 专属断言（`pge.b8`、`%c16384_i64|%c32768_i64`、`memref<4096xf32`、`arith.muli %c32768_i64` —— 属 B 类某个具体负例 fixture）。
+
+**必须写下的读法**：本工具的 0 **不等于**缺陷——只有当该 pattern 所属的行确实会喂给它这一类流时，0 才是信号；否则把 0 当缺陷就是把"子集当全体"反过来再犯一次。它的正确用法是在**套件真实跑完之后**、用那次运行自己产生的流重跑一遍，那时每个 0 才有指向。所以本条只结一个结论：**v3 的正则字面量层，就"应当被这批流触发的那些 pattern"而言，已经没有开不了火的**；其余 12 条留待套件运行时的流来判。
