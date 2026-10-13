@@ -2752,3 +2752,29 @@ config↔pass-options 的**唯一**生成桥 `genConfigToOptions`（`ConfigsToOp
 同期确认：Implementor 的 `regbase/Driver.cpp` 改动把 `config.getInputIRStage() == kStageLate` 的提前返回放在
 `runRegBaseCompile` **首句**，与 §2.2 item 2 一致；`bishengir-compile.cpp`（`main`，§2.2 item 1 的 argv 扫描与
 `:114` 前的诊断）**尚未出现**在 dirty 列表 —— 属预期，仍在施工中。
+
+**以上三面计数由 Verifier 独立复测，逐项与我的值一致**（`ConfigUtils.cpp.inc` 8869 B、`PassOptions.cpp.inc`
+67362 B / 276 / ALL 块 441–1669；`CompileOptions.cpp.inc` 60169 B）⇒ 表中数值不是单方声明。Verifier 同时**主动
+收回了**它自己那份 check 2：其"文件级 grep 到 1 即声明缺失 ⇒ BLOCK"的规则把**文件计数**与**编译单元计数**混为
+一谈，会在**正确构建**上触发 BLOCK；并确认单行 `type+name` 模式只能通过**畸形**构建。其三项 grep 现已全部改为
+多行锚定（`^inputIRStage` / `"input-ir-stage"` + 上溯类型行）。argv 可达性仍留在 §8 step 8。
+
+## P2-A 构建前锚点（Lead 独立复核，2026-10-13T14:59Z，构建**尚未**启动）
+
+Implementor 在动工前写下 `impl/scratch/prebuild-state.txt`（14:50:51Z），钉住 HEAD 与两个**即将被覆盖**的二进制。
+我在构建启动**之前**从磁盘独立复核了这两条，并把它与保留件对齐 —— 这是 P1 可复验性最脆弱的一刻：
+
+| 对象 | 实测 SHA-256 | 对齐关系 |
+|---|---|---|
+| `AscendNPU-IR-1/build/bin/bishengir-opt` | `0761c6e662ee015e30425ee29e0c2314753aa356b21eb4119ff99747327a1977` | **等于 D031 的 P1 钉**（`p2-goal-1013.md:249`），亦等于 `lead/preserved-p1-compiler/bishengir-opt.0761c6e6` |
+| `AscendNPU-IR-1/build/bin/bishengir-compile` | `c6838fc0a175ec6bb05214780a2a3e99ab478285620996dd5bea4c69f26aabe9` | 等于 `lead/preserved-p1-compiler/bishengir-compile.pre-p2.c6838fc0`（P2 前的普通路径基线） |
+| `meta_op.aiv.c310.O2.bc` | `5e7ccae20f4e2a1887d1bdd87f787ea97f2732f7564a67013e737a163482fb42` | 保留件，C310 bitcode |
+
+`sha256sum -c lead/preserved-p1-compiler/SHA256SUMS.txt` → **3/3 OK**。（首次尝试报 FAILED 是我自己在错误目录下执行
+`-c`，清单内是相对路径 —— **我的路径错误，不是保留件缺失**；在清单所在目录重跑即 3/3 OK。记录此事以免后人把该
+次输出误读为证据损坏。）
+
+**未运行的构建**：`pgrep -x ninja` 全机仅 1 个（pid 3517234，`ninja -j 192`，属 `/home/c00910088/AscendNPU-IR/build`，
+非本树）。**本树 `AscendNPU-IR-1/build` 无任何编译进程** ⇒ "同一构建目录不得并发构建"未被违反，且此刻本树产物
+仍是 P1 身份。Implementor 亦自行做了 `ps` 扫描后才进入构建准备阶段（它正在比对本树与参考树的 `config.h` / ZLIB
+配置，属构建前置诊断，尚未编译）。
