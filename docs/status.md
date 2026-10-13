@@ -3165,3 +3165,42 @@ NOT_RUN 保持、B1 oracle 弱点记为长期限制、新清单自述 base）。
 **门禁状态：验收在 Challenger 的设计确认回来之前不关闭。** 即便 B2 按点名的 V7 行转绿，
 P2-A 的接受也是"**以设计承认为条件**"的，不得先行宣告通过。
 P2-B 未开始；除 P2-A 验收子集外**每一行执行证据仍是 NOT_RUN**；未 push；`hivm-poc-evidence/` 仍为本地独占。
+
+### 16. 自查订正：第一次验收运行**没有正例行**，以及为什么 B2 的转绿是承载行的原因（Lead，2026-10-13T16:2xZ）
+
+等待复验期间我逐行读了冻结的跑测器与第一次运行的 `suite-summary.json`，发现**我自己的计划里有一处定性错误**，
+并顺带把 B1 的"假绿"机制钉死。三件事，全部是我从盘上直接复算的：
+
+**（1）"套件里没有正例"是错的；真实情况是第一次运行的 `--only` 选择把正例排除在外了。**
+`tests/scripts/run_p2_suite.py:507` 的 `t_a1` **就是一个真正的正例**：它把 golden `vadd_late_p1v2.mlir`
+经绑定的 `p2_compiler` 编到 Late 目标，要求 **`rc == 0`**、产出 `.o`、是 **ELF**、且 **machine == `0x1029`**，
+否则 FAIL。**全线拒绝的"修复"会让 A1 FAIL。**
+但第一次运行的 `--only` 选择是 `A2,A3–A9,B1–B11,B12a–d,C6` —— **24 行，A1 不在其中**
+（`suite-summary.json` 的 `counts = {PASS:23, FAIL:1, BLOCKED:0, NOT_RUN:0}`，行数 24，可核对）。
+**故那次运行一个正例都没有。** 我的计划写的是"A1 是 NOT_RUN"，方向对（确实没有正例跑过），
+但机制说错了：不是"被选中后跳过"，而是"**根本没被选中**"；`need_late("A1")` 只是"若被选中会返回 NOT_RUN"的那道闸，
+而验收时绑定已解析、A1 本来是可以跑的。**复验已订正：把 A1 加进 `--only` 选择。** 冻结 oracle 自带的正例，
+证据力高于我自己临时造的判别器；判别器退居第二件仪器（它另外给出 PassID 与 Before/After dump）。
+
+**（2）B1 的假绿机制，精确版。** 第一次运行的明细是 `B1 -> PASS | caught by validator: rc=1, names 'l2_cache'`。
+问题在于 **V7 消息的尾部本身就含字符串 `l2_cache_mode`**：
+"The store's `l2_cache_mode` carrier may only be lowered on the D012-approved conservative DMA shape." ——
+于是 `l2_cache` 这个键**任何**形状失败都会匹配上，与载体取值毫无关系。
+所以 B1 的 PASS 从来没区分过"取值闸触发"与"形状闸触发"，它对取值合取项是否存在**零信息量**。
+这就是 `p2-verification.md` §0.7 背后的确切机制，原文照录。
+
+**（3）套件是 V7 两个合取项的"外科式最小对"分解 —— 这正是 B2 的转绿足以承载验收的原因。**
+以 `diff` 对 golden 实测：
+- golden ↔ `b01_cache0`：**整份只有一行不同，且行内只差一个字符** —— `4` → `0`（两者皆 18659 B）。隔离**取值**合取项。
+- golden ↔ `b02_cache_carrier_deleted`：**整份只有一行不同** —— 属性被删，18659 → 18633 B，**差 26 字节**，
+  恰好是 ` {l2_cache_mode = 4 : i32}`。隔离**存在性**合取项。
+- golden ↔ `b04_unaligned_store_cache4`：载体**逐字节相同且正确**；差异在 `:139`/`:142`，
+  `131072` → `131076`（即 UB 指针偏移非 32 字节对齐）。隔离**形状**合取项。
+
+于是：只补取值检查的修复能过 b01 但**仍会** FAIL B2；只补存在性检查的修复能过 b02 但**仍会** FAIL B1；
+而 b04 把形状半边钉死，修复不可能悄悄改坏它。**这就是"不需要、也不允许做平均"的理由**，已同时告知 Verifier。
+
+**附带记录（非问题，避免读者踩坑）**：golden 位于 `tests/negatives/`，而 `tests/positive/` 是空目录。
+跑测器**不按目录 glob** —— 每一行都显式点名自己的 fixture（`_expect_catch(work, log, "B1", "b01_cache0.mlir", …)`）——
+所以 `negatives` 只是**标签**而非**分类**，该放置不会把正例误判为"应当被捕获"。
+**无需处理，也不得移动或改名**（fixture 冻结在 sha `d1023ac1fdfd22c8d7f2aed5c71241fdd83039744b383e43b19255d10a31f36b`）。
