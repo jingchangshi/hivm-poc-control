@@ -3915,5 +3915,39 @@ E4 未满足 ⇒ **B1–B7 在 P2-B = NOT_RUN**，不是 PASS。§5.2 的那些�
 **已复核不变**：`run_p2_suite.py` = `0677be1a…`（seal 未动）；`tree/` = 58 文件；
 引入 `mix_mode`/`filter_passes`/`FilterPassesAttr` 的文件 = **0**。
 
+#### 5. 我量出的第五件事（**不是** D-a~D-d 那种"行不可能过"，而是"行的判别力被白送"）—— 已入账 D040
+
+`_expect_reject`（`:571`）与 `_expect_catch`（`:955`）在 `rc≠0` 分支上是
+**对整个 stderr 做大小写无关的子串匹配**（`any(k.lower() in blob for k in diag_keys)`），
+不是结构化的诊断匹配。于是有几把 key 是**白送的**：
+
+- Late 入口 **9 处拒绝点全部**打印 `[ERROR] Late mode: …`（`:265/:314/:332/:341/:352/:499/:510/:543/:567/:580`），
+  校验器每条 `Late input validation V# (…) FAILED` 的消息头也带 `Late … stage` ——
+  所以**任何** Late 路线上的拒绝，stderr 里必然有 `late`；V1/V3 失败时必然有 `stage`。
+  `late` 是 **A3/A4/B12c** 的 key，`stage` 是 **A3/A4** 的 key。
+- `entry` 是 **B7** 的 key，也在 V3 的 `hacc.entry`、V6 的正文里；`core` 是 **A5/A6** 的 key，
+  V3 的消息头 `(module/core metadata)` 必然含它。
+
+**而 P2-B 新加的 A1 路由日志按最初的写法会再加三个白送 token**（我把它六个字面逐个对
+从密封 runner 抽出的 key 并集做的子串测试）：
+`[P2-BOUNDARY] late-route stage=late entry=runLateHIVMPipeline`
+→ 命中 `entry`(B7)、`late`(A3/A4/B12c)、`stage`(A3/A4)。另四个 `entry=`/inference 日志命中 `entry`(B7)，
+`inferLayoutOptimization` 那条还命中 `layout`(B4) —— 但这四条在**普通路径**上，
+而所有 `_expect_*` 行都带 Late flag、根本走不到那里，所以**只有 A1 那条在冻结行内可达**。
+它又是**入口第一条语句、早于任何校验**，所以它会在每个 Late 负例上白送 `late`/`stage`/`entry`。
+
+**今天没有一个判决因此改变 —— 这是量出来的，不是推的**：我把 r1 归档里每个已执行行的
+**首个命中行号**都取了出来，**全是 `stderr:2`，即该 fixture 自己的诊断**
+（A3 `llvm`（来自 `llvm.return`/`llvm.func`）、A4 `aveintrin`/`regbaseintrins`、A5 `module_core_type`、
+A6 `AIC`/`AIV`、B6/B7/B8 `PIPE_ALL`/`barrier`/`entry`/`terminal`，且 V6 的正文逐字写了
+entry-terminal 规则）。所以这一条是**判别力**缺陷，**不是**"行不可能过"——
+它和 D-a~D-d 同族但**不同种**：这里没有一行是过不去的，也没有一行被报成假绿。
+
+**处置**（都在 instrument 侧，`verify/` 一个字节不动）：已发 Implementor **提交前**改字面，
+要求任何入口打印的行都不得包含任何冻结 key 的子串（注意 `late`/`layout` 会**咬到函数名本身**），
+并把重测后的碰撞表**报成空**写进 `P2B-REPORT.md`；已发 Verifier 为每个 `rc≠0` 行记录
+**首个命中 key + 行号 + 该行原文**（这正是"因预期原因被拒"与"被拒且撞上样板词"的分界）。
+并已并入给 Challenger 的追补问题（第五个缺陷的定性与方向）。
+
 **下一步**：等三份回报（Implementor 提交 + G/I 复测；Verifier P2-B 验收 + 四条复现；Challenger 五问裁决
 外加本条追加的第 6 问）；未 push；`hivm-poc-evidence/` 本地独占。
