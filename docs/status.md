@@ -2590,3 +2590,23 @@ v1 断言，`B12 → B12a–d` 是一次**已披露的、纯加强的拆分**（
 **未变**：所有执行类验收行 **NOT_RUN**（除 C6 冻结时 PASS，Lead 复跑一致）；D031 的 P1 编译器 pin 未动；
 `hivm-poc-evidence/` 本地专属；**未推送**（本地 ahead：`1e6e686`→`0c960df`）。
 **下一步**：等 Implementor 交付 P2-A（源码 diff + 构建退出码 + 暂存包 SHA + `--help` 证明 + `getNumOccurrences()` 回读）→ 交 `verify` 验收 → 再启 P2-B。
+
+### P2-A 动工前的 Lead 预核查（§3.3 G1 的证据，2026-10-13T14:3xZ）
+
+Implementor 已在生产树上动工（`80e29e6f2`，仅 4 个 P2-A 文件脏：`Options.td`、`HACC/Utils/Utils.h`、
+`AppendDeviceSpec.cpp` 修改，新增 `regbase/LateInputVerifier.cpp`）。动工前 Lead 自己复核了 §3.3 的
+"保留 P1 快照可复验性"，结论如下（**尚未构建**，`build/` 未被触碰）：
+
+| 项 | 期望 | 实测 | 结论 |
+|---|---|---|---|
+| 保留件 `lead/preserved-p1-compiler/` | 三个文件 + SHA256SUMS | `bishengir-opt`(214 MB)、`meta_op.aiv.c310.O2.bc`(31 MB)、`bishengir-compile.pre-p2`(205 MB) + `SHA256SUMS.txt` | 存在 |
+| 保留件自校验 | `sha256sum -c` 3/3 OK | **3/3 OK**（`0761c6e6…` / `5e7ccae2…` / `c6838fc0…`） | PASS |
+| 活体 `build/bin/bishengir-opt` | 仍为 P1 pin `0761c6e6…` | `0761c6e6…`（mtime 14:46:23） | 未被覆盖 |
+| 活体 `build/bin/bishengir-compile` | 仍为 pre-P2 `c6838fc0…` | `c6838fc0…`（mtime 13:46:21） | 未被覆盖 |
+| 活体 `build/lib/meta_op.aiv.c310.O2.bc` | 仍为 `5e7ccae2…` | `5e7ccae2…`（mtime 13:46:45） | 未被覆盖 |
+| Implementor 是否已构建 | 否 | 382 条记录内 **0** 条 `ninja/cmake/make/install` 命令；仅 1 条只读 `git status` | 未见越界 |
+
+⇒ G1"在任何 P2 编译之前完成保留"**成立且有据**。P2 构建一旦发生，`build/bin/bishengir-opt` 与
+`build/bin/bishengir-compile` 将同时改变（二者链接同一 `BiShengIRRegBaseCompileLib`），届时
+`snapshot/run_p1v2.sh` 的 I5 会因**构建树移动**而非 P1 漂移而失败 —— 这不是缺陷，是预期，且
+**不得**为迁就它去改快照或摘要（§3.3 已写明）。
