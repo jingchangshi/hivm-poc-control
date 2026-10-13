@@ -4596,3 +4596,23 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **方法规则（与实例 14 并列）**：凡在记录里写下任何"已派发 / 已执行 / 已验证"，写下之后**必须去实际发出或实际执行**，并把**回执 id 或产物路径**记在同一行；顺序颠倒就等同于把意图记成了事实。我这一条的教训是我自己在同一轮里刚记完实例 14（否证式结论的搜索空间），紧接着又犯了同一族的错。
 
 **未做**：没有构建、没有动 `build/bin`、没有动权限设置、没有推送。
+
+### §24 追加 31（**封版前的绑定陷阱（D071）**：v3 的路由行已接好，但绑定的那个 bundle 是**零 marker** 的那一个——于是 A1/A2 会双双 NOT_RUN，门禁项变成**不可满足**，而错误信息还会读起来像"正确诊断"，2026-10-14）
+
+**先说接线：接得对，这一点没有疑问。** `routing_detail`（`run_p2_suite_v3.py:457`）只在**全无 marker** 时返回 NOT_RUN，且消息里**自己点名**"stage-p2b 47e02604… has zero marker sites"；互斥在两个方向都被强制（`:461-481`，late 半必须"有 late 且无任何 ordinary"，ordinary 半必须"有 ordinary 且无 late"）；`t_a1` 把 FAIL→FAIL、NOT_RUN→NOT_RUN 且**两种情况下都保留 ELF 实测**；`t_a2` 让"真实的 sha 回归仍然先 FAIL"排在 marker 门之前。`freshness` 也终于有了真实调用点（`:893`，检查本次运行自己的 `A1.cmd.txt`，stale/missing 直接 FAIL）——**D064/D066 就此关闭**。
+
+**问题全在绑定文件上**（实测，`grep -a -o … | wc -l`）：
+
+| bundle | sha | marker 站点 | 在 `p2-bindings.json` 里？ |
+|---|---|---|---|
+| `stage-p2b` | `47e02604c6ae6e02` | **0** | **是**（`p2_compiler` 指它） |
+| `stage-p2b-r1` | `ea217b8d423b2e46` | **6** | **完全没有**（`grep -o 'ea217b8d…'` 无匹配） |
+| `stage-p2a-r1` | `1a3f20f80d73908c` | 0 | 是（`superseded_p2_compiler_r1`，**这是 P2-A 的 r1**） |
+
+后果：拿现在的绑定跑验收，**A1 与 A2 都会 NOT_RUN-by-instrumentation**——而 A1 是整个 Late 正例、A2 是 ordinary 逐字节回归，两条同时变暗，路由门禁项**不可满足**。危险之处在于：那条 NOT_RUN 信息**本身是对的**（它准确描述了"这个二进制没有插桩"），于是它读起来像"诊断"，而真正的病在配置文件里。若有人为了让 A1/A2 变绿而**放宽 marker 要求**，门禁项就被彻底摧毁。
+
+**处置**：验收前把 `p2_compiler` 重指向 `impl/stage-p2b-r1/bin/bishengir-compile`（`ea217b8d…`）连同它的 `bin/bishengir-opt` 与 `lib/meta_op.aiv.c310.O{0,2}.bc`；`bitcode.aiv_c310_o2_path` 同样指向 r1 的 `lib/`；把 `stage-p2b` 记为 **superseded（不删除）**；并把 r1 的四个哈希写进验收记录，以满足 D059 要求的"路由证据必须绑定到确切的 staged compiler SHA 与 4/4 bundle 哈希"。**验收时绑定本就预期会被编辑**（v2 清单的 note 明说），所以这正是正规动作，不是例外。
+
+**同一个修复里的标识符陷阱**：绑定文件里的 "r1" 指的是 **P2-A** 的修复-1（`superseded_p2_compiler_r1` = `1a3f20f8`），而 P2-B 的修复**也叫 r1**（`ea217b8d`）。**两个不同的 r1**——所以重指向必须**按 sha 指名**，绝不能按后缀。与 D068 同族。
+
+**未做**：没有构建、没有动 `build/bin`、没有动任何绑定文件（那是 Verifier 的执行动作）、没有改权限、没有推送。
