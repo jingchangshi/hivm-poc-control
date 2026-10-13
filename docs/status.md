@@ -4235,3 +4235,20 @@ Challenger `review-2` 于 `2026-10-14T18:27:04Z` 给出书面裁定，已按其�
 **可推广的规则（这也是本条记为决策而非笔误的原因）**：changelog 是**编写**出来的，不是**测量**出来的。当一份修正案列举"改了哪些"，每一项都必须在**封存时从发布出去的文件里**重新测量——`ast` 抽出字面量、打到真实字节上、记下 `N/M`。本条还回答了一个此前悬空的问题：该缺陷**挺过了一次有治理、逐条列明**的正确性修复修正案——因此修正案自身的准入需要和它所修复的行**同样的字面量检验证据**，而不是一张意图清单。
 
 **状态**：已当面报给 Verifier（要求改两处字面量、并把实测 `N/58` 写进修正案证据，而不是把"corrected form matches 58/58"当既有事实）。**v3 未封存；P2-B 重验不得以现状启动。** P2-B 整体仍为 BLOCKED。
+
+### §24 追加 13（D050：Challenger 要求的"传播对照"已实测——宿主环境确实进不了容器，且**非侵入式**修法有效，2026-10-14）
+
+只用 `scripts/in-container.sh`，不跑编译器、不构建，四行实验（命令逐字，工作目录 = `hivm-poc-control`）：
+
+| # | 命令 | 结果 |
+|---|---|---|
+| A | `BISHENGIR_LEGACY_A5_REGBASE=1 bash scripts/in-container.sh printenv BISHENGIR_LEGACY_A5_REGBASE` | **rc=1，容器内该变量不存在** |
+| B | `bash scripts/in-container.sh bash -c 'BISHENGIR_LEGACY_A5_REGBASE=1 exec printenv BISHENGIR_LEGACY_A5_REGBASE'` | 输出 **`1`**，rc=0 |
+| C | `bash scripts/in-container.sh printenv HIVM_CONDA_ENV` | `s00653124_tilelang`，rc=0 |
+| D | 容器内回显（A/B 两种调用形式） | `REGBASE=[]` / `REGBASE=[1]` |
+
+**C 不是可选项**：没有它，"printenv 什么都没打印"与"这个探针根本没进到容器里"无法区分——缺席必须自带阳性对照，这正是 D048 用在路由行上的同一条纪律。
+
+机理由 `scripts/in-container.sh:14-20` 读出：`exec docker exec -i -u … -e HOME=… -e HIVM_CONDA_ENV=… -w … container bash -c '<source CANN; source conda; conda activate; exec "$@">' _ "$@"`——只转发两个变量；让 B 成立的是内层第 19 行的 `exec "$@"`：赋值由**容器自己的 shell** 在 `exec` 载荷之前完成。
+
+三点结论：(i) **D044 的根因从"推断"升级为"已证明"**——宿主赋值无法到达这一机制被直接测到，335 B 的具名 env 冲突诊断是它的**效果**；两者合起来才闭环，而单靠诊断不闭环，这正是 D047 要求补对照的原因。(ii) **修法不需要改包装器**——D044 留着的第二分支（包装器级 allowlist，需单独评审，因为 `in-container.sh` 是所有构建与 P2-C/P2-D 运行的共享生产路径）就此关闭；非侵入式形式足够。(iii) **证据归属**：本次是 Lead 的独立测量，确立了机制；执行证据属 Verifier，修正案必须带上**含 C 在内**的 A–D 四行验证者复现，D047 的要求才算在记录里被解除。
