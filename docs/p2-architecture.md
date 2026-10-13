@@ -810,12 +810,14 @@ policy (`include/bishengir/Pass/PassExecutionPolicy.h:29-62`) is a **denylist** 
 — and a denylisted pass is skipped **in Aiv mode** while still being scheduled, i.e. its headers can
 print. A second, context-global per-op `FilterPassesAttr` path exists as well.
 
-But the mode is chosen from the module: `PassExecutionPolicy.h:42-46` resolves to Aiv only when a
-function carries `mix_mode = "aiv"`, and **every other case — no `mix_mode` at all, a non-`"aiv"`
-value, or disagreeing values — keeps the default full (Mix) mode**, in which the denylist is not
-consulted. **Measured: the frozen Late artifact contains zero occurrences of `mix_mode`** (grep over
+But the mode is chosen from the module: `detectPipelineMode` (`PassExecutionPolicy.h:42-58`) resolves to
+Aiv only when a function carries `mix_mode = "aiv"`, and **every other case — no `mix_mode` at all, a
+non-`"aiv"` value, or disagreeing values — keeps the default full (Mix) mode**, in which the denylist is
+not consulted. The detection happens once per manager run, lazily, on that run's first action
+(`PassExecutionPolicy.h:76-99`) — which is what makes the mode a **per-manager** fact rather than a
+per-action one. **Measured: the frozen Late artifact contains zero occurrences of `mix_mode`** (grep over
 `v0…/vadd_late.mlir`), so the P1 Late input runs in Mix mode and no pass body is suppressed by this
-policy. Two consequences:
+policy. Three consequences:
 
 - The §3.2 zeros are not artifacts of the denylist for this input. They must be reported **together
   with the resolved mode**, not on their own.
@@ -824,27 +826,38 @@ policy. Two consequences:
   frozen contract depends on. The preflight validator (V1) therefore **rejects a Late input that
   carries `mix_mode` at all**, rather than relying on a policy that happens to be inert today. The
   same rule covers `FilterPassesAttr`.
-- **V1's input check is necessary and not sufficient, so the mode is re-read at each later pass
-  manager.** The policy is resolved **from the module as it stands when the manager runs**
-  (`PassExecutionPolicy.h:42-46`), and each `PassManager::run` resolves it afresh. A pass in the tail
-  that wrote `mix_mode` or `FilterPassesAttr` would therefore switch the mode for everything *after*
-  it, and the input check would have been satisfied at a point that no longer describes the IR.
+- **V1's input check is necessary and not sufficient, so the mode is recorded at each pass-manager
+  boundary and a forbidden transition is an assertion failure.** The granularity matters and is
+  measured, not assumed: the mode is *not* recomputed per pass action. `PassExecutionPolicy` detects it
+  **lazily, on the first action of a run, and freezes it for the rest of that run** —
+  `detectPipelineMode` is guarded by a one-shot `modeDetected` atomic and `getMode()` thereafter only
+  reads `mode` (`PassExecutionPolicy.h:76-99`, whose own comment says the mode "is a property of the
+  module being compiled", is "state of a single compilation/run", and is detected "on the first action
+  of the run, and freezes it for the rest of the run"). The instance lives in the `BiShengIRPassManager`
+  that runs the pipeline. So the mode is frozen **per manager run**, and a rewrite of `mix_mode` /
+  `FilterPassesAttr` can only take effect at the **next** manager — which is precisely the window V1's
+  input check cannot see.
 
-  **Scope of this requirement, stated so it is implementable rather than aspirational.** The re-read
-  is placed at **every manager the Late entry itself invokes** — the tail, then the A5 pipeline above
-  all — because those are the points the entry controls: it holds the module between calls and can
-  inspect it before the next `run`. It is **not** a claim about managers nested inside a pass body
-  (`PassPipeline.cpp:564` constructs one), which the entry cannot intercept; for those the guarantee
-  rests on V1 plus the measured absence below, and that limit is stated rather than papered over. So
-  the honest form of the invariant is: *the entry re-reads the mode of the IR it is about to hand to
-  each manager it invokes, and records it; for nested managers, V1's input check plus the absence of
-  in-tree writers is all there is.*
+  **The invariant is therefore about transitions, not about a per-action recomputation: record the mode
+  at each manager boundary (its first action) and assert that no forbidden transition occurs.** For the
+  frozen Late input every report must read **Mix**; a later transition to **Aiv** is a **failure**, not
+  a curiosity, because the denylist can then drop pass bodies the frozen contract depends on.
+
+  **Scope, stated so it is implementable rather than aspirational.** The record is taken at **every
+  manager the Late entry itself invokes** — the tail, then the A5 pipeline above all — because those are
+  the points the entry controls: it holds the module between calls and can inspect it before the next
+  `run`. It is **not** a claim about managers nested inside a pass body (`PassPipeline.cpp:564`
+  constructs one), which the entry cannot intercept; for those the guarantee rests on V1 plus the
+  measured absence below, and that limit is stated rather than papered over.
 
   Measured today, nothing in the production tree writes either attribute (the only writers in-tree are
   `unittests/Pass/PassExecutionPolicyTest.cpp` and `unittests/Pass/FilterPassesTest.cpp`;
-  `OptimizeScalarTransfers.cpp:443` only reads), so the re-read is expected to agree with V1 — but the
-  guarantee may not rest on that absence, for the same reason the §2.2 dead-store finding and the C9
-  zero-consumer finding may not rest on theirs.
+  `OptimizeScalarTransfers.cpp:443` only reads), so every boundary report is expected to read Mix and no
+  transition is expected — but the guarantee may not rest on that absence, for the same reason the §2.2
+  dead-store finding and the C9 zero-consumer finding may not rest on theirs. The policy's own header
+  gives the structural reason the absence is not self-sustaining: *"the passes that would rewrite
+  `mix_mode` are not in the denylist"*, so such a pass keeps executing even in Aiv mode, and freezes
+  nothing about the manager after it.
 
 **Functions are not pass identities — and one of them is not even a pipeline.** `runRegBasePipeline`,
 `inferLayoutOptimization`, `inferMixedCV`, `buildLowerAVEPipelines` and `runHIVMCCompileA5` are C++

@@ -2452,3 +2452,17 @@ C1–C11 会被当成"对 Golden 的回归比较"，而实际上没有任何可�
 **可实现的**范围：重读发生在**入口自身调用的每个 manager** 之前（tail，尤其是 A5 —— 因为入口在两次调用
 之间持有 module），并**明说**嵌套 manager 覆盖不到 —— 对它们，保证只来自 V1 加"生产树无写入者"这一实测。
 把限度写出来，而不是用一句覆盖一切的话糊过去。
+
+**第 5 轮最终措辞修正（Challenger 接受 E5 要求，但要求改措辞）**：Challenger 指出模式**不是**每个 pass
+action 都重算，而是**在每个 manager 的首次 action 惰性检测并冻结该次 run 的其余部分**。回源码复核确认：
+`PassExecutionPolicy.h:76-99` —— `modeDetected` 是**一次性** atomic，`getMode()` 其后只读 `mode`；类注释明写
+模式是"state of a single compilation/run"、"detected lazily … on the first action of the run, and freezes
+it for the rest of the run"。∴ 粒度是**per manager run**，不是 per action。已按此改写 §3.2 第三条后果与
+`p2-pass-trace.md` E5 及模式报告规则：
+
+- **不变量改为"记录每个 manager 边界的模式并断言无禁止迁移"**（而非"每个 action 重算"）。
+- 对本冻结输入，**每个边界都必须读到 Mix；此后一旦迁移到 Aiv 即为 FAIL** —— 因为 denylist 会据此丢弃
+  冻结契约所依赖的 pass body。
+- 并记下类注释给出的**结构性**理由（而非仅靠实测缺席）：*"the passes that would rewrite `mix_mode` are
+  not in the denylist"* —— 即这类 pass 在 Aiv 模式下**仍会执行**，且对**其后**的 manager 不构成任何冻结，
+  这正是 V1 入口检查看不到的窗口。

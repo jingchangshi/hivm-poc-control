@@ -35,8 +35,9 @@ Rules that apply to every row:
   not the trace's — and that log is likewise summed over the whole invocation, which is why it sits at
   the function entry and not at a call site.
 - Every row is reported **together with the resolved Mix/Aiv mode** (`p2-architecture.md` §3.2):
-  a zero read is meaningless without it — and the mode is the one resolved for **the manager that
-  produced that part of the trace**, since each manager re-resolves it from the IR it is handed (E5).
+  a zero read is meaningless without it — and the mode is the one detected at **the first action of the
+  manager that produced that part of the trace**, since the policy freezes it for the rest of that run
+  and only a *later* manager can see a transition (E5). The mode is not recomputed per pass action.
 - A row whose coverage is not demonstrated per pass manager is **NOT_RUN**, not PASS.
 
 ## A. Routing
@@ -113,7 +114,7 @@ negative for this row is an input with the terminal barrier moved into the VF he
 | E2 | all **four** filters off: `--mlir-print-ir-after-change`, `--mlir-print-ir-after-failure`, `--mlir-print-ir-before=<pass-arg>`, `--mlir-print-ir-after=<pass-arg>` | NOT_RUN |
 | E3 | complete logs archived via `--mlir-print-ir-tree-dir`; nothing truncated | NOT_RUN |
 | E4 | sentinels present: `--annotation-lowering` (first) and `--convert-hivm-to-llvm` (last) | NOT_RUN |
-| E5 | resolved Mix/Aiv mode recorded **per entered pass manager**, not once for the run — the policy is re-resolved from the module each time a manager runs (`PassExecutionPolicy.h:42-46`), so a tail pass that wrote `mix_mode`/`FilterPassesAttr` would change the mode for the managers after it, leaving V1's input check describing an older IR | NOT_RUN |
+| E5 | mode recorded at **each entered manager boundary** (its first action), not once for the run: `PassExecutionPolicy` detects the mode lazily on a run's first action and **freezes it for that run** (`PassExecutionPolicy.h:76-99`), so a rewrite of `mix_mode`/`FilterPassesAttr` can only land on the **next** manager — the window V1's input check cannot see. Asserted as **no forbidden transition**: every boundary must read **Mix**, and any later **Aiv** is a FAIL (the denylist can then drop pass bodies the contract needs) | NOT_RUN |
 
 If E1–E5 are not all satisfied, every zero in section B is **NOT_RUN**, regardless of what the trace
 shows.
