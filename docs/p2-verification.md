@@ -1,6 +1,8 @@
 # P2 independent verification record
 
-**Status: test freeze IN PROGRESS; all acceptance rows NOT_RUN.** No P2 production code exists yet.
+**Status: test freeze FROZEN at v2 (§0.1b); every acceptance row NOT_RUN except C6.** P2 production
+code is **0 lines**. The v1 freeze (§0.1) is retained byte-unchanged as the historical record, and the
+amendment that produced v2 is a named, recorded change (§0.1a) rather than a silent edit.
 This file records the **independence** of the verification, the frozen test inventory with its expected
 outcomes, and the acceptance matrix. It is written by the **Lead**; the tests themselves are owned and
 executed by the **Verifier**, whose expectations must be defined independently of the implementation and
@@ -19,7 +21,9 @@ Two rules decide whether a row here may ever read PASS:
 | # | requirement | status |
 |---|---|---|
 | 0.1 | the Verifier's suite is authored and sealed **before** implementation begins | **FROZEN v1 (Verifier, 2026-10-13 13:28:57Z)** — 35 tests (A×13, B×12, C×6, D×4) under `p2-20261013-late-pipeline/verify/`; `P2-TEST-MANIFEST.json` pins SHA-256 of 29 artifacts with a sidecar over the manifest; `tests/config/p2-bindings.json` is a byte-copy of the template. **P2 production code was 0 lines at freeze.** C6 is the one test executable without the P2 compiler: **PASS** at freeze, all 20 fixtures matching the plan's calibration table (19 parse rc=0; `b03_cache_bad7.mlir` rc=1 with the D012 value gate). The other 34 are **NOT_RUN**. Three measured freeze-time baselines: bare parse rc=0; ordinary path on the Late input at the default target rc=1 (the D012 target gate); at the 950 target rc=134 SIGABRT in PlanMemory. Amended after Lead review — see 0.1a |
-| 0.1a | **Lead review of the frozen suite**: three coverage gaps and one binding-shape issue, each derived from the round-4 requirements | **raised with the Verifier, open** — (i) A10/A11/A12 use `--print-pass-id --mlir-print-ir-after-all` with no assertion that the four `--mlir-print-ir-*` filters are off and no `before-all`; a positive control (a header printed over an interval where the IR cannot have changed) is the discriminating proof. (ii) B12 is **one** negative where round-4 requires **four** — absent, wrong-identity (the in-tree pre-D012 `44e4387b…`), forbidden extra bitcode, and combined. (iii) no test names `--save-linked-ir`, `--enable-static-bare-ptr=false`, `--enable-optimized-metaop`, `--enable-hivm-auto-storage-align`, `--enable-lib-call-no-inline`, `--enable-hivm-unit-flag-sync` or `--enable-preload`. (iv) `bitcode.aiv_c310_o2_path`/`_sha256` are frozen non-null to the **build-tree** `5e7ccae2…`, while `p2_compiler` and `late_stage_flag` use the null discipline — but at acceptance the compiler is the **staged** `<stage>/bin/…`, whose template resolves to `<stage>/lib/…`, so the pinned path is not the file the run consumes; and `5e7ccae2…`'s relation to the committed D012 template sources is undetermined (§3.3 of `p2-architecture.md`). Suggested: make it a null acceptance-time binding and keep `5e7ccae2…` as a named P1-historical field. Any amendment must be a **named, recorded v2 freeze** with its own manifest and timestamp, leaving the v1 manifest and sidecar byte-unchanged — never a silent edit, and still before implementation |
+| 0.1a | **Lead review of the frozen suite**: three coverage gaps and one binding-shape issue, each derived from the round-4 requirements — **all four discharged in the v2 freeze (0.1b)**, and each maps onto a named amendment row: (iv)→item 7, (iii)→items 3–5, (i)→items 1–2, (ii)→item 6 | **DISCHARGED by v2** — the original finding was: (i) A10/A11/A12 use `--print-pass-id --mlir-print-ir-after-all` with no assertion that the four `--mlir-print-ir-*` filters are off and no `before-all`; a positive control (a header printed over an interval where the IR cannot have changed) is the discriminating proof. (ii) B12 is **one** negative where round-4 requires **four** — absent, wrong-identity (the in-tree pre-D012 `44e4387b…`), forbidden extra bitcode, and combined. (iii) no test names `--save-linked-ir`, `--enable-static-bare-ptr=false`, `--enable-optimized-metaop`, `--enable-hivm-auto-storage-align`, `--enable-lib-call-no-inline`, `--enable-hivm-unit-flag-sync` or `--enable-preload`. (iv) `bitcode.aiv_c310_o2_path`/`_sha256` are frozen non-null to the **build-tree** `5e7ccae2…`, while `p2_compiler` and `late_stage_flag` use the null discipline — but at acceptance the compiler is the **staged** `<stage>/bin/…`, whose template resolves to `<stage>/lib/…`, so the pinned path is not the file the run consumes; and `5e7ccae2…`'s relation to the committed D012 template sources is undetermined (§3.3 of `p2-architecture.md`). Suggested: make it a null acceptance-time binding and keep `5e7ccae2…` as a named P1-historical field. Any amendment must be a **named, recorded v2 freeze** with its own manifest and timestamp, leaving the v1 manifest and sidecar byte-unchanged — never a silent edit, and still before implementation |
+| 0.1b | **v2 freeze** — the Lead-review amendment, sealed as a **named, recorded** change with its own manifest; v1 left byte-untouched | **FROZEN v2 (Verifier, seal 2026-10-13T14:00:53Z)** — 40 tests (A×15, B×15, C×6, D×4); `P2-TEST-MANIFEST-v2.json` sha256 `5b25ea9b22b8795038942434dddfbd147b6df68399b3f82fa8324fac1627011b` (+ sidecar, `sha256sum -c` OK), pinning 30 artifacts. **v1 manifest byte-unchanged**: sha256 still `801b1edb3faf7391fcc42fcb0c00ac3be658254add3b2acfcf7966afa84e2a64`, sidecar OK. **Independently re-derived by the Lead**, not accepted from the report: all 30 v2-pinned artifacts re-hashed from disk → 30/30 match; all 23 fixtures (`tests/negatives/*`, `tests/ordinary/*`) still match their **v1** pins → **zero fixture drift**; the four files that no longer match their v1 pins are exactly the three amended files plus the runner (`README.md`, `tests/config/p2-bindings{,.template}.json`, `tests/scripts/run_p2_suite.py`) — which is the disclosed amendment, not drift. v2 runner re-parsed: **40 ids, A×15 B×15 C×6 D×4**; v1's A1–A13, B1–B11, C1–C6, D1–D4 all still present; the only id delta is **B12 → B12a–B12d** (a declared split, each branch strictly stronger) plus new **A14/A15**. Amendment rationale per change: `verify/P2-TEST-PLAN-AMENDMENT-v2.md` (7 rows). **Lead smoke re-run reproduced the Verifier's result exactly**: `python3 -I tests/scripts/run_p2_suite.py` → exit 0, **PASS=1 (C6) FAIL=0 BLOCKED=0 NOT_RUN=39**, log at `p2-20261013-late-pipeline/lead-admission/lead-v2-smoke-repro.log`. The re-run wrote only into `verify/logs/suite/` and `verify/work/` (no log is pinned by either manifest); both seals re-verified **ALL OK** afterwards. Two record defects found and reported — see 0.1c |
+| 0.1c | **two record-accuracy defects found by the Lead in the v2 freeze** — neither weakens an assertion, invalidates a seal, or blocks implementation; both are reported to their owner (the Verifier) for correction rather than smoothed over, and neither is fixed by the Lead because the affected files are the Verifier's and are **sealed** (editing them would break the v2 seal) | **REPORTED, open** — **(1) Future-dated declared freeze times.** `P2-TEST-MANIFEST-v2.json` declares `frozen_utc = 2026-10-13T14:05:00Z`, but the file's own mtime is **14:00:53Z** (UTC+8 host, verified via `date -u`), i.e. the declaration postdates the seal by 4 m 07 s and **had still not occurred** when the Lead read it at 14:02:57Z. `tests/config/p2-bindings.template.json` declares the same `14:05:00Z` while having been written at **13:56:18Z** (8 m 42 s earlier). The v1 manifest got this exactly right (declared `13:28:57Z` == mtime), so the v2 values are a regression. This matters because a reader reconstructing the sequence from the canonical record would place the freeze after artifacts that were sealed before it. **(2) One loose claim in the amendment.** `P2-TEST-PLAN-AMENDMENT-v2.md` states "no v1 assertion is weakened, removed, or **re-numbered**"; the first two hold (independently confirmed: no assertion text removed), but **B12 → B12a–B12d is a renumbering** — disclosed in the same document and strictly strengthening, so the substance is honest and only the wording overstates. The Lead's disposition: a **proportionate erratum**, not a v3 re-seal — the 30 pinned artifacts' SHAs are the seal and are correct; re-sealing to fix a metadata field would add a third seal for a cosmetic value. Requested: record the true seal time (14:00:53Z) in a canonical, unsealed place (`verify/ERRATUM-v2-freeze-time.md` and/or the README) and correct the "re-numbered" wording, **without touching any of the 30 pinned artifacts** |
 | 0.2 | frozen inputs are byte-identical to the accepted P1 fixtures (no silent regeneration) | **VERIFIED (Lead, 2026-10-13)** — `verify/tests/negatives/vadd_late_p1v2.mlir` SHA-256 = `d1023ac1fdfd22c8d7f2aed5c71241fdd83039744b383e43b19255d10a31f36b`, identical to `p1v2-20261013-d025/snapshot/impl/vadd_late.mlir`; the 22 negative inputs are 22 distinct SHAs |
 | 0.3 | the Verifier's expectations are not derived from the Implementor's code | NOT_RUN |
 | 0.4 | tests run against the **newly built, staged** `bishengir-opt` (`p2-architecture.md` §3.3 G1/G3), not the pinned P1 binary | NOT_RUN |
@@ -29,61 +33,91 @@ Two rules decide whether a row here may ever read PASS:
 
 | # | test | expected | status |
 |---|---|---|---|
-| A1 | correct Late routing | Late routing line present; the ordinary-`runRegBasePipeline` boundary line absent (logged at the function entry, `BiShengIRCompileMain.cpp:345`, so both callers are covered) | NOT_RUN |
-| A2 | ordinary RegBase path unchanged | same pass sequence as before the change | NOT_RUN |
-| A2b | zero calls to both inference functions | **absence** of the boundary log at `inferLayoutOptimization` / `inferMixedCV` function entry (`Utility.cpp:100`, `:61`) — asserted as zero *calls*, the pass trace being blind to both by construction | NOT_RUN |
-| A3 | wrong target rejected | explicit diagnostic; no artifact | NOT_RUN |
-| A4 | wrong stage rejected | explicit diagnostic | NOT_RUN |
-| A5 | wrong core rejected | explicit diagnostic | NOT_RUN |
-| A6 | wrong device spec rejected | diagnostic **naming the differing field** | NOT_RUN |
-| A7 | forbidden passes did not execute | zero scheduled invocations, coverage demonstrated | NOT_RUN |
-| A8 | required pass order correct | the §3.1 order, with per-pass IR effects | NOT_RUN |
-| A9 | LLVM lowering exactly once | `--convert-hivm-to-llvm` count = **1 in total**, aggregated over every entered manager; measured per operation scope at the pass boundary (construction entries are not executions). One execution per scope is **not** a PASS | NOT_RUN |
-| A10 | Late without a target | Late-specific diagnostic, **no** artifact; must never reach the ordinary pipeline | NOT_RUN |
-| A11 | Late + legacy delegation env (`BISHENGIR_LEGACY_A5_REGBASE`) | explicit diagnostic, **no** delegation | NOT_RUN |
-| A12 | the §2.3.1 option policy, row by row | each **rejected** row produces a diagnostic naming *that* option; each **pinned** row is pinned by an explicit argument (so `hasExplicitCLOption` is true and `applyArchDependentCompileDefaults` cannot move it), including the three instruction-selection rows frozen to `false` (`--disable-fma`, `--disable-decompose-reduction`, `--disable-reorder-instruction`), each of whose `true` requests must be rejected with *its own* named diagnostic. The pinned arguments must be present in `argv` **before `:121`** — earlier than the parse (`:144`, calling `cl::ParseCommandLineOptions` at `:102`) because `:121-124` captures `originalCLArgs` from `argv` and `:186` forwards *that vector* downstream — and the entry must read back the post-parse `getNumOccurrences()`. A rejection test that passes because the driver reported an unknown option is a **wrong-reason pass**, not acceptance (`--compile-host` is the measured example) | NOT_RUN |
-| A13 | `--save-linked-ir` rejected in Late mode | named diagnostic; **no** binary — it switches the artifact to `.ll` and appends `-Xclang -disable-llvm-optzns -S -emit-llvm`, so it cannot appear in an invocation meant to produce the accepted binary. A diagnostic-only invocation is permitted but is **separately labelled and produces no artifact** | NOT_RUN |
+**These IDs are the frozen suite's, not the Lead's.** The acceptance matrix originally written here used a different numbering for the same claims; it has been re-derived from the frozen runner (`verify/tests/scripts/run_p2_suite.py` at the v2 seal) so that this record and the suite cannot disagree about what "A7" means. The re-derivation confirmed **no v1 assertion was lost** — `forbidden-pass zero`, `required order` and `LLVM exactly once` are A10, A11 and A12 respectively. Three claims the earlier matrix carried are **not carried by the frozen suite**; they are listed after the table as open coverage deltas rather than silently dropped.
+
+| # | test | expected / assertion | status |
+|---|---|---|---|
+| A1 | positive Late end-to-end compile | `vadd_late_p1v2.mlir` + `$LATE_STAGE_FLAG` + `--target Ascend950PR_9579` → rc=0, output is **ELF with machine `0x1029`**, and an identity sidecar is written (input/compiler/bitcode/output sha256, verbatim cmdline, utc) | NOT_RUN |
+| A2 | ordinary RegBase path unchanged | `ordinary_regbase_memcpy_f32.mlir` through the **P2** compiler → output sha256 **byte-identical** to the pre-P2 baseline `01fce255058e284872a717185924d9139a41ba585cbe90201a6bd1216d757085`. Byte-identity **supersedes** the earlier "same pass sequence" — it is strictly stronger | NOT_RUN |
+| A3 | stage already LLVM rejected | `a03_stage_already_llvm.mlir` (`4686e79d…`) rejected; diagnostic names one of llvm/stage/late | NOT_RUN |
+| A4 | stage already AVE-intrinsic rejected | `a04_stage_already_aveintrin.mlir` (`06ffd749…`); names aveintrin/regbaseintrins/stage/late | NOT_RUN |
+| A5 | module core type missing | `a05_missing_module_core_type.mlir` (`449156e5…`); names module_core_type/core | NOT_RUN |
+| A6 | module core is AIC | `a06_module_core_aic.mlir` (`f59faf9c…`); names core/AIC/AIV | NOT_RUN |
+| A7 | partial device spec | `a07_partial_device_spec.mlir` (`77d779f7…`); names device spec/dlti/partial | NOT_RUN |
+| A8 | conflicting device spec | `a08_conflicting_device_spec.mlir` (`204526be…`); names device spec/conflict/UB_SIZE/overwrite | NOT_RUN |
+| A9 | hacc target missing | `a09_missing_hacc_target.mlir` (`29cde023…`); names hacc.target/target | NOT_RUN |
+| A10 | **forbidden passes were never scheduled** | instrumented positive compile (`--print-pass-id --mlir-disable-threading --mlir-print-ir-before-all --mlir-print-ir-after-all --mlir-pass-statistics`); asserts the **four biasing IR-print filters are absent from the recorded command line**, that `--mlir-disable-threading` is present, that **no forbidden pass** appears in either stream, that the resolved mode is **Mix** (the input carries **zero** `mix_mode` — an Aiv trace would look identical), and records a **positive control** proving change-filtering is *off* rather than merely absent (INCONCLUSIVE recorded, never hidden). Empty streams are a **FAIL**, not a zero | NOT_RUN |
+| A11 | **required pass order + real IR effects** | same instrumented compile; asserts the required passes appear in dependency order, that the **SyncBlockLock finalize family** is present, and — because a trace header proves *scheduling*, not body execution — that the **shipped IR** shows the effects: `cf.br`/`cf.cond_br` present after `convert-scf-to-cf`, and **no `hivm.hir.*` remaining** | NOT_RUN |
+| A12 | **`convert-hivm-to-llvm` exactly once** | same instrumented compile; count across **both** streams must be exactly **1** — *"zero is as wrong as two"*. Source-grep counting is explicitly forbidden; empty streams are a FAIL | NOT_RUN |
+| A13 | §2.3.1 option/delegation policy sub-runs | per-sub-run outcome, each with an **unknown-option guard**: a rejection whose only evidence is an unknown-option error is a **FAIL**, not a pass. Uses the measured spellings (`--pure-simt`, **not** `--simt`; the hyphenated MixCV flag) and the `BISHENGIR_LEGACY_A5_REGBASE` env sub-run. `--compile-host` is deliberately **never** used — it is not a registered CLI option | NOT_RUN |
+| A14 | `--save-linked-ir` rejected in Late mode | named diagnostic, **no** `.ll`, **no** binary, and **not** an unknown-option error — it switches the artifact to `.ll` and appends `-Xclang -disable-llvm-optzns -S -emit-llvm`, so it cannot appear in an invocation meant to produce the accepted binary | NOT_RUN |
+| A15 | six-flag option-policy matrix | one sub-run per flag (`--enable-static-bare-ptr=false`, `--enable-optimized-metaop`, `--enable-hivm-auto-storage-align`, `--enable-lib-call-no-inline`, `--enable-hivm-unit-flag-sync`, `--enable-preload`); each flag either a **named-diagnostic rejection** or an acceptance still yielding ELF `0x1029` with the store cache operand **== 4**. The **default** of any flag is never asserted — three of the six are forced true by `applyArchDependentCompileDefaults` while `Options.td` says `false`, so an option-list-derived check would be backwards | NOT_RUN |
+
+**Open coverage deltas — carried by the earlier matrix, absent from the frozen suite (flagged, not dropped).** Re-deriving §A above showed none of these three has a test in the v2 freeze:
+
+1. **Late without a `--target`.** Expected a Late-specific diagnostic and no artifact. The `a*` rejections cover *stage*, *module core*, *device spec* and *hacc target*, but every one of those is a property of the **input**; the **CLI** target being absent is a distinct case that nothing asserts.
+2. **Routing asserted as boundary logs** — "Late routing line present, ordinary `runRegBasePipeline` line absent". A1's success *implies* the Late route ran, but the routing assertion was never something the trace could carry; asserting it needs the entry-placed boundary logs that `p2-pass-trace.md` A1/A2b specify.
+3. **Zero calls to `inferLayoutOptimization` / `inferMixedCV`.** The pass trace is blind to both by construction (plain `module.walk`s that add no passes), so this requires the function-entry boundary log; nothing in the freeze observes it.
+
+These are **coverage questions for the Challenger at §8 step 8**, not blockers: A1/A10 passing would make (2) and (3) *likely* but not *demonstrated*, and (1) is genuinely untested. Whether to add tests is the Verifier's (owner) and Challenger's (reviewer) call; the Lead records them here so that renumbering this table cannot quietly hide them.
 
 ## B. Semantic counterexamples (goal §7 B) — the heart of P2
 
-Each row names the **semantic** assertion it must fail on. The frozen inputs are the Verifier's
-`verify/tests/negatives/*.mlir`, all 22 distinct SHAs derived from `d1023ac1…`.
+Frozen inputs are `verify/tests/negatives/*.mlir`. **The shape of every B test is the same, and that shape is the point**: the shared helper `_expect_catch` requires the defect to be caught **either** by a validator rejection whose diagnostic **names** the relevant key (`l2_cache`/`cache_mode`, `carrier`, …) **or** by an output-side value/IR assertion that **observes** the defect. A compile that succeeds **and** shows no observed defect is a **false PASS → FAIL**, and a rejection that fires for an unrelated reason (unknown option, parse error) is a **wrong-reason rejection → FAIL**. That is goal §7's requirement that a negative fail *for its semantic assertion* rather than incidentally.
 
-| # | counterexample | must be caught by | status |
-|---|---|---|---|
-| B1 | cache4 → cache0 | a **value-level** assertion, not an IR-text match | NOT_RUN |
-| B2 | cache carrier deleted | value-level assertion | NOT_RUN |
-| B3 | illegal store cache / D012-unsupported layout | explicit rejection **before any mutation** (preflight V7, not the conversion mid-tail) | NOT_RUN |
-| B4 | pb32 deleted | value-level assertion | NOT_RUN |
-| B5 | entry-terminal `PIPE_ALL` deleted | entry-scoped terminal-barrier assertion | NOT_RUN |
-| B6 | `PIPE_ALL` moved **into the VF helper** or to a wrong control-flow position | must **not** obtain a false PASS | NOT_RUN |
-| B7 | UB byte offsets changed | no false PASS | NOT_RUN |
-| B8 | DMA payload changed | no false PASS | NOT_RUN |
-| B9 | GM block offset changed | no false PASS | NOT_RUN |
-| B10 | missing or wrong C310 bitcode | explicit failure, no binary — split into **N1** (required template absent), **N2** (template present but not the recorded identity — the pre-D012 `44e4387b…` case), **N3** (`--link-aicore-bitcode` supplied), **N4** (absent *and* an extra supplied, rejected without prescribing diagnostic precedence). "Today produces a warning and a binary" is a source-predicted hypothesis and is **NOT_RUN** until executed | NOT_RUN |
-| B11 | (negative) mutated store reaching the **scalar fallback** while keeping cache mode 4 | preflight rejection naming the unsupported DMA shape — textual strides alone are not enough | NOT_RUN |
+IDs are the frozen suite's; the earlier matrix here numbered the same fixtures differently (it was offset by one from B4 on, and collapsed the bitcode family). Re-derived from the runner at the v2 seal.
+
+| # | counterexample | fixture | must be caught by | status |
+|---|---|---|---|---|
+| B1 | cache4 → cache0 | `b01_cache0.mlir` (`c58fe899…`) | store libcall's cache operand **== 0** (should be 4), or the carrier silently dropped | NOT_RUN |
+| B2 | cache carrier deleted | `b02_cache_carrier_deleted.mlir` (`3b930509…`) | carrier dropped, or defaulted to cache 0, or **no ub→gm store libcall at all** | NOT_RUN |
+| B3 | illegal cache value 7 | `b03_cache_bad7.mlir` | **rejected at parse/verify by the D012 value gate**, diagnostic naming `l2_cache`/`cache_mode`; accepting it (rc=0) is a FAIL. The same gate is asserted independently by C4 | NOT_RUN |
+| B4 | unaligned store with cache4 | `b04_unaligned_store_cache4.mlir` | value/IR assertion (the unsupported DMA shape must be named, not inferred from strides) | NOT_RUN |
+| B5 | pb32 carrier deleted | `b05_pb32_carrier_deleted.mlir` | carrier-presence assertion | NOT_RUN |
+| B6 | entry-terminal `PIPE_ALL` deleted | `b06_terminal_pipe_all_deleted.mlir` | entry-scoped terminal-barrier assertion | NOT_RUN |
+| B7 | `PIPE_ALL` moved **into the VF helper** | `b07_pipe_all_moved_into_vf.mlir` | must **not** obtain a false PASS — the row most likely to read falsely green (`p2-pass-trace.md` D11) | NOT_RUN |
+| B8 | `PIPE_ALL` in a wrong control-flow position | `b08_pipe_all_before_store.mlir` | position-scoped assertion | NOT_RUN |
+| B9 | UB offsets expressed in the wrong **units** (elements vs bytes) | `b09_ub_element_units.mlir` | unit-sensitive assertion | NOT_RUN |
+| B10 | DMA payload 16384 instead of 32768 | `b10_dma_payload_16384.mlir` | payload assertion | NOT_RUN |
+| B11 | GM block offset changed | `b11_gm_offset_bytes.mlir` | offset assertion | NOT_RUN |
+| B12a | required C310 template **absent** (N1) | — | named diagnostic, **no binary** | NOT_RUN |
+| B12b | template present but **not the recorded identity** (N2 — the in-tree pre-D012 `44e4387b…` placed in `<work>/lib`) | — | caught **either** by a named diagnostic **or** by the independent identity assertion observing linked sha ≠ bound staged sha **on exit 0**. This is the precondition of `p2-binary-abi.md` §B | NOT_RUN |
+| B12c | an extra `--link-aicore-bitcode` supplied (N3) | — | rejected naming the option, **or** accepted with the linked identity still matching the staged template and the extra's sha **recorded**. A silent accept with no identity record is a **FAIL** | NOT_RUN |
+| B12d | absent **and** an extra supplied (N4) | — | **nonzero exit AND no binary**; diagnostic precedence deliberately **not** prescribed | NOT_RUN |
+
+The v1 suite had the bitcode family as a single `B12`; splitting it into B12a–d is a **declared** amendment (`P2-TEST-PLAN-AMENDMENT-v2.md` item 6) and each branch is strictly stronger than the combined case it replaces.
 
 ## C. Compiler and old-path regression (goal §7 C)
 
 | # | item | status |
 |---|---|---|
-| C1 | the D012 verified positive/negative cases become **in-repo** maintainable MLIR regression tests | NOT_RUN — landing points identified (Lead, 2026-10-13): validator diagnostics via `bishengir-opt … -verify-diagnostics` under `bishengir/test/regbase/`; driver-level option/routing diagnostics in `bishengir/test/bishengir-compile/commandline.mlir`, whose existing pattern is exactly `not bishengir-compile %s --opt=… 2>&1 \| FileCheck %s --check-prefix=NAME`. Measured: **no** in-repo test currently uses `l2_cache_mode` (0 hits across all 1119 `.mlir`), so this is real work, not a re-run |
-| C2 | default cache0 checked | NOT_RUN |
-| C3 | the fourth C310 parameter checked | NOT_RUN |
-| C4 | the non-C310 path retains the old ABI | NOT_RUN |
-| C5 | old RegBase SIMD path: at least one representative compile regression affected by the driver change | NOT_RUN |
-| C6 | any acceptance affected by the current driver/LLVM/runtime change is re-verified specifically | NOT_RUN |
+IDs are the frozen suite's, re-derived from the runner at the v2 seal. The earlier matrix here used different C-numbering for overlapping claims.
+
+| # | test | expected / assertion | status |
+|---|---|---|---|
+| C1 | absent carrier vs **default cache0** | compiles `b02_cache_carrier_deleted.mlir` and `b01_cache0.mlir` and compares the two outcomes — an **absent** carrier and an explicit **cache0** carrier must not be conflated | NOT_RUN |
+| C2 | **the fourth C310 parameter** | positive `vadd_late_p1v2` compile; the store libcall must carry **cache4 as the 4th (i32) operand** — form must be `operand` and value must be **4**; a silent drop (`form != operand`) is a FAIL | NOT_RUN |
+| C3 | **non-C310 path retains the old ABI** | `c03_n950_target_cache_absent.mlir` at `--target Ascend310B3`: either the compile succeeds and the store libcall keeps the **OLD 3-operand** ABI, **or** the Late entry rejects the non-950 target **by name** — a rejection that does not name the target restriction is a FAIL | NOT_RUN |
+| C4 | the **D012 value gate** is retained | `b03_cache_bad7.mlir` must still be **rejected** by the P2 compiler (accepting `l2_cache_mode = 7` means `StoreOp::verify` was bypassed by the Late entry), with the diagnostic naming the value gate. Asserted independently of B3 | NOT_RUN |
+| C5 | old RegBase SIMD path regression | byte-identical assertion **identical to A2**, recorded separately for this category | NOT_RUN |
+| C6 | fixture self-check against the pinned `$OPT` | every fixture matches the freeze-time calibration table; **drift is FAIL**. The one row executable without the P2 compiler | **PASS at freeze** — 20/20 fixtures match (19 parse rc=0; `b03_cache_bad7.mlir` rc=1, the D012 value gate); independently **re-reproduced by the Lead** at admission |
+
+**Coverage delta for §C.** Goal §9 additionally requires the D012 verified positive/negative cases to become **in-repo maintainable** regression tests. **No row of the frozen suite does this** — C1–C5 all compile through the P2 binary, so they are acceptance tests, not in-repo regressions. The landing points were identified earlier and remain valid: validator diagnostics via `bishengir-opt … -verify-diagnostics` under `bishengir/test/regbase/`; driver-level option/routing diagnostics in `bishengir/test/bishengir-compile/commandline.mlir`, whose existing pattern is exactly `not bishengir-compile %s --opt=… 2>&1 | FileCheck %s --check-prefix=NAME`. Measured then and still true: **no** in-repo test uses `l2_cache_mode` (0 hits across all 1119 `.mlir`), so this is real work rather than a re-run. Flagged for §8 step 8.
 
 ## D. Binary authenticity (goal §7 D)
 
 | # | item | status |
 |---|---|---|
-| D1 | the new binary came from **this** P2 compile | NOT_RUN |
-| D2 | the binary's identity relationship to input, compiler and bitcode is traceable | NOT_RUN |
-| D3 | deleting or replacing the output and recompiling yields a **real new** artifact | NOT_RUN |
+IDs are the frozen suite's; the earlier matrix here listed only three D rows.
 
-Cross-reference: the measurement detail for D1–D3 lives in `docs/p2-binary-abi.md` D1–D7; the ABI rows
-are not duplicated here.
+| # | item | expected / assertion | status |
+|---|---|---|---|
+| D1 | the **identity manifest ties out** | recompute and verify all four hashes — input, compiler, bitcode, output. The identity half of A1 | NOT_RUN |
+| D2 | the artifact is **byte-reproducible** | two fresh runs produce **byte-identical** outputs, and the identity sidecar **re-verifies** against the artifact — a stale sidecar (output hash no longer matching) is a FAIL | NOT_RUN |
+| D3 | deleting/replacing and recompiling yields a **real new** artifact | delete + recompile → **same sha in a new inode**; overwrite the output with junk + recompile → the original sha is restored and **no junk bytes survive** | NOT_RUN |
+| D4 | **masquerade** — the binary cannot be something else wearing Late provenance | (a) an **ordinary-path** binary presented with **Late**-input provenance must be detected: the ordinary binary's sha must **differ** from the Late-path binary's; (b) the **pre-P2** compiler's sha must **not** satisfy the bound P2 compiler identity. Uses `baseline_pre_p2_compiler` from the bindings | NOT_RUN |
+
+Cross-reference: the measurement detail for the binary rows lives in `docs/p2-binary-abi.md` D1–D7; the ABI rows are not duplicated here. D4 is the check that gives `baseline_pre_p2_compiler` its purpose in the bindings, and it is what makes D1–D3 more than self-consistency: a compile that reproducibly produces **the wrong** artifact still passes D1–D3.
 
 ## E. Challenger review (goal §7, §8 step 8)
 
