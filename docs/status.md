@@ -4780,3 +4780,22 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **结论与补救**（已落为 D073）：(1) v3 封存前，把**未被选中的 id 记为 NOT_RUN**，或把 selection 写进 summary，让部分运行**自我描述**；(2) 引用套件 summary 时必须引 **row list**，不能只引 counts——这正是"**不得用减法得到计数**"那条既有规矩。(3) **明确不是**把 `A1` 的 FAIL 改写成 NOT_RUN 去把套件弄绿——那是标准控制明文禁止的削弱 oracle；这个 FAIL 是对 P2-B 范围的**真话**，应按"归因于尚未实现的 P2-C 尾段"记录。
 
 **未做**：不构建、不编译、不编辑 runner、不动 `build/bin`、不改权限、不推送。
+### §24 追加 38（**P2-B 的最终 bundle 定在 `stage-p2b-r1`，不需要第二次构建**；而 `D042` 的 ruling 单元仍字面要求"在 stage build 之前改写 fail-closed 字面量"——该要求已被 `D043` Q7 撤回却**没有指针**，验收记录的 §11 正在从这个被取代的从句推出一次多余的重建，2026-10-14）
+
+**起因**：我把验收记录 `ACCEPTANCE-P2B.txt`（verifier 本轮仍在改，写本次时 mtime `04:50:10 +0800`）从头读完，去找"最终 bundle"到底指哪个产物——**记录里到处引用它，却没有一处把它钉住**。这个问题不能靠措辞解决，因为 D042 与 D043 对同一件事给了相反的裁定。
+
+**撤回原文（在册的 D043 Q7）**："my eight-literal production rewording is WITHDRAWN as a repair … [B12a/B12b are] an *executed witness of the oracle's own whole-stream-substring discrimination defect* (D040), **not** a compiler-semantic defect in the truthful fail-closed message … Rewording is at most optional confound-reduction — never repair, never acceptance evidence."
+
+**本次实测（`2026-10-14T20:55Z`，不是转抄）**：
+- `stage-p2b-r1` 用 `sha256sum -c SHA256SUMS.txt` **在其 own base directory** 复算 **4/4 OK**：compile `ea217b8d…`、opt `4c31167b…`、O2 `5e7ccae2…`、O0 `0a34be87…`；marker 站点 compile **6** / opt **3**。
+- build tree 的四个未提交源文件 mtime `00:52:44–00:53:10 +0800`，而 `build/bin` 写在 `01:00:24 +0800` —— **那唯一一次已批准的构建晚于每一处源码编辑**，所以 bundle 里的二进制就是这个切点，不是陈旧前身。
+- `lead/preserved-p1-compiler/SHA256SUMS.txt` 在其 own base 复算 **3/3 OK**（**三条**，不是四条——corrections verifier 在 `ACCEPTANCE-P2B.txt §9(a)` 的计数异议成立，我此前的 "4/4" 措辞是错的）。
+
+**裁定（D074）**：D043 之后所有生产侧补救，要么被撤回（改写，D043 Q7），要么落在 **oracle / binding** 面（D054–D057 的匹配器结构化绑定、D044/D053b 的 docker 边界丢 env、D047 的 A13 composite、D069/D070 的 §6.3 ABI 检查），**没有一条编辑编译器**。生产侧因此只剩计划里早已写明的两件：**不改写地提交**四文件切点、**在阶段最后一次构建之后**从 `lead/preserved-p1-compiler/` 归还 `build/bin`（D041 次序）。⇒ **`stage-p2b-r1` 就是 P2-B 的最终 bundle，不需要第二次构建**；verifier 的重绑（D071）从此有了目标；验收记录 §11 的 "(D042 reword + A15 disposition, one in-container build, …)" 必须删掉 reword 一项，否则会让人以为还欠一次构建——而那次构建正是 Challenger 裁定**禁止当作修复**的东西。
+
+**登记册已修**：`D042` 的 ruling 从句补上 `CORRECTED BY D043 Q7` 指针（行文其余部分、实测 datum、B12a/B12b 定性**全部保留**），与先前 `D071` 的处理方式一致；`D074` 已入册（**74 行**）。
+
+**顺手核对、结论是"不是发现"**：验收记录里"`A1`/`D1`–`D4` 依 Lead 的范围裁定为 NOT_RUN"这句**引用是准确的**——`docs/status.md:3538` 在 P2-B 正是这么裁的；所以那五个 id 的缺席是**有归因的**，不是静默。D073 的更正只涉及"**若被选中**`A1` 会返回什么"。
+
+**未做**：不构建、不编译、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送。v3 正被 verifier 实时编辑（写本次时 `904a0d70[116694]`），我未触碰。
+
