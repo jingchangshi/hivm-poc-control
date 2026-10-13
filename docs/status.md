@@ -2778,3 +2778,107 @@ Implementor 在动工前写下 `impl/scratch/prebuild-state.txt`（14:50:51Z）�
 非本树）。**本树 `AscendNPU-IR-1/build` 无任何编译进程** ⇒ "同一构建目录不得并发构建"未被违反，且此刻本树产物
 仍是 P1 身份。Implementor 亦自行做了 `ps` 扫描后才进入构建准备阶段（它正在比对本树与参考树的 `config.h` / ZLIB
 配置，属构建前置诊断，尚未编译）。
+
+## P2-A 交付准入（Lead 独立复核，2026-10-13T15:20Z）— 全部结论由本人从磁盘/容器复算
+
+Implementor 交付 P2-A（入口 + 失败即止的 preflight），并**主动停止**在 Verifier 验收前。**未提交、未推送、
+未进入 P2-B/P2-C，未作任何验收声明**。以下是我**不接受转述**而逐项复算的结果。
+
+### 1. 复算通过项（每条都有真实命令与输出）
+
+| 项 | 我的实测 | 判定 |
+|---|---|---|
+| 暂存包是**实拷贝**而非符号链接 | `ls -la` 为 `-rwxr-xr-x`，`bin/` 与 `lib/` 同级 ⇒ `getLibDirFromExecutable` 可得 `<stage>/lib` | 通过 |
+| 暂存二进制 SHA-256 | `2bf961bf…`(compile) / `179788df…`(opt)，与 `stage-p2a-SHA256SUMS.txt` 逐字节一致 | 通过 |
+| 暂存 C310 bitcode | `5e7ccae2…`，**等于 P1 历史钉** ⇒ "P2 构建未重生成模板"是真测量，非假设 | 通过 |
+| P1 恢复 | `build/bin/bishengir-opt`=`0761c6e6…`（**= D031 钉**）、`bishengir-compile`=`c6838fc0…`，`cp -p` 保住 mtime（14:46:23 / 13:46:21） | 通过 |
+| P1 快照门禁 | 容器内 `python3 -I verify/check_snapshot_integrity.py` → **rc=0**，`PASS: all integrity invariants hold (I1-I7)`，FAIL 行 0 | 通过 |
+| 恢复的**同一性**证明 | 容器内恢复后的两个二进制 `--help` 为 rc=0（543 / 2420 行），新 flag 出现 **0** 次 ⇒ 恢复是真恢复 | 通过（见 §2 自曝） |
+
+### 2. 自曝：我第一次做"恢复同一性证明"时得到了**空洞的 0**
+
+我在**宿主**上跑 `build/bin/bishengir-compile --help | grep -c input-ir-stage` 得 0，几乎据此宣布"恢复为真"。
+实测该二进制在宿主上**根本跑不起来**：`GLIBCXX_3.4.29/3.4.30 not found`、`GLIBC_2.32 not found`（宿主 libstdc++/glibc 过旧），
+rc=1、6 行错误。**0 是因为进程没起来**，不是因为不含该 flag —— 与 §A 所述"错误原因通过"同一类缺陷，
+只是发生在**我的**手上。已改为容器内经 `scripts/in-container.sh` 复跑，得到 rc=0 且 0 次的**非空洞**结果。
+教训入账：**本仓二进制只能在容器内执行，宿主上的任何 `--help`/`--version` 结果一律无效**（这是先前若干次
+"零"读数的通用前提，值得所有行共用）。
+
+### 3. 运行时指纹：`input-ir-stage` 出现 **0 / 1 / 2** —— file-grep 做不到的那半
+
+容器内实测（证据 `lead/p2a-admission/help-staged-{opt,compile}.txt`）：
+
+| 二进制 | `--input-ir-stage` 出现次数 | 含义 |
+|---|---|---|
+| P1 `bishengir-opt`（已恢复） | **0** | 旧身份 |
+| 暂存 `bishengir-compile --help`（:80） | **1** | 顶层 CLI 注册面（`CompileOptions.cpp.inc`）—— 义务 2 的 `--help` 证据 |
+| 暂存 `bishengir-opt --help`（:258、:517） | **2** | **两个 `Pass::Option` 对象** ⇒ 与"2 个定义 `GEN_ALL_OPTION_REGISTRATION` 的 TU"在运行时对齐 |
+
+**这正好补上 `verify` 的三项 grep 结构上无法覆盖的一半**：`PassOptions.cpp.inc` 是单一共享文件，文件级只能得 1；
+"2"必须在源码层或**运行时**验证。`bishengir-opt --help` 的 2 次是**运行时**证据，比源码声明更强。
+另：`--hivm-verify-late-input` 在 opt 的 :1452 出现，注册为真（不是 unknown-option 错误）。
+⇒ §8 step 8 的"argv 可达性"问题的**一半**（两个 pass 命名空间声明确实被注册且可见）已在 P2-A 有运行时证据；
+剩下的一半（能否从 argv 赋值）仍属 step 8。Implementor 的 §4 未报告 opt 里的这两次，属**漏报**而非错报。
+
+### 4. §5 环境事故：我独立交叉验证了"修复已复原原始配置"
+
+Implementor 坦承：它一度在**宿主**上跑 `ninja`，触发 CMake 重跑，把宿主发现写进了 `CMakeCache.txt` /
+`build.ninja` / `include/llvm/Config/llvm-config.h`（宿主有 zlib）。随后自诊断并修复。
+**这不是预期行为，也触及"未经明确同意不得做环境重建"这条红线；已检测、已诊断、已修复、已留证，但必须上报。**
+
+它的"已复原"结论**正确**，但它给出的**论证不足**：`llvm-config.h` 读出 `LLVM_ENABLE_ZLIB 0`，而
+"选项 ON + 找不到 zlib"**同样**得到 0 —— 该单一数值无法区分"已复原"与"仍受损"。我改用**事发前的记录**交叉验证：
+
+- `build.log:41/46`（**Oct-9 原始 configure**）：`Check for working C compiler: /home/s00653124/Softwares/clang+llvm-15.0.6/bin/clang[++]`
+  ⇒ 现缓存中的 `CMAKE_CXX_COMPILER` **就是原始值**，宿主那一次没有改掉工具链。
+- `build.log:134`（同一原始 configure）：`-- Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR)`
+  ⇒ **原始配置本就找不到 zlib**，故 `LLVM_ENABLE_ZLIB:STRING=ON` + `ZLIB_LIBRARY:NOTFOUND` + `llvm-config.h` 为 0
+  **正是原始状态**，不是漂移。修复日志 `cmake-ccache-path-restore.log` 的那一行与它逐字相同。
+- `CMAKE_CACHE_*`=3.31.12、`CMAKE_COMMAND=/home/s00653124/Softwares/cmake/bin/cmake`：与修复所选一致。
+- `build.ninja` 中 `c00910088` 路径 0 次 ⇒ 未把参考树路径混入。
+
+**代价（诚实记录）**：因 `llvm-config.h` 被重写，ninja 判全树过期，G1 是 **~4385 边全量重建**而非增量。
+"保留原有增量构建能力"这一条在该时刻被**消耗**掉了；重建后各对象（23:07–23:08）新于该头文件（23:05），
+树已自洽，**增量能力已恢复**。P1 可复验性未受损（门禁 rc=0，保留件 3/3）。
+
+### 5. 作用域裁定：P2-A 下这些行是 **NOT_RUN**，不是 PASS，也不该记成 FAIL
+
+我读了冻结 runner 的 `_instrumented_compile`（`run_p2_suite.py:665-666`）：**正例编译 rc!=0 时直接判 FAIL**
+（`instrumented positive compile rc=1 (expected 0)`）。P2-A 的 Late 路由按设计在 `LatePipeline.cpp:544` **失败即止**（rc=1），
+因此把它绑上去跑全套会产出**几十个 FAIL**——而那些 FAIL 的原因是**作用域未实现**，不是实现缺陷。
+
+- **不是 PASS**：§A 已写明"文件存在或编译器 exit 0 不足以宣布成功"；trace 型零值在尾段缺席时是**空洞零**
+  （B 行"未调度"的强命题需要尾段存在才可证），把它们记 PASS 就是假绿。
+- **也不是 FAIL**：记 FAIL 等于宣称"入口是坏的"，而入口的失败即止**正是本阶段的设计目标**。
+- **正确verdict = NOT_RUN + 写明作用域理由**，且必须满足一条**判别性要求**：
+  **一次 Late 调用必须走到"预期的那个拒绝点"，且已越过 preflight** —— 否则就是因错误原因而止。
+  实测证据：`impl/scratch/late-trace.log` 的 `[ERROR]` 是 `:540` 那条（"pass sequence and the bitcode identity gate
+  are not implemented"），而 `:487`/`:511` 两条更早的拒绝消息**没有**出现 ⇒ `verifyPinnedOptions` 通过、
+  `config.getCompileHost()` 为假、且 `runPipeline(module, buildPreflight, …)` **返回成功** ⇒
+  **LateInputVerifier（V1–V7）在真实 P1 v2 Late 输入上通过了**，`AppendDeviceSpec` 按 §2.5 三态决策调度。
+  这是 P2-A 的**实质正结果**，但该日志未加 `--print-pass-id`，故属**间接**证明。
+
+**因此 P2-A 的作用域内可执行且非空洞的行**（验收应据此用 runner 的 `--only` 选择执行，而不是全跑）：
+黄金 Late 输入走到预期拒绝点（rc=1、**无产物**、带 `--print-pass-id` 的 trace 中可见 `hivm-verify-late-input`）；
+V1–V7 的**反例族**（错 target / 残缺 spec / 缺 pb32 载体等必须被拒且给出 validator 自己的诊断，而非 MLIR 解析错误）；
+**A5**（普通请求逐字节不受影响——本阶段最有价值的回归行）；**C6**（已在冻结时 PASS，且它是 P1 钉的唯一消费者）；
+选择器反例 **B12a–B12d**。**其余全部（A1–A4、A10–A12、B1–B11、C1–C5、C7+、D1–D11）记 NOT_RUN 并写明理由**，
+P2-B/P2-C 落地后转为强制。
+—— 由此**更正 Implementor §8 的一处过度声明**：它称"A3–A9/A13/A14/B3–B11 become executable once bound"。
+按代码与 runner 的前置条件，这些行要么**不能通过**（A4 要求 `runHIVMCCompileA5` **恰好 1 次**，尾段缺席时是 0），
+要么只能给出**关于 preflight manager 的弱零**，其强命题属于尾段。可执行 ≠ 可判 PASS，此处必须说清。
+
+### 6. 对 Implementor 三项请示的决定
+
+- **(a) 提交**：**准许提交但不得推送**，且 commit message 必须显式写明"**尚未验收**（pending Verifier acceptance）"，
+  以免未验收状态被后读为已验收。提交范围仅限这 10 个文件。理由：diff 快照（`p2a-implementation.diff`, sha `9cea956e…`）
+  虽已有保全，但本地提交是更稳的检查点，且提交本身可逆、不触红线。
+- **(b) `docs/status.md`**：**不要写**。该文件是 Lead 的记录，本块由我亲自写（即本段）；避免并发编辑。
+  它应把自己的报告落到 `impl/P2A-REPORT.md` 留档。
+- **(c) O0 模板**：**暂存**，但**不得替换**已绑定的 O2 钉；`SHA256SUMS` 中按名列出，O2 仍为 `bitcode.aiv_c310_o2_path` 的唯一绑定。
+  理由：§6.2 明确要求检查 O0/O2 选择，P2-C 一定会要；现在多存一个只读文件成本为零，可省一轮往返。
+
+### 7. 计数对账（46 vs 47）
+
+`INTEGRITY.json` 的四个块 sha256 值分别为 18 / 5 / 2 / 21，**合计 46**，我此前记的 47 是把 `compiler` 块里一个
+`path` 键当成摘要值数了进去。**已对账，无失败**。
