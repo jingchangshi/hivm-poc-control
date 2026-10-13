@@ -4126,3 +4126,13 @@ operand == 4，**或者** `rc != 0` 且诊断**点名**该 option/policy。所�
 **待办**：Verifier 出 ACCEPTANCE-P2B 的**增补**（三处更正），并在**最终 bundle** 上重跑；
 Implementor 完成八条字面量改写 + A15 五项表态 → 一次构建 → stage → 还原 `build/bin` → 两次提交。
 **P2-B 仍未验收**。看门狗上一轮 30 分钟只有一个事件（建树无变化），已按新谓词重挂。
+
+**追加内的一条自我更正（同批，已写回 D041）**：我在 D041 里写 `build/bin` 漂移"破坏**两条**冻结
+path+SHA 绑定"，并把 A2 也算作 `baseline_pre_p2_compiler` 的消费者 —— **这句是错的**。
+实测 `run_p2_suite.py`：`need_baseline(tid, which)` 只在 `which=="pre2"` 时读 `CFG.pre2`，
+而带 `"opt"` 的调用只有 C6 一处（`:1489`）；全套件里 `pre2` 的**唯一**读者是 `t_d4`（`:1679-1686`），
+D 行在 P2-B 的 `--only` 之外。A2/C5（`:540-568`、`:1476-1487`）跑的是 **P2** 编译器 + 与**写死的
+输出 sha** `01fce255…` 比对，与 `build/bin` 的身份无关。**所以漂移在 P2-B 只 BLOCK 一条行（C6），
+不是两条**；`baseline_pre_p2_compiler` 到 **P2-D**（D4 的判别检查）才用得上。
+还原裁定不变，只是我把代价说大了。教训同 `check-literals-must-be-measured-against-the-artifact`：
+**"被 path+SHA 钉住"不等于"每个提到 baseline 的行都在消费它"—— 定价之前先看读的人**（`need_baseline` 的 `which=`）。
