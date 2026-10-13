@@ -2175,3 +2175,73 @@ census 命令已写入 `docs/p2-architecture.md` §2.4 作为**再生成规程**
 **未变**：P2 生产代码 **0 行**；`hivm-poc-evidence/` 仍为**本地专属**（不发布、不推送、不托管）；
 两仓库远程配置未改、未推送；本轮全部改动仅落在 `hivm-poc-control/docs/` 与
 `hivm-poc-evidence/p2-20261013-late-pipeline/review/`。
+
+---
+
+## P2 §8 step 2 —— Verifier 测试套件已冻结（v1），Lead 复核提出 3 项覆盖缺口 + 1 项绑定形态问题
+
+**阶段**：P2 §8 step 2（Verifier 冻结独立验收测试与预期失败模式）。**P2 生产代码仍为 0 行**（冻结时点亦然）。
+
+**冻结事实（Verifier 自有证据）**：`p2-20261013-late-pipeline/verify/`，`frozen_utc = 2026-10-13T13:28:57Z`，
+35 个测试（A×13、B×12、C×6、D×4）；`P2-TEST-MANIFEST.json` 固定 29 个产物的 SHA-256，另有对 manifest 本身的
+sidecar；`tests/config/p2-bindings.json` 是模板的逐字副本。退出码语义 0/1/2/3/4 明确，
+判定词表仅 PASS/FAIL/BLOCKED/NOT_RUN。**C6 是唯一无需 P2 编译器即可执行的测试，冻结即 PASS**（20 个
+fixture 全部对上计划 §1 标定表：19 个 parse rc=0，`b03_cache_bad7.mlir` rc=1 并给出 D012 值门诊断
+`invalid store l2_cache_mode 7; valid store modes are 0, 1, 2, 4`）；其余 34 个 **NOT_RUN**。
+**固定身份不匹配时报 BLOCKED、不报 FAIL/PASS** —— 这条失败安全设计正确。三项冻结时实测基线：
+裸 parse rc=0；普通路径吃 Late 输入、默认 target rc=1（D012 target 门先触发）；换 950 target 则
+**rc=134 SIGABRT in PlanMemory**。∴ "普通路径处理不了 Late 输入"是**实测**，不是推断。
+
+**Lead 复核（对冻结件，未改动其任何断言）—— 四项问题已发回 Verifier，均源自 Challenger 第 4 轮要求**：
+
+1. **轨迹覆盖不足**。A10/A11/A12 只用 `--print-pass-id --mlir-print-ir-after-all`；`--print-pass-id`
+   在 `bishengir-compile` 与 `bishengir-opt` 上**均存在**（Lead 实测 `--help`：*"Print pass ID before each
+   pass"*），机制本身成立。缺的是 (a) **没有断言四个过滤器处于关闭状态**，(b) 没有 `before-all`。
+   四者在 pinned 二进制 `--help` 中都在：`--mlir-print-ir-after-change`、**`--mlir-print-ir-after-failure`**、
+   以及逐 pass 选择器 `--mlir-print-ir-before=<pass-arg>`/`--mlir-print-ir-after=<pass-arg>`。这直接影响
+   A10 自己的"零次"主张：`after-change` 若开着，跑了但没改 IR 的 pass 不打 header，"零出现"就不再等于
+   "未被调度"。建议加**阳性对照**（在某段 IR 不可能改变的执行区间里，仍能看到至少一个 pass 打出 header），
+   这比"命令行里没写这个 flag"更能判别。
+
+2. **B12 一个反例 ≠ 要求的四个**。第 4 轮要求缺席 / **身份错误** / 禁止的额外 bitcode / 组合**分开测**；
+   B12 目前只覆盖"缺席"。最要紧的未覆盖项是**身份错误**：`<stage>/lib` 下放着**非记录身份**的模板 ——
+   具体就是树里现成的 pre-D012 `build/install/lib/meta_op.aiv.c310.O2.bc` = `44e4387b…`
+   （31,179,496 B，2026-10-09 15:01），而 `getLibDirFromExecutable` 的 `<real exe>/../lib`（`real_path`
+   **会解符号链接**）会静默解析到它。B12 的"false-PASS mode"散文其实已预见到"an alternative template"，
+   但**没有对应测试**。同时缺 `--link-aicore-bitcode`（选项策略）与"缺席+额外"组合。
+   注意：组合用例必须要求"拒绝且无二进制"，但**不得规定哪个诊断先触发**（选项拒绝会合法地先触发）——
+   这正是"缺席"必须自成一例的原因。
+
+3. **选项策略无测试**。计划与 runner 中**没有任何**测试点名：`--save-linked-ir`（Late 模式必须**拒绝**：
+   它把 ccec 产物切成 `.ll` 并追加 `-Xclang -disable-llvm-optzns -S -emit-llvm`，不能出现在任何用于产出
+   被验收二进制的调用里）、`--enable-static-bare-ptr=false`、`--enable-optimized-metaop`、
+   `--enable-hivm-auto-storage-align`、`--enable-lib-call-no-inline`、`--enable-hivm-unit-flag-sync`、
+   `--enable-preload`。A13 只覆盖 SIMT/MixCV/Host/legacy。两个设计陷阱已一并告知：(i) 因"未知选项"而
+   拒绝的测试是**错因通过**，`--compile-host` 是实测例子（它根本不是 CLI 选项）；(ii) 接受侧各行**不能**
+   照选项表写，因为 `applyArchDependentCompileDefaults`（`BiShengIRCompileConfig.cpp:374-383`）在 regbase
+   且用户未显式传参时会把 `enable-lib-call-no-inline`、`enable-hivm-unit-flag-sync`、`enable-preload`
+   强置为 true，而 `Options.td` 三者都写着 `false` —— 照表写会有三行方向相反。
+
+4. **绑定形态**（唯一一处非"加测试"的问题）。`bitcode.aiv_c310_o2_path`/`_sha256` 被**非空**冻到
+   **构建树**的 `build/lib/meta_op.aiv.c310.O2.bc` = `5e7ccae2…`，而 `p2_compiler`、`late_stage_flag`
+   都正确地用了 null 纪律 —— 前后不一致，且会产生第 4 轮裁决所警告的那种错误产物。两条理由：
+   其一，验收时被执行的编译器是**暂存副本** `<stage>/bin/bishengir-compile`，其模板按 `<real exe>/../lib`
+   解析为 `<stage>/lib/…`，**不是**被 pin 的那个构建树路径；按 pin 路径生成的 identity sidecar 会记录一个
+   **本次运行并未使用**的模板。其二，`5e7ccae2…` 是 P1 pin 的构建产物，它与 **committed D012 模板源**的
+   关系**未定**：D012 改动过的 `RegBase/Vector/include/RegBase/DMAUtils.h`（79 行变更，在 ccec 包含路径上）
+   写于 **14:42**，而逐文件模板 bitcode 是 **13:37:55**、合并件 **13:46:45**，**14:00 之后没有任何
+   `RegBase/Vector/*.bc` 被重建**。∴ P2 树重建出的模板未必等于 `5e7ccae2…`，而 P2-C 自己的规则就是
+   "记录重建后的 SHA 作为 P2 身份，不得假定"。**建议**：把 bitcode 的 path+sha 改成**验收时解析的 null 绑定**
+   （不匹配即 BLOCKED，而不是被误断言），并把 `5e7ccae2…` 另立为 `p1_historical` 字段用于对照。
+   **已明示 Verifier**：套件归它所有，Lead 不会去改；若它有异议，宁可把分歧记录下来，也不要让覆盖静默缺失。
+
+**修订纪律**：若补测，必须是**具名的、有记录的 v2 冻结**（各自的 manifest 与时间戳），**v1 manifest 与 sidecar
+逐字不动**，且**不得**是静默编辑；实现尚未开始，∴ 此刻补测仍属"实现之前"，符合 CLAUDE.md 与目标 §7。
+
+**已落文档**：`docs/p2-verification.md` §0.1（冻结事实）与新增 §0.1a（Lead 复核四项）；
+`docs/p2-architecture.md` §2.3.1/§2.4/§3.1/§3.2/§3.3（第 4 轮四项修正，见上一节）。
+
+**下一步**：等 `verify` 对四项的答复（补测 → v2 冻结，或具名异议）；等 `review-2` 的 scoped entry-design
+复审结论。**步骤 4（Implementor P2-A）在二者报告之前不开始。**
+
+**未变**：P2 生产代码 **0 行**；`hivm-poc-evidence/` 本地专属；未推送、未改远程配置。
