@@ -4174,3 +4174,16 @@ Challenger（`review-2`）的 P2-B 门禁书面裁定已落地，记为 **D043**
 **5. 复合行会藏住 stub 子运行。** A13 把三支子运行合并成一个 PASS 标签，并把三支**都**说成 "intended reason"。因此要求：复合行必须报**每支的**首命中行，且**不得**让"某支只看到 stub"的复合行判 PASS。
 
 **6. 假绿集合现为 {`A13.env`, `B12a`, `B12b`, `C3`}**，且 `A13.env` 的成因根本不是匹配器缺陷。三项动作并入同一份 §5 修正案：（a）修好 env 子运行的供给并作为真行重跑；（b) 加入 stub 探针；（c）复合行按子运行报告。census 由 Challenger 重新裁定。
+
+### §24 追加 8（Lead 独立普查，2026-10-14）
+
+D045：对我先前"17 行分类"的**完整性修正**——那是一次**把子集当全集**的统计（`A13`/`A14`/`A15`/`C1` 从不在其中），这正是 `A13.env` 直到 verifier 自行披露才浮出的原因。现对归档运行里**全部 40 条 `rc≠0` 流**做普查（仪器 `lead/scratch/complete-rc-census.py` sha256 `8f225f89…`，输出 `94e842e5…`）：
+
+| 类 | 条数 | 行 |
+|---|---|---|
+| STUB-BARE（与 223 B stub 逐字节相同） | 8 | `A13.env`(PASS)、`A15.flag1`–`flag5`(FAIL)、`B12a`(PASS)、`B12b`(PASS) |
+| HIT-STUB（stub 的 `[ERROR]` 行是**终止**诊断，另附 IR dump） | 4 | `A10`/`A11`/`A12`(各 282 601 B)、`C2`(143 721 B)，均为诚实 FAIL |
+| OTHER（无 `[ERROR]`） | 1 | `C6`（Python traceback，NOT_RUN） |
+| NAMED（终止诊断与 stub 不同） | 27 | `A3`–`A9`、`B1`–`B11`、`B12c`、`B12d`、`C1.absent`、`C3`、`C4`、`A14`、`A13.mixcv`、`A13.pure-simt`、`A15.flag0` |
+
+两点结论：(i) 故**通用 stub 负控的判据必须定义成"终止诊断就是那个 fail-closed stub 的 `[ERROR]` 行"**，而不是"流与 stub 逐字节相同"——否则 `A10` 式带 dump 的逃逸与 `B12a` 式假绿无法区分；D044 的"逐字节相同即可靠探针"据此**被取代**。(ii) 探针**绝不能**取 stub 的**首行** `[INFO] Using merged native A5 regbase pipeline`——每一支 Late 运行都打印它，对它的子串匹配会命中**全部**。我的普查第一版正是如此，把 24 条 PASS 行全扫进"stub"类：**D040 缺陷在用于侦测它的仪器内部复现**，只因输出荒谬得显眼才被抓住。另测：`A15` 是**复合行**（`flag0` 为 NAMED 的 pin 拒绝，192 B；`flag1`–`flag5` 为 bare-stub）；`C1.absent`（FAIL，5 825 B）终止于 `B2`/`B4` 族的**通用** `input validation failed` 行——对一个以"文件缺失"为主题的行，记录的原因未必是该行的本意，而它也从未进入我此前的扫描。记账规则重申：报**行清单**，不得用减法得出"sound PASS"计数。
