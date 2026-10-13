@@ -4328,3 +4328,16 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **修的边界（照 D043 已撤回过的裁定）**：这是**匹配器**的问题，不是措辞的问题。**不得**改写 marker 去躲开 oracle 的词表——那只会让下一个消息、下一个文件名、下一次 dump 再次失守；正确做法是把这些行**结构化地**绑定到该 fixture 的缺陷特异诊断上，并配上四条必须各自失败的负对照。
 
 **证据级别**：本条由**字面量 + 源码位置**测得，**没有执行任何编译器，也没有产生任何流**——绑定到具体 run ID 与二进制 SHA 的流必须由 verifier 的那次运行产生。四行（A4/B4/B7/B12c）已列入 D040 的行清单。
+
+**D054 的 artifact 级绑定（同日晚些补测，把上一条从"源码字面量"升到"产物字面量"）。** 直接在 `impl/stage-p2b-r1/bin/bishengir-compile`（`ea217b8d…`）上抽出字符串，六条 marker 与源码逐一字节一致，包括：
+
+```
+[P2-BOUNDARY] late-route stage=late entry=runLateHIVMPipeline
+[P2-BOUNDARY] ordinary-regbase-pipeline entry=runRegBasePipeline
+[P2-BOUNDARY] inference entry=inferMixedCV
+[P2-BOUNDARY] inference entry=inferLayoutOptimization
+[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5
+[P2-BOUNDARY] retry-loop iteration=          (后半为运行期拼接，故此处止于迭代号)
+```
+
+于是 `late`、`stage`、`entry`、`layout` 四个词**确实存在于被打印的那几行字面量里**，B4 的 `layout` 与 B7 的 `entry` 由此从源码级主张变成产物级事实。**不要**把整份二进制里 `layout` 出现 329 次、`entry` 278 次这类计数当证据引用——那是符号表与全字符串表的噪声，拒绝匹配器跑的是**那次运行的 stderr**，不是二进制；本条唯一相关的度量是"marker 行本身含这些词"。顺带记下：`[P2-BOUNDARY]` 这个标签本身就含子串 `bound`（冻结套件 `:145` 有一个 `"bound"` 状态串，但它是绑定辅助函数的返回值、不是 stderr 匹配器，所以不构成冲突——这类"是子串但不做匹配"的情形必须逐条看角色，不能只做子串判定）。
