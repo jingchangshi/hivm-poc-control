@@ -159,12 +159,12 @@ namespaces. That is the obligation, and it is recorded rather than asserted.
 prediction for the acceptance gate.** The three claims above were re-verified against the generated
 files in the current (pre-P2) build tree:
 
-| generated file | measured | prediction after the P2 build |
-|---|---|---|
-| `ConfigUtils.cpp.inc` | **0** occurrences of `inputIRStage` / `inputIRStageFlag`; **3** `GEN_<GROUP>_OPTION_SETUP` groups (HFUSION, HFUSION_TO_HIVM, HIVM — 9 matching lines, 127 `options.X = config.getX();` bodies) | still **0** — the def is group-less, so no guarded block can contain it. A non-zero count means the option acquired a `passGroup` or the generator changed |
-| `ConfigUtils.cpp.inc` | **0** occurrences of `GEN_PASS_OPTION_TO_CONFIG` | still **0**. The `#define` at `regbase/PassPipeline.cpp:540` guards **nothing** today: the reverse direction (pass options → config) is not generated at all, and the `// TODO now` beside it is the only trace of it. So "no path copies a pass-option value back into the config" is a property of the *generator*, not of this option's group list |
-| `PassOptions.cpp.inc` | one shared file, 276 `Pass::Option<` declarations, **150** of them inside the `GEN_ALL_OPTION_REGISTRATION` block (lines 441–1669); `GEN_ALL_OPTION_REGISTRATION` is `#define`d in exactly **2** TUs (`lib/Tools/bishengir-compile/PassPipeline.cpp:241`, `regbase/PassPipeline.cpp:570`) | **exactly one** `inputIRStage` declaration, inside the `GEN_ALL_OPTION_REGISTRATION` block and inside **no** `GEN_<GROUP>_REGISTRATION` block. The *file* gets one; the *preprocessed* count is two (two TUs each compile that one block) — see the grep note below |
-| `CompileOptions.cpp.inc` | whole file under one `#ifdef GEN_OPTION_REGISTRATIONS`; entries shaped `static llvm::cl::opt<std::string, /*ExternalStorage=*/true> appendBishengOptions( "append-bisheng-options" …, llvm::cl::location(appendBishengOptionsFlag))` | **exactly one** `inputIRStage` / `"input-ir-stage"` / `llvm::cl::location(inputIRStageFlag)`. This is the top-level CLI registration — the surface the `--help` proof and the `getNumOccurrences()` read-back exercise |
+| generated file | measured (pre-P2) | prediction after the P2 build | **measured after the P2-A build** |
+|---|---|---|---|
+| `ConfigUtils.cpp.inc` | **0** occurrences of `inputIRStage` / `inputIRStageFlag`; **3** `GEN_<GROUP>_OPTION_SETUP` groups (HFUSION, HFUSION_TO_HIVM, HIVM — 9 matching lines, 127 `options.X = config.getX();` bodies) | still **0** — the def is group-less, so no guarded block can contain it. A non-zero count means the option acquired a `passGroup` or the generator changed | **0** — and stronger than predicted: the file is **byte-identical to its Oct-9 original** (sha `e54c65ae63e6856327337f3601525ddd85bfa811946367b24fa3a8288f910c06`, mtime still `2026-10-09T14:55:24`). The P2 build did not even rewrite it |
+| `ConfigUtils.cpp.inc` | **0** occurrences of `GEN_PASS_OPTION_TO_CONFIG` | still **0**. The `#define` at `regbase/PassPipeline.cpp:540` guards **nothing** today: the reverse direction (pass options → config) is not generated at all, and the `// TODO now` beside it is the only trace of it. So "no path copies a pass-option value back into the config" is a property of the *generator*, not of this option's group list | **0** (same byte-identical file) |
+| `PassOptions.cpp.inc` | one shared file, 276 `Pass::Option<` declarations, **150** of them inside the `GEN_ALL_OPTION_REGISTRATION` block (lines 441–1669); `GEN_ALL_OPTION_REGISTRATION` is `#define`d in exactly **2** TUs (`lib/Tools/bishengir-compile/PassPipeline.cpp:241`, `regbase/PassPipeline.cpp:570`) | **exactly one** `inputIRStage` declaration, inside the `GEN_ALL_OPTION_REGISTRATION` block and inside **no** `GEN_<GROUP>_REGISTRATION` block. The *file* gets one; the *preprocessed* count is two (two TUs each compile that one block) — see the grep note below | **one**, at `:1193`, inside the `GEN_ALL` block (now **441–1675**; the block grew by the six lines of this one declaration) and **outside** every group block (the next group guard is `:1678`, after the ALL block's `#undef` at `:1675`) |
+| `CompileOptions.cpp.inc` | whole file under one `#ifdef GEN_OPTION_REGISTRATIONS`; entries shaped `static llvm::cl::opt<std::string, /*ExternalStorage=*/true> appendBishengOptions( "append-bisheng-options" …, llvm::cl::location(appendBishengOptionsFlag))` | **exactly one** `inputIRStage` / `"input-ir-stage"` / `llvm::cl::location(inputIRStageFlag)`. This is the top-level CLI registration — the surface the `--help` proof and the `getNumOccurrences()` read-back exercise | **one** declaration at `:741`, the twin's exact shape incl. `,llvm::cl::cat(featCtrlCategory)`. Counted naively, `inputIRStage` occurs **2** times here (:741 and the `inputIRStageFlag` at :744) — the same substring trap as the twin (`:8`/`:11`) |
 
 **The "0" in row 1 has a pre-existing control, so it is not a prediction.** `AppendBishengOptions`
 (`Options.td:879`) is a group-less `std::string` option that already ships, and it is **absent from
@@ -185,7 +185,14 @@ is a translation-unit count, not a file count.* `PassOptions.cpp.inc` is **one s
 correct build yields **one** `inputIRStage` in it; the two objects exist because two TUs each compile
 that one `GEN_ALL_OPTION_REGISTRATION` block. Grepping the file for "two" is unsatisfiable; the "two"
 half of the claim is verified at the source level (the two `#define` sites above) or by preprocessing,
-not by grepping the generated file.
+not by grepping the generated file. *(c) The name is a substring of the flag name.* In
+`CompileOptions.cpp.inc` a naive count of `inputIRStage` is **2** — the declaration at `:741` plus the
+`,llvm::cl::location(inputIRStageFlag)` at `:744` — while there is exactly **one** declaration; the
+shipped twin behaves identically (`appendBishengOptions` at `:8`, `appendBishengOptionsFlag` at `:11`).
+Anchor on the spelling `"input-ir-stage"` (one) or on the `static llvm::cl::opt<std::string, …> <name>(`
+declaration shape, never on the bare name. Note this trap applies **only** to
+`CompileOptions.cpp.inc`: `PassOptions.cpp.inc` uses `Pass::Option`, which has no `Flag` form, so its
+bare-name count is already 1.
 
 **A bounded consequence on the pass route, recorded now because it is the same "silent ignore" family
 as §2.2's two doors.** `regbase::BiShengIRCompilePass::runOnOperation` builds a **default-constructed**

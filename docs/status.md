@@ -2882,3 +2882,19 @@ P2-B/P2-C 落地后转为强制。
 
 `INTEGRITY.json` 的四个块 sha256 值分别为 18 / 5 / 2 / 21，**合计 46**，我此前记的 47 是把 `compiler` 块里一个
 `path` 键当成摘要值数了进去。**已对账，无失败**。
+
+### 8. P2-A 生成面实测（预测 → 实测，Lead 亲自复算，2026-10-13T15:25Z）
+
+§2.1 表的三行预测在 P2-A 构建后已全部变为**实测值**，三条都符合设计，且第一条比预测更强：
+
+| 生成文件 | 预测 | 实测 |
+|---|---|---|
+| `ConfigUtils.cpp.inc` | 仍为 0 | **0**，且文件与其 **Oct-9 原件逐字节相同**（sha `e54c65ae…`，mtime 仍为 `2026-10-09T14:55:24`）——P2 构建**连重写都没发生** ⇒ check 1 以最强形式通过 |
+| `PassOptions.cpp.inc` | 文件级**恰好 1** 个声明，位于 `GEN_ALL` 块内、**不在**任何 group 块内 | **1** 个，位于 `:1193`；`GEN_ALL` 块现为 **441–1675**（因该声明六行而增长），下一个 group 守卫在 `:1678` ⇒ 确在 ALL 内、确不在 group 内 |
+| `CompileOptions.cpp.inc` | 恰好 1 个 `inputIRStage` / `"input-ir-stage"` / `llvm::cl::location(inputIRStageFlag)` | **1** 个声明（`:741`），形状与对照件 `appendBishengOptions` 完全一致（含 `,llvm::cl::cat(featCtrlCategory)`） |
+
+**并发现第三种 grep 陷阱（已并入 `p2-architecture.md` §2.1 的"两个陷阱"段，现为第三条）**：名称是 flag 名的**子串** ——
+在 `CompileOptions.cpp.inc` 里朴素质数 `inputIRStage` 得 **2**（`:741` 的声明 + `:744` 的
+`llvm::cl::location(inputIRStageFlag)`），而声明**只有一个**；对照件同样如此（`:8` / `:11`）。故 check 3 必须以拼写
+`"input-ir-stage"` 或声明行形状锚定。**该陷阱只存在于 `CompileOptions.cpp.inc`**：`PassOptions.cpp.inc` 用
+`Pass::Option`，无 `Flag` 形式，朴素质数本来就是 1。
