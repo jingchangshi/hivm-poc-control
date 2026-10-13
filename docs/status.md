@@ -2687,3 +2687,29 @@ manifest 的未来时间约 +74 分钟）；②**权威时间线**（以 mtime �
 
 **未变**：所有执行类验收行 **NOT_RUN**（除 C6 冻结时 PASS，现以 run #2 对封存件复现）；D031 pin 未动；
 `hivm-poc-evidence/` 本地专属；**未推送**。提交待 `0c960df`→`58d9aa0` 之后的下一条。
+
+### 勘误两处残留不准确**已被作者修正**（Lead 复验）；并补强 §2.1 的安全论证
+
+**复验（不采信报告）**：`ERRATUM-v2-freeze-time.md` 现 **9907 bytes**，sha256 `54a77755…`，
+mtime `14:37:25Z`；`grep -c ERRATUM` 于两个 manifest 均为 **0**（未被 pin）；两 sidecar `sha256sum -c`
+**OK**。§1 已改为"本地时钟为 UTC+8（`date` → `Asia/Shanghai`，`TZ` unset），UTC 由 `date -u` 取得"；
+§4 已描述**两次**复跑并写明哪一次可采信，且注明 run #1 的引用已记为 Lead 自身记录的缺陷，故不会与 §0.1f 漂移。
+∴ `§0.1e` 行内的"两处残留"由 *reported* 改为 *FIXED + 复验*（该行**必须**跟着改，否则它自己就变成我一直在
+上报的那类陈旧缺陷）。
+
+**§2.1 补强——省略 `passGroup` 是**承重**决策，不只是"够用"**：pass-options 面本身并非惰性，但
+config↔pass-options 的**唯一**生成桥 `genConfigToOptions`（`ConfigsToOptionsConversionGen.cpp:37-43`）
+只生成 `options.<cppName> = config.get<CapitalizedCppName>();`，**单向（config → options）**且按 pass group
+用 `#ifdef GEN_<GROUP>_OPTION_SETUP` 守卫；空组选项因 `:80-82` 的 `continue` **根本不在任何 group map 里**
+⇒ **没有任何生成路径会用 config 填充 `inputIRStage` 的 `Pass::Option`，也没有任何生成路径把 pass-option
+的值回写进 config**。另一个收集器 `emitCollectConfigs`（`CompileOptionsGen.cpp:108-136`）以
+`isSharedWithDownstreamToolchain` 过滤，而 `InputIRStage` 未置该位（默认为 0）。∴ 省略 `passGroup` 正是
+让第二处声明**无法**成为第二条设置 stage selector 的路径；**不得**在没有重新推导的情况下加回。
+**真正剩下的未决问题因此收窄为**：pass 命名空间声明**能否从 argv 取值**，以及两个命名空间的 `--help` 证据。
+
+**冻结未重开**（我的裁定，回复 `verify`）：第五项覆盖缺口（`InputIRStage` 双命名空间）**维持为 §8 step 8
+的 Challenger 待议项**，不因它重开封存 —— 理由：封存已在实现开始后移动过一次；上述安全论证已把
+"能否写回 config"从**开放问题**降级为**构造性结论**；剩余 argv 可达性问题可随 §2.3.1 义务 2 已有的
+`getNumOccurrences()` 回读与 `--help` 证明一并覆盖。若 Challenger 在 step 8 判需要执行级检查，则按**已关闭
+冻结的协议**走：显式声明为 correctness fix、作废 Implementor 契约、重新验证 —— 由我在该 gate 决定，
+`verify` 表示不会自行开启（正确）。

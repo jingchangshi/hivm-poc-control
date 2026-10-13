@@ -138,6 +138,23 @@ invocation (and that supplying one does not reach the config the Late branch rea
 reach a pass as an option, and that addition must be justified rather than inherited. No `InputIRStage`
 / `inputIRStage` / `input-ir-stage` collision exists at the pinned HEAD.
 
+**Why omitting `passGroup` is nonetheless the *safe* choice, and the half of the original claim that
+survives.** The pass-options surface is not inert on its own — but the bridge between it and the config
+is generated **per pass group**, and it points **one way only**: `genConfigToOptions`
+(`ConfigsToOptionsConversionGen.cpp:37-43`) emits nothing but
+`options.<cppName> = config.get<CapitalizedCppName>();`, guarded by `#ifdef GEN_<GROUP>_OPTION_SETUP`.
+A group-less option is not in any group map at all — `emitConfigsAndOptionsConversion` `continue`s on
+the empty group list (`:80-82`) *before* any group is populated — so **no generated path populates
+`inputIRStage`'s `Pass::Option` from the config, and no generated path copies a pass-option value back
+into the config**. The only other collector, `emitCollectConfigs` (`CompileOptionsGen.cpp:108-136`),
+is filtered on `isSharedWithDownstreamToolchain`, which `InputIRStage` does not set (the default is 0 —
+`EnableTritonKernelCompile` has to set it explicitly). So the option's *absence* of a `passGroup` is
+what keeps the second declaration from becoming a second way to set the stage selector; the decision to
+omit it is load-bearing rather than cosmetic, and it must not be reversed without re-deriving this.
+What remains genuinely open is narrower than the paragraph above first stated: whether the
+pass-namespace declaration is reachable **from argv** at all, and the `--help` evidence for both
+namespaces. That is the obligation, and it is recorded rather than asserted.
+
 The flag is therefore **`--input-ir-stage=late-hivm`**, exactly the goal's example. The default `hir`
 makes the option's absence byte-for-byte the old behaviour. Any value other than `hir` or `late-hivm`
 is a hard error at the entry (§4.1.9 requires that an ordinary request is untouched, and a typo must
