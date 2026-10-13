@@ -2332,3 +2332,58 @@ E0 第 5 轮、新增 E0b）、`review/challenger-entry-design-verdict-round5.md
 
 **未变**：P2 生产代码 **0 行**；所有执行类验收行 **NOT_RUN**；`hivm-poc-evidence/` 本地专属；未推送、
 未改远程配置；未改动 D031 的编译器 pin。
+
+---
+
+## 2026-10-13 第 5 轮收口：Challenger 给出 scoped entry-design **APPROVE** —— **门禁 3（§8 步骤 3）关闭**
+
+`review-2`（served model **`gpt-6.1-sol`**）在 13:39:18Z 给出 **Scoped entry-design verdict: APPROVE**，
+13:42:07Z 再次确认为 APPROVE（并专就"注入 deadline"一条作结）。两条消息均以 `SendMessage → team-lead`
+送达，Challenger 未写文件；按既有规则由 Lead **逐字**保存于
+`hivm-poc-evidence/p2-20261013-late-pipeline/review/challenger-entry-design-verdict-round5.md`
+的"Gate 3 closing verdict"一节（转录记录 `rec480`、`rec504`）。
+
+**裁决确认已解决**：三处指令选择选项为**具体 false pin 且显式 true 被拒**；计数表区分"每 scope 的 tail
+执行"与"全局 `ConvertHIVMToLLVM=1` / 禁止=0 / A5=1 / `AppendDeviceSpec` 按状态 1 或 0"；解析窗口论述
+"技术上正确"（`hasExplicitCLOption` 只在 `compile.cpp:102/144` 计数，`originalCLArgs` 在 `:121-124`
+捕获、`:186` 转发）；21 操作数 census "现在正确"（Challenger 在容器内独立复现，pinned opt generic print
+exit 0）；V1 闭集语义成立；模板 N1–N4 与 D012 的 parsed cache4 / 终端 barrier 要求明确；A–D 包装器限定
+与源码一致（直接 Late builder 绕过三重门；`LowerToLLVM=true` 是入口不变量；`CompileHost` 仅 config 态；
+pure-SIMT 守卫被排除）。
+
+**"before `:121`" 被判为正确且无需弱化**：`originalCLArgs` 在 `:121-124` 快照 argv，`Driver.cpp:79`
+把这一**不可变** vector 过滤进 config clArgs；在 `:121` 之后、解析 `:144` 之前注入会让
+`getNumOccurrences()`/config 反映该选项而下游 clArgs 遗漏它，且"没有任何源码路径会在捕获之后
+reconcile 该 vector"。置于 `:114` 之前属自然但非必需。
+
+**APPROVE 附带实现义务 —— 已写成设计条文，而非留在评审消息里**（评审消息里的义务不可审计）。新增
+`docs/p2-architecture.md` §2.3.1 四条义务：
+
+1. **重复的用户 occurrence 是拒绝，不是合并**。`llvm::cl` 接受重复且 `getNumOccurrences()` 会计**每一次**
+   occurrence，故用户传 `--enable-preload=true` 与本入口的 pin 同时存在会产生两次 occurrence、下游回显
+   带两条。∴ 必须在注入**之前**拒绝矛盾的用户 occurrence，诊断须点名该选项与两个值；**不得**通过改写
+   用户参数来"修好"重复 —— 那是换了件外衣的静默覆盖。
+2. **每个 pinned 选项恰有一条规范 occurrence 同时抵达解析与下游回显**。注入后该选项 post-parse
+   `getNumOccurrences()` 必须为 **1**，且 `:186` 转发的 vector 必须含**同一条**规范参数。只断言 config 值
+   会漏掉翻倍的回显；只断言回显会漏掉被默认值挪动的 config。**两者都要**，否则该行未证。
+3. **不得原地改 `argc`/`argv`**。`main` 在 `:114` 与 `:121-124` 读 `argv`，而捕获之后没有任何路径会
+   reconcile，这正是 deadline 为 `:121` 的机械原因。入口**只构造一次**增广 argv，并让目标扫描与
+   `originalCLArgs` 捕获看到**同一份**参数。
+4. **契约范围写明，避免两种读法**。本结论成立于**当前转发契约下的 argv 注入**（`originalCLArgs` →
+   `Driver.cpp:79` → config 的 `clArgs`）。Challenger 指出实现者**可以**在捕获之后用
+   `config.setClArgs` reconcile —— 并非逻辑不可能，但那会**改变转发契约**且须自证 config 与下游 argv
+   一致。本设计选择 argv 注入，∴ 事后 `setClArgs` reconcile **在本契约之外**，未修订本节不得引入。
+
+另两条义务属**后续**门禁的条件，不属本门禁：validator 注册与 `--help` 证明；以及在 Verifier 给出执行
+证据之前，**不得**对生产路径做任何 pass 计数 / ABI / 二进制 / 硬件声明。
+
+**已落文档**：`docs/p2-architecture.md` §2.3.1（四条注入义务）；`docs/p2-verification.md` E0b →
+**APPROVE**；`review/challenger-entry-design-verdict-round5.md`（追加"Gate 3 closing verdict"逐字节 +
+义务处置表）。
+
+**下一步**：仍等 `verify` 的 v2 冻结（它正在改 `run_p2_suite.py`：已记录修订、正在实现 pass 列表与
+插桩化编译 helper，并新增 dump-pair 正控制）。CLAUDE.md 要求**测试先于实现**定义，目标 §8 步骤 4 的
+门禁是"二者报告"，∴ **步骤 4（Implementor P2-A）在 v2 冻结落地后立即开始**，不早于此。
+
+**未变**：P2 生产代码 **0 行**；所有执行类验收行 **NOT_RUN**；D031 的编译器 pin 未动；
+`hivm-poc-evidence/` 本地专属；未推送、未改远程配置。

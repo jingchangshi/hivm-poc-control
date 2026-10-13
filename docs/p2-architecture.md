@@ -295,6 +295,34 @@ The entry's own assertion that each pinned option is explicit must read back the
 `getNumOccurrences()`**, not its own bookkeeping — otherwise the check passes on exactly the mistake it
 exists to catch.
 
+**How the pinned arguments are injected — obligations the entry must meet, not implementation detail
+free for the implementor to choose.** Round 5's APPROVE (Challenger, `gpt-6.1-sol`, 2026-10-13) attaches
+these to the design as conditions on that verdict, so they are part of the frozen design:
+
+1. **Duplicate user occurrences are a rejection, not a merge.** `llvm::cl` accepts a repeated option and
+   `getNumOccurrences()` counts *every* occurrence, so a user passing `--enable-preload=true` alongside
+   the entry's own pinned occurrence yields two occurrences and a downstream echo carrying both. The
+   entry must therefore **reject a contradictory user occurrence before injecting anything**, and the
+   rejection must name the option and both values (§2.3.1's one rule). It must not "fix up" a duplicate
+   by rewriting the user's argument: that is silent override wearing a different hat.
+2. **Exactly one canonical occurrence per pinned option reaches both the parse and the downstream
+   echo.** After injection, the post-parse `getNumOccurrences()` for each pinned option must be **1**,
+   and the vector forwarded at `:186` must contain the **same** single canonical argument. Asserting
+   only the config value would miss a doubled echo; asserting only the echo would miss a config moved by
+   a default. Both, or the row is unproven.
+3. **`argc`/`argv` are not mutated in place.** `main` reads `argv` at `:114` and `:121-124`, and no
+   source path reconciles the captured vector afterwards — which is the mechanical reason the deadline
+   is `:121`. The entry builds the augmented argument vector **once**, and that same vector is what the
+   target scan and the `originalCLArgs` capture see. Writing extra `argv` slots, or reordering in place
+   while a stale capture survives, are both excluded.
+4. **Scope of the contract, stated so it cannot be read two ways.** This holds **for argv injection
+   under the current forwarding contract**: `originalCLArgs` → `Driver.cpp:79` → `config`'s `clArgs`.
+   The Challenger notes that an implementor *could* deliberately reconcile after the capture via
+   `config.setClArgs`; that is not impossible, but it **changes the forwarding contract** and would
+   require its own identity test (config and downstream argv agreeing). The design chooses argv
+   injection, so a later `setClArgs` reconciliation is **out of contract** and must not be introduced
+   without amending this section.
+
 **A TableGen default is not the effective default on the regbase route, and three rows above depend on
 that.** `applyArchDependentCompileDefaults`
 (`Tools/bishengir-compile/BiShengIRCompileConfig.cpp:374-383`, called at `:463`, `:481`, `:486`) returns
