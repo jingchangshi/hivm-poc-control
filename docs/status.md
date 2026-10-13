@@ -4158,3 +4158,19 @@ Challenger（`review-2`）的 P2-B 门禁书面裁定已落地，记为 **D043**
 **8. 其余更正。** E5 记录要按 **per-manager 模式重解析** 与 **per-action `FilterPassesAttr`** 两个粒度分别记（把两者都只挂在后续 manager 边界上的文档是错的）；58 个归档 tree 文件确实两者皆无，支撑本次运行是**推断的** Mix，但首个 action 边界的模式记录仍须补。DMA：描述符 extent **8192 f32 = 32768 B** 现在就能在 tail 上断言（三条描述符链），只有**发射出的模板事务**推迟到 P2-C。D041 数字更正：快照差量是 **153 个 object + 3 个 archive = 156 条路径**（不是"156 个 object"）；窗口 ≈ **0.636 s**；**删掉**"size 变化与 cache hit 相矛盾"——host 与容器因预处理/头文件集合不同而合法地选中不同结果（`ccache MANUAL.md:2101`）；240 条 Ninja object 边（64–725 ms，起止 426–1388 ms）证明的是**该次 host 调用中的边执行，不是 240 次全新编译**，缓存命中**可信但未被证明**（缺 cache 事件证据）；`touched='./...'` 只证明**普查范围**，不证明 build 目录之外没有写入（ccache 自身可能写外部）；修复中重链接的生成式 tblgen 可执行文件应计入依赖闭包。8b：在当前绑定下做**受守卫的还原** APPROVE，但现存 baseline 是**扁平后缀名**，直接改指会破坏可执行文件相对路径的模板发现——不可变 baseline bundle 形态推迟；还原放在本阶段**最后一次构建之后**，并在任何 baseline 使用前重新校验。8c：**只许经 wrapper** 执行/配置/运行的规则 APPROVE，D041 的收口改写为"**执行来源强制**"。
 
 **9. 下一步。**（i）Verifier 起草 §5 修正案（新 runner + 新 seal，保留 v2），必须带四组反向对照——通用 stub、无关 I/O 错误、仅边界行、仅 dump/注释——四者**都必须**在"原因"检查上 FAIL，并保留已接受的 Golden 正对照；（ii）Implementor 提交**未经改写**的已批准切点、经 `scripts/in-container.sh` **构建一次**、stage 最终 bundle、**然后**还原 `build/bin`；（iii）Verifier 在最终 bundle 上重绑 `p2_compiler` 并重跑验收、还原后重跑 `C6`；（iv）Challenger 复审。全程未 push，未动 build tree。
+
+### §24 追加 7 —— 第四个假绿 `A13.env`：它**不是** D040 那一类，而是"调用根本没建立它要断言的条件"（D044）
+
+在 verifier 跑 A13 判别实验的同一时刻，我在归档字节上独立测出：
+
+**1. 证据。** `A13.env.stderr` = **223 B**，sha256 `1eb04fd1ae84c0001c723b4cfaae3516e8a0022be7a5d8baefb631b19d263ce1`，rc=1，stdout 0 B —— 与 `B12a.stderr`、`B12b.stderr` **逐字节相同**，即它只看到了 fail-closed stub。而**同样**的编译器、同样的 fixture，**真的把 `BISHENGIR_LEGACY_A5_REGBASE` 设上**时给出的是**具名**诊断（verifier 的 `discrim/a13env-withenv.stderr`，335 B）：`[ERROR] Late mode: BISHENGIR_LEGACY_A5_REGBASE is set (value '1') together with --input-ir-stage=late-hivm. … rejected instead of delegated.` ⇒ 套件那次 env 子运行**变量根本没到编译器**，rc=1 来自 stub。于是 A13 在 `suite-summary.json` 里记的 **PASS** 判定串——`all incompatible sub-runs rejected for the intended reason: [('env', 1), ('pure-simt', 1), ('mixcv', 1)]`——对 `env` 这一支**不成立**。它的两个兄弟是真的：`A13.pure-simt.stderr` 358 B、`A13.mixcv.stderr` 424 B 都带选项具名拒绝（"Late mode rejects the option --pure-simt … It is not silently ignored"）。
+
+**2. 为什么这是另一类。** D040 是"匹配器把自由词当证据"，而这一条**改匹配器也救不回来**：那一支**调用本身**没制造出它要断言的条件。生产侧的 env guard 是好的、且具名（我的判别证实），缺陷在冻结 oracle 的**供给**——`scripts/in-container.sh` 是 `docker exec` 包装，宿主 Python 里 `os.environ` 的赋值**未必跨进容器**，而记录的 `.cmd.txt` argv 里也没有赋值。根因（没设 vs 没转发）由 verifier 依据记录到的调用形式判定。
+
+**3. 校准出来的"stub 探针"。** 对 `logs-suite-p2b/` 全部 `*.stderr` 做逐字节同一性扫描，恰好 **8** 行与 stub 完全相同：`A13.env`（PASS）、`A15.flag1–flag5`（FAIL）、`B12a`、`B12b`（PASS）。两个 PASS 的**什么都没观测到**；五条 A15 FAIL 是**诚实的**（"does not name the option/policy" 字面为真），而且它们**独立印证**了 D043 对 A15 的更正（`kPinnedTrue` 把五项 pin 成 true、`applyPin` 接受等于 pin 的请求 ⇒ 裸 true 请求被设计性接受、随后死在 stub），字节证据与源码读法一致。提议把它立为**正向仪器**：**任何**行，只要捕获流与已知 stub 逐字节相同，就是"什么都没观测到"，无论它的标签怎么写——这才是通类探测器，D042 的"223 B / 2 行"只是它的一个实例。
+
+**4. 标签是"写"出来的，不是"量"出来的。** `B12a` 的记录串是 "explicit failure naming 'bitcode' with empty bitcode dir"、`B12b` 是 "rejected rc=1 with template-identity diagnostic"——各自点名了一个**在那 223 B 里根本不存在的机制**（一个目录、一个身份诊断）。这些串是按测试作者的**预期**拼出来的，所以读起来像证据、实际不携带证据。
+
+**5. 复合行会藏住 stub 子运行。** A13 把三支子运行合并成一个 PASS 标签，并把三支**都**说成 "intended reason"。因此要求：复合行必须报**每支的**首命中行，且**不得**让"某支只看到 stub"的复合行判 PASS。
+
+**6. 假绿集合现为 {`A13.env`, `B12a`, `B12b`, `C3`}**，且 `A13.env` 的成因根本不是匹配器缺陷。三项动作并入同一份 §5 修正案：（a）修好 env 子运行的供给并作为真行重跑；（b) 加入 stub 探针；（c）复合行按子运行报告。census 由 Challenger 重新裁定。
