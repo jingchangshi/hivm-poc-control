@@ -828,10 +828,19 @@ policy. Two consequences:
   manager.** The policy is resolved **from the module as it stands when the manager runs**
   (`PassExecutionPolicy.h:42-46`), and each `PassManager::run` resolves it afresh. A pass in the tail
   that wrote `mix_mode` or `FilterPassesAttr` would therefore switch the mode for everything *after*
-  it, and the input check would have been satisfied at a point that no longer describes the IR. So
-  every later manager — the A5 pipeline above all — must check the mode of **the IR it is about to
-  run on**, and record it, rather than inheriting V1's verdict. Measured today, nothing in the
-  production tree writes either attribute (the only writers in-tree are
+  it, and the input check would have been satisfied at a point that no longer describes the IR.
+
+  **Scope of this requirement, stated so it is implementable rather than aspirational.** The re-read
+  is placed at **every manager the Late entry itself invokes** — the tail, then the A5 pipeline above
+  all — because those are the points the entry controls: it holds the module between calls and can
+  inspect it before the next `run`. It is **not** a claim about managers nested inside a pass body
+  (`PassPipeline.cpp:564` constructs one), which the entry cannot intercept; for those the guarantee
+  rests on V1 plus the measured absence below, and that limit is stated rather than papered over. So
+  the honest form of the invariant is: *the entry re-reads the mode of the IR it is about to hand to
+  each manager it invokes, and records it; for nested managers, V1's input check plus the absence of
+  in-tree writers is all there is.*
+
+  Measured today, nothing in the production tree writes either attribute (the only writers in-tree are
   `unittests/Pass/PassExecutionPolicyTest.cpp` and `unittests/Pass/FilterPassesTest.cpp`;
   `OptimizeScalarTransfers.cpp:443` only reads), so the re-read is expected to agree with V1 — but the
   guarantee may not rest on that absence, for the same reason the §2.2 dead-store finding and the C9
