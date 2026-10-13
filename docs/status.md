@@ -4691,3 +4691,41 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 - **顺带记录**：O0 模板实测为 `0a34be8759a082d2…`，而绑定文件里 `bitcode.aiv_c310_o0_path` 现为 `null`（O0/O2 选择是 B2 的检查项，届时 O0 若要绑定可直接用这个值）。
 
 **未做**：没有运行任何编译、没有构建、没有动 `build/bin`、没有动绑定文件、没有推送。
+
+### §24 追加 35（绑定↔磁盘全量普查 6/6 OK；**以及一次差点写进记录的过期测量**：我的 MISMATCH 读数在 40 秒后被修掉了，2026-10-14）
+
+**(1) 普查（有时间戳，因为靶子正在被编辑）**：`verify/tests/config/p2-bindings.json`，**2026-10-13T20:42:43Z，sha256 `1402be192d342f15…`，9105 B，mtime 04:41:33**。逐对 path+sha 对磁盘实测：
+
+| 条目 | 声明 | 磁盘 | 判定 |
+|---|---|---|---|
+| `p2_compiler` | `47e02604c6ae…` | `47e02604c6ae…` | OK |
+| `baseline_pre_p2_compiler` | `c6838fc0a175…` | `c6838fc0a175…` | OK |
+| `bishengir_opt` | `0761c6e662ee…` | `0761c6e662ee…` | OK |
+| `bitcode/p1_historical` | `5e7ccae20f4e…` | `5e7ccae20f4e…` | OK |
+| `superseded_p2_compiler` | `2bf961bf80f9…` | `2bf961bf80f9…` | OK |
+| `superseded_p2_compiler_r1` | `1a3f20f80d73…` | `1a3f20f80d73…` | OK |
+
+**6/6 OK，0 MISMATCH，0 ABSENT**。两个 null 只剩下 `bitcode.aiv_c310_o0_path/_sha256`（按 v2 note 的约定，O0 选择若非空才绑）。
+
+**(2) 差点写进记录的东西——我的读数是"真的"，但已经过期。** 我在此之前几分钟量到的是**两条 MISMATCH**：
+- `baseline_pre_p2_compiler` 声明 `c6838fc0`，其 path（`AscendNPU-IR-1/build/bin/bishengir-compile`）解析为 **`ea217b8d`**；
+- `bishengir_opt` 声明 `0761c6e6`，其 path（`…/build/bin/bishengir-opt`）解析为 **`4c31167b`**。
+
+其中第二条是**新信息**：`build/bin/bishengir-opt` 已经不持有 P1 那个 pin 了。两个 `build/bin` 二进制的 mtime 都是 **2026-10-14 01:00:24**（同一秒），说明 **P2-B 的构建把 `bishengir-opt` 一并重写了**；P1 的 `0761c6e6` 因此**只存在于** `lead/preserved-p1-compiler/bishengir-opt.0761c6e6`（该目录 `sha256sum -c` 从**其自身**为基准：**3/3 OK**）。这正是目标 §6.1"P1 的 `bishengir-opt` SHA 是历史身份、**绝不要为了迁就 P2 构建去改 D031 的旧 pin**"所针对的情形：pin 没被改（声明仍是 `0761c6e6`），但**树里已经没有那个二进制了**，所以任何以 `build/bin` 为基准的比较都会静默换掉基准。
+
+但——**在我把这条写进记录之前重测，发现它已经不再成立**：verifier 在 **04:41:33**（我量到 MISMATCH 之后约 40 秒）把两条都重指到 preserved 副本，绑定 8013 B → 9105 B，sha `da7eb545` → `1402be19`。于是普查是 6/6 OK。
+
+**因此这条记录的规则是**：当靶子正在被别的执行者编辑时，**测量是有时间戳的**，写进记录前要么重测、要么写明测量时刻与绑定 sha。否则"我按规矩量了真实产物"这一条在形式上满足、结论上过期——这与 [[check-literals-must-be-measured-against-the-artifact]] 同族，但失效方向是新的：不是**错**的读数，而是**被超越**的读数。差一步我就把一条已经不存在的 blocker 写进了验收记录。
+
+**顺带修好的（同一批，实测）**：`stub_bare` 的**域缺陷已修**——早先它 hash `(err + "\n" + out)`，把那个 223 B 裸 stub 变成 224 B blob，恒返回 False（instance-12 家族）；现在 `:405` 先要求 `out` 为空、`:407` 只 hash stderr，而且 `:415` 被 `stub_label` 调用、`:1249` 又调用 `stub_label`，**调用链是活的**（此前是"写了但无人调用"）。`stub_bare` 的 docstring 也如实记下了那个已测量的缺陷。
+
+**(3) C6 的连带影响随修复消失**：`need_baseline(tid, which)`（`:285`）本来会在 sha 不匹配时返回 `… sha mismatch (BLOCKED)`，而它**在 v3 里唯一**的调用点是 `t_c6(…, "opt")`（`:2042`）——即修复前 **C6 会因 `bishengir_opt` 路径失配而 NOT_RUN 并给出 BLOCKED 文案**，修复后 C6 具备运行条件。注意**修复方向不可颠倒**：正确做法是把 **path** 指向 preserved 副本（已做），**绝不能**把声明的 sha 改成 `4c31167b` 去凑磁盘——那会让 C6 拿一个 P2 时代的 opt 去核对**冻结期标定的夹具表**，并且**以 PASS 的形式**报出来（[[check-literals-must-be-measured-against-the-artifact]] instance 6 的"制造绿色"形状）。
+
+**(4) v3 封存前仍开放的（实测确认，非推测）**：
+- **D071 未做**：`p2_compiler` 仍是 `47e02604`（`stage-p2b`，**0** 个 marker 站点），`bitcode.aiv_c310_o2_path` 也仍指 `stage-p2b/lib`。而 A1/A2 已被 routing 门控（`:914`/`:955`），所以在当前绑定下 A1 与 A2 都会走 NOT_RUN，且其文案会读起来像"对错误配置的准确诊断"。
+- **D068 未做**：REGISTRY 仍是 `("N1", t_n1)…("N4", t_n4)`，无任何 `"S1"`/`def t_s1`。v3 **未封存**，故改名是文本改动、不需要重新封存——**应在封存前做完**。
+- `container.in_container_sh` 仍未带 sha256（现只有 path/image/note）。
+- 目标 §6.3 的 C1–C11 仍**没有可执行 oracle**（两个 runner 对这些词的命中为 0），P2-C 要**建**它们，不是跑它们。
+- **routing 由 A1/A2 承载、不新开行 ID**（`:914`/`:955` 把 `routing_detail` 直接门控进这两行）——这与"D059 要求 routing 证据绑定到确切 staged compiler SHA 与 4/4 bundle 哈希"相容，也正是 D071 必须先生效的原因。
+
+**未做**：没有运行任何编译、没有构建、没有动 `build/bin`、没有编辑绑定或 runner（那都是 verifier 的执行步骤）、没有改权限、没有推送。
