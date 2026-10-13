@@ -8,7 +8,7 @@
 > the routing line is present and the ordinary-pipeline line absent. Suite **A2** = ordinary-path
 > byte-identity regression; here **A2** = the two inference functions were not called. Suite **B1/B2** =
 > the cache-0 and carrier-deleted fixtures; here **B1/B2** = forbidden-pipeline zeros. Suite **C1** =
-> "absent ≡ explicit-0" on those two fixtures; here **C1** = the nineteen tail passes ran in order.
+> "absent ≡ explicit-0" on those two fixtures; here **C1** = the nineteen tail passes registered in order.
 > Suite **D1–D4** = identity manifest / determinism / recompile / masquerade; here **D1–D11** = the
 > contract invariants. **So a bare row ID in any document, including `docs/decisions.md` and
 > `docs/status.md`, is ambiguous and must name which document it belongs to.** Two live instances are
@@ -122,7 +122,7 @@ one manager while the pass runs in another is a FAIL for that row, not a local e
 
 | # | claim | evidence needed | status |
 |---|---|---|---|
-| C1 | the 19 registered tail passes ran, in the §3.1 order | trace order + per-pass **effect** in the IR (e.g. `cf` blocks after `--convert-scf-to-cf`; no `hivm.hir.*` after the conversions). The §3.1 table is the **base pipeline construction list, not nineteen runtime executions**: nested function passes execute separately on the entry and the VF helper, so the count is per pass **and per operation scope**. (Corrected 2026-10-14 from 20 → 19: `BindSyncBlockLockArg` is a `Prepare`-phase pass and is not in this tail; see `p2-architecture.md` §3.1's correction. The measured P2-B stream shows the remaining nineteen plus four `OpToOpPassAdaptor` entries and the validator — 33 `[PassID]` actions, no gap.) | NOT_RUN |
+| C1 | the 19 registered tail passes are **constructed** in the §3.1 order (a *construction* claim, not an execution one — D043/Q6b) | trace order + per-pass **effect** in the IR (e.g. `cf` blocks after `--convert-scf-to-cf`; no `hivm.hir.*` after the conversions). The §3.1 table is the **base pipeline construction list, not nineteen runtime executions**: nested function passes execute separately on the entry and the VF helper, so the count is per pass **and per operation scope**, and a failed run still names later entries (`Pass.cpp:592-594`). (Corrected 2026-10-14 from 20 → 19: `BindSyncBlockLockArg` is a `Prepare`-phase pass and is not in this tail; see `p2-architecture.md` §3.1's correction. The measured P2-B stream shows the remaining nineteen plus four `OpToOpPassAdaptor` entries and the validator — 33 `[PassID]` actions, no gap.) | NOT_RUN |
 | C2 | `ConvertHIVMToLLVM` = **exactly 1 in total**, owned by HIVMC A5 | per-scope counts summed over every entered manager = 1, and the single execution is inside the A5 pipeline, not the tail. "Once per scope" or "once in the tail and once in A5" is a **FAIL** | NOT_RUN |
 | C3 | `AppendDeviceSpec` count = 0 in state 2 (complete matching spec) and = 1 in state 1 | trace count per state | NOT_RUN |
 | C4 | the validator pass ran **before item 1** of the tail | trace order: validator precedes `--annotation-lowering` | NOT_RUN |
@@ -189,17 +189,25 @@ The step-3-only run (`impl/scratch/p2b-trace/`) satisfies **E1** (the instrument
 the shared `bishengir::runPipeline` entry, and the two managers the run enters are enumerated — see
 E5/E.2), **E2** (the command line passes none of the four biasing filters), **E3** (`58` files
 archived under `--mlir-print-ir-tree-dir`, nothing truncated) and **E5** (0 of the 58 archived dumps
-introduce `mix_mode`, `filter_passes` or `FilterPassesAttr`; the mode is therefore still `Mix` at
-every boundary).
+introduce `mix_mode`, `filter_passes` or `FilterPassesAttr`, which **supports an inferred `Mix`** for
+this run but does not prove it — **D043/Q4**: `PassExecutionPolicy` re-resolves the mode **per
+manager** while `FilterPassesAttr` is checked **per action**, so a document that places both only at
+later-manager boundaries is wrong, and the **first-action boundary mode records are still owed**).
 
 **E4 is half-satisfied and cannot be otherwise at this step.** The first sentinel is present
 (`inline.err` header #2 is `LateInputVerifierPass` / `hivm-verify-late-input`, immediately followed by
 `AnnotationLowering`). The closing sentinel `--convert-hivm-to-llvm` is **structurally** absent: the
 Late driver makes exactly two `runPipeline` calls — `late-preflight` and `late-tail`
 (`regbase/LatePipeline.cpp:528-570`) — and that pass belongs to the **A5** lowering, goal §3.1
-**step 5**, which D037 assigned to P2-C. The tail's pass set is disjoint from A5's (the only two
+**step 5**, which D037 assigned to P2-C. `ConvertHIVMToLLVM`'s ownership is disjoint — the only two
 `addPass(createConvertHIVMToLLVMPass…)` sites in the tree are `hivmc/A3/PassPipelineA3.cpp:64` and
-`hivmc/A5/PassPipelineA5.cpp:52`, and only the A5 one is reachable here).
+`hivmc/A5/PassPipelineA5.cpp:52`, and only the A5 one is reachable here.
+
+> **Corrected 2026-10-14 (D043/Q6).** This sentence previously read "the tail's pass set is disjoint
+> from A5's", which is **literally false**. Measured: `regbase/PassPipeline.cpp:293` **and**
+> `hivmc/A5/PassPipelineA5.cpp:53` both add `createLowerAffinePass()`, so `LowerAffine` is in both
+> sets. The narrow claim above is the one the cited evidence supports, and it is also the
+> load-bearing one: `ConvertHIVMToLLVM` ownership is what actually prevents duplicate lowering.
 
 **Consequence, applied to this file's own author:** by the rule above, **B1–B7 are NOT_RUN at P2-B**.
 The zeros measured over the whole raw stream are real measurements of a real stream — all 18
@@ -214,14 +222,29 @@ build; that manufactures evidence and would bypass §6.2's bitcode identity gate
 `--mlir-pass-statistics` (a real pass-manager channel, not a source grep) emits one report block per
 `runPipeline` call. At P2-B: block 1 = `LateInputVerifierPass`; block 2 = exactly **19** tail passes
 by class name in entry order, item-for-item with `p2-architecture.md` §3.1's corrected table and
-containing **none** of the four SIMT/DPX passes. It also confirms D-a at the **execution** level — the
-four sync-lock passes that ran are `Infer → LowerCreate → Mark → Free`, with no
-`BindSyncBlockLockArg` (`Prepare`-phase only) — where previously that absence rested on source
-structure alone.
+containing **none** of the four SIMT/DPX passes. It also shows the four sync-lock passes as
+`Infer → LowerCreate → Mark → Free`, with no `BindSyncBlockLockArg` (`Prepare`-phase only).
 
-**Its limits.** Presence and order are supported; the **absence** signal is **uncharacterised** (it is
-not known whether MLIR's statistics tree also names passes that were scheduled but not executed), so
-it may **not** carry section B's zeros and does **not** dissolve A11's `missing_lock`. It is **not**
-the channel the frozen suite reads (`run_p2_suite.py:733-735` records pass-statistics and explicitly
-never asserts on it), so it cannot repair D-b. It is recorded in `docs/decisions.md` D039 as a
-candidate **additive** instrument only, pending the Challenger's ruling; no row here was flipped by it.
+**Its limits — corrected 2026-10-14 (D043/Q6b), and the correction is stronger than the original
+caveat.** This channel measures **construction, not execution**. Measured in source:
+`PassStatistics.cpp:107-137` recursively prints every `pm.getPasses()` entry **regardless of whether
+it executed** (including passes whose statistics are empty); `Pass.cpp:883-892` dumps the statistics
+tree after `runPasses` **even when the run failed**; `Pass.cpp:592-594` stops execution at the first
+failure while **later entries remain printable**; and `Pass.cpp:516-530` runs the `Before`
+instrumentation **outside** the action callback, so a filter can suppress a pass's body while its
+name and header still appear. Therefore:
+- **Presence** establishes *scheduled-in-this-pipeline* only. It is **not** execution evidence, and
+  because a failed run still names later passes, the 19-name table must **not** be read as an
+  execution order.
+- **Absence** establishes *not constructed in the retained pipeline-mode tree*. That is the same
+  strength class as the header-based zero-claim, and it is still conditional: a pipeline-mode full
+  tree cannot by itself cover dynamically invoked pipelines, removed entries, other managers, or
+  complete-P2 E1–E5.
+- It therefore may **not** carry section B's zeros and does **not** dissolve A11's `missing_lock`,
+  and the phrase "at the execution level" is withdrawn from D039's account (see D043/Q6b).
+
+It is **not** the channel the frozen suite reads (`run_p2_suite.py:733-735` records pass-statistics
+and explicitly never asserts on it), so it cannot repair D-b. It is recorded in `docs/decisions.md`
+D039 as a candidate **additive** instrument only — and D043/Q6d **BLOCKS** a statistics-only
+*replacement* of the frozen acceptance while **APPROVING** it as supplementary corroboration; no row
+here was flipped by it.
