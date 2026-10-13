@@ -4219,3 +4219,19 @@ Challenger `review-2` 于 `2026-10-14T18:27:04Z` 给出书面裁定，已按其�
 3. **卡住的那条命令可以不要。** 冻结行 `t_a2`(`:540-570`) 已经在 **P2 二进制**上跑了**同一条普通路径回归**：`A2.cmd.txt` 即 `in-container.sh <stage-p2b>/bin/bishengir-compile tests/ordinary/ordinary_regbase_memcpy_f32.mlir --target Ascend950PR_9579 -o …/A2/kernel.o`，`A2.rc.txt` = **0**，`t_a2` 把输出与硬编码的前 P2 基线 `01fce255…`(`:553`) 比对，并注明这是"对前 P2 **普通路径**基线的回归断言……**不是**说冻结 Golden 的 Late/A5 ABI 由该 helper 产生"。所以字节同一性那一半**已由 Verifier 的冻结行在 P2 产物上确立**。实现者那条命令只多两点：换一个二进制（`stage-p2b-r1`）和一个 `late-route`/`P2-BOUNDARY` grep。⇒ 它**不在关键路径上**，且作为实现者自检**不是 §7 要求的独立证据**；它的标记那一半应当进冻结修正案、在最终 bundle 上跑（A2 那行本来就同时捕获 stdout 与 stderr，绑定二进制带上埋点后自然会带上标记）。**因此那条挂起的权限提示可以"拒绝"而不是"批准"**——拒绝即可让该 teammate 继续完成它的三项剩余交付（不改写地提交已批准的切点 · 用 `scripts/in-container.sh` 构建一次 · 暂存 · 归还 `build/bin`）。
 4. **回答 Challenger 的 D047 问题 B：按路径取基线是正确修法，且是纯配置改动。** `need_baseline`(`:194-212`) 本就从 `p2-bindings.json` 读任意 `(path, sha256)` 对，改基线是数据不是代码。C6 被 BLOCKED 的实因：`bishengir_opt.path` 指向**build 树内**（`…/AscendNPU-IR-1/build/bin/bishengir-opt`）却声明 P1 的 sha `0761c6e6…`，而磁盘上是 `4c31167b…`——**误绑**，BLOCKED 是这个误绑在正确地起作用。修法：把 `bishengir_opt.path` 指向 `lead/preserved-p1-compiler/bishengir-opt.0761c6e6`，sha 不变（该 bundle 刚在同一目录下 `sha256sum -c` 复核 **3/3 OK**）。这不会把该行挪离被测产物——**它从来没有测过 P2 编译器**：其自述是"Fixture self-check against the pinned $OPT"，其绑定注释写着该 opt"只用于 fixture 的解析校验（C 类标定），**绝不作为 P2 编译器的替代**"。按路径取基线是**修正出处**，不是削弱。
 5. **缺陷是三条路径，不是一条——补全 D046。** 仪器 `lead/scratch/binding-path-census.py`（sha256 `325c6bc9…`），输出 `binding-path-census.out.txt`（sha256 `304e217a…`）：冻结绑定中 **10** 条绝对路径里有 **3** 条落在 build 树内。(a) `bishengir_opt.path`——**活的阻断源**（C6），修法如上。(b) `baseline_pre_p2_compiler.path`——同样在 build 树内且现已不匹配（声明 `c6838fc0…`，磁盘 `ea217b8d…`），但**没有任何代码读这条路径**：`need_baseline(tid,"pre2")` 在整套里**没有任何调用点**，`t_d4` 的 (b) 段(`:1679-1686`)只读 `CFG.pre2` 的 **sha 字符串**去断言它不同于已绑定的 P2 身份。所以这是一个**开不了火的声明式身份**，对后来者是陷阱而非活阻断；修法同样是指向 `lead/preserved-p1-compiler/bishengir-compile.pre-p2.c6838fc0`。(c) `bitcode.p1_historical.path`（`…/build/lib/meta_op.aiv.c310.O2.bc`）——注释写明"仅比较、非验收身份"且 sha 目前仍匹配（`5e7ccae2…`），属潜在项。**推广**：冻结绑定里任何落在 build 树内的绝对路径，都是一条会被 P2 构建**确定性命中掠夺**的基线，无论它声明什么 sha——D046 点到的是实例，这里点的是类。
+
+### §24 追加 12（D049：§5 修正案的新运行器 `run_p2_suite_v3.py` **仍然**带着它要修的那个分隔符缺陷——changelog 声称的修复没有落到字面量上，2026-10-14）
+
+发现方式：把 v3 里的字面量用 `ast` 抽出来、打到**真实**的 header 字节上——不是读它的 changelog。
+
+- `verify/tests/scripts/run_p2_suite_v3.py`，sha256 `8699d6e122c7fb35be511fd9…`，79 927 B，mtime `2026-10-14 03:30:30`（写作中）。
+- 其头部 `:16-19` 写着："**1. DUMP_RE / DUMP_WITH_BODY_RE delimiter.** … v2 asked `\)\s*-+//` and matched 0 of 58 real headers … **Corrected form matches 58/58.**"
+- 但**实际发布的字面量仍是 v2 那个形状**：`:305` `DUMP_RE` 与 `:334` `DUMP_WITH_BODY_RE` 都仍以 `\)\s*-+//` 收尾。
+- 实测（把两个 pattern 从文件里 `ast` 抽出，打到 `logs-suite-p2b/A10.stderr` 的 **58** 条真实 header 行上）：**`DUMP_RE` 0/58，`DUMP_WITH_BODY_RE` 0/58**；只把尾部改成 `\)\s*//-+\s*//` 后为 **29/58**（仅 After，正确）与 **58/58**（Before|After，正确）。
+- 没有任何归一化：`parse_dump_bodies:347` 直接匹配原始 `ln`，全文仅有的两处 `.replace(`（`:527`、`:998`）与 header 无关。两个解析器都在使用中（`parse_pass_streams` `:732`/`:806`/`:853`；`parse_dump_bodies` `:761`），因此 **`positive_control_filter_off:790` 仍然开不了火**：记录集为空时它返回 `('inconclusive', "no pass printed an After header over an IR-unchanged interval (every paired pass changed the IR)")`——用一个空证据集断言了一个原因。
+
+**这是同一形状的第三次出现**：（i）v2 的 `DUMP_RE`，已被封存并准入；（ii）Verifier 的 `exercise_harness_literals.py`，其转写的 `suite_re` 被记成"**expect 0** — D-b"而不是被改正，即"把缺陷记录在本来该用来检验它的仪器里"；（iii）现在是 v3——**注释写下了正确的约定，下面的代码却保留着错的**，于是那条注释读起来就像一次修复。
+
+**可推广的规则（这也是本条记为决策而非笔误的原因）**：changelog 是**编写**出来的，不是**测量**出来的。当一份修正案列举"改了哪些"，每一项都必须在**封存时从发布出去的文件里**重新测量——`ast` 抽出字面量、打到真实字节上、记下 `N/M`。本条还回答了一个此前悬空的问题：该缺陷**挺过了一次有治理、逐条列明**的正确性修复修正案——因此修正案自身的准入需要和它所修复的行**同样的字面量检验证据**，而不是一张意图清单。
+
+**状态**：已当面报给 Verifier（要求改两处字面量、并把实测 `N/58` 写进修正案证据，而不是把"corrected form matches 58/58"当既有事实）。**v3 未封存；P2-B 重验不得以现状启动。** P2-B 整体仍为 BLOCKED。
