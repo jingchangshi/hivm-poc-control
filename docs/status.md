@@ -2713,3 +2713,27 @@ config↔pass-options 的**唯一**生成桥 `genConfigToOptions`（`ConfigsToOp
 `getNumOccurrences()` 回读与 `--help` 证明一并覆盖。若 Challenger 在 step 8 判需要执行级检查，则按**已关闭
 冻结的协议**走：显式声明为 correctness fix、作废 Implementor 契约、重新验证 —— 由我在该 gate 决定，
 `verify` 表示不会自行开启（正确）。
+
+### §2.1 安全论证提升为**实测 + 可证伪预测**；并发现第三条"静默忽略"之门（已界定）
+
+§2.1 此前的"单向桥"论证是读生成器源码得出的。本轮改为**在生成产物上核实**，并因此得到对验收门**可证伪的预测**：
+
+| 生成文件 | 实测（P2 前） | P2 构建后的预测 |
+|---|---|---|
+| `ConfigUtils.cpp.inc` | `inputIRStage`/`inputIRStageFlag` **0** 次；9 个 `GEN_<GROUP>_OPTION_SETUP` 守卫，体均为 `options.X = config.getX();` | 仍为 **0**（无 passGroup ⇒ 任何守卫块都不可能含它）。非 0 ⇒ 前提被证伪 |
+| `ConfigUtils.cpp.inc` | `GEN_PASS_OPTION_TO_CONFIG` **0** 次 | 仍为 **0** —— `regbase/PassPipeline.cpp:540` 的 `#define` **什么都不守卫**；**反向**（pass options → config）压根未生成，旁边的 `// TODO now` 是唯一痕迹 |
+| `PassOptions.cpp.inc` | （P2 前无 `InputIRStage`） | 每个定义 `GEN_ALL_OPTION_REGISTRATION` 的编译单元中**恰好 1 个**，合计 **2** |
+
+⇒ "没有任何路径把 pass-option 的值回写进 config"是**生成器的性质**，而非该选项组列表的性质；且这不仅靠读源码，
+而是在产物上有 0 计数支撑。
+
+**第三条门（已界定，非 P2 缺陷）**：`regbase::BiShengIRCompilePass::runOnOperation` 构造**默认**
+`BiShengIRCompileMainConfig`，并依赖那个**空操作**宏把 pass options 映射进 config ⇒ 该路径上**所有**选项都被
+同一机制忽略，在那里给 `--input-ir-stage=late-hivm` 会被静默忽略并跑普通管线。**这不是 P2 引入的回归**
+（该路径从来不映射 pass→config），而 Late 入口的既定范围是 compile 工具（§2.2 item 1）⇒ **不要求 P2-A 改动**。
+记录原因：§2.2 的最坏情形正是"Late 请求静默走普通管线"，这是 §2.2 **未列名**的第三条门。是否在范围内属
+§8 step 8 的 Challenger 待议项。
+
+同期确认：Implementor 的 `regbase/Driver.cpp` 改动把 `config.getInputIRStage() == kStageLate` 的提前返回放在
+`runRegBaseCompile` **首句**，与 §2.2 item 2 一致；`bishengir-compile.cpp`（`main`，§2.2 item 1 的 argv 扫描与
+`:114` 前的诊断）**尚未出现**在 dirty 列表 —— 属预期，仍在施工中。

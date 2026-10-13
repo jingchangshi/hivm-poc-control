@@ -155,6 +155,28 @@ What remains genuinely open is narrower than the paragraph above first stated: w
 pass-namespace declaration is reachable **from argv** at all, and the `--help` evidence for both
 namespaces. That is the obligation, and it is recorded rather than asserted.
 
+**Checked on the generated artifacts, not only in the generator source — and this yields a falsifiable
+prediction for the acceptance gate.** The three claims above were re-verified against the generated
+files in the current (pre-P2) build tree:
+
+| generated file | measured | prediction after the P2 build |
+|---|---|---|
+| `ConfigUtils.cpp.inc` | **0** occurrences of `inputIRStage` / `inputIRStageFlag`; 9 `GEN_<GROUP>_OPTION_SETUP` guards, each body an `options.X = config.getX();` | still **0** — the def is group-less, so no guarded block can contain it. A non-zero count means the option acquired a `passGroup` or the generator changed |
+| `ConfigUtils.cpp.inc` | **0** occurrences of `GEN_PASS_OPTION_TO_CONFIG` | still **0**. The `#define` at `regbase/PassPipeline.cpp:540` guards **nothing** today: the reverse direction (pass options → config) is not generated at all, and the `// TODO now` beside it is the only trace of it. So "no path copies a pass-option value back into the config" is a property of the *generator*, not of this option's group list |
+| `PassOptions.cpp.inc` | (pre-P2: no `InputIRStage`) | exactly **one** `Pass::Option<std::string> inputIRStage` per translation unit that defines `GEN_ALL_OPTION_REGISTRATION` — two in total |
+
+**A bounded consequence on the pass route, recorded now because it is the same "silent ignore" family
+as §2.2's two doors.** `regbase::BiShengIRCompilePass::runOnOperation` builds a **default-constructed**
+`BiShengIRCompileMainConfig` and relies on `GEN_PASS_OPTION_TO_CONFIG` to map pass options into it —
+which, per the table, is a **no-op macro guarding nothing**. So on that route *every* option is ignored
+by the same mechanism, and a `--input-ir-stage=late-hivm` supplied there would be silently ignored and
+run ordinary. This is **not a P2 regression** — the route ignores all pass→config mapping and did so
+before P2 — and the Late entry's declared scope is the compile tool (§2.2 item 1), so no P2-A change is
+implied. It is recorded because §2.2's worst case is "a Late request silently running the ordinary
+pipeline", and this is a third door to it that §2.2 does not name. Whether the pass route is in scope
+for the Late stage selector is a question for the Challenger at §8 step 8, not an implementation
+requirement here.
+
 The flag is therefore **`--input-ir-stage=late-hivm`**, exactly the goal's example. The default `hir`
 makes the option's absence byte-for-byte the old behaviour. Any value other than `hir` or `late-hivm`
 is a hard error at the entry (§4.1.9 requires that an ordinary request is untouched, and a typo must
