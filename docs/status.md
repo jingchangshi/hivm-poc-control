@@ -2916,3 +2916,252 @@ P2-B/P2-C 落地后转为强制。
 （`cd stage-p2a && sha256sum -c ../stage-p2a-SHA256SUMS.txt`）为 **4/4 OK**。**我本人先读成了"包损坏"**，随后才发现是基准问题 ——
 与我在 P1 保留件上犯的同类错误。已请其把清单移入 `stage-p2a/`（与 `lead/preserved-p1-compiler/SHA256SUMS.txt` 一致），
 并已即时提醒 Verifier：**`sha256sum -c` 的结论必须连同清单基准目录一并记录**，因为"路径错"与"哈希不符"在该输出里无法区分。
+
+### 10. 暂存清单基准缺陷已修复 + 绑定期身份不变（Lead，2026-10-13T15:22Z）
+
+**Implementor 已按请求把清单移入其基准目录**，并把"基准"写成文件自身的一部分（这是一条记录纪律，不只是搬文件）：
+
+- 旧路径 `impl/stage-p2a-SHA256SUMS.txt` —— **已不存在**；
+- 新路径 `impl/stage-p2a/SHA256SUMS.txt`（928 B，基准 = 其自身所在目录，头部注释明写
+  `cd stage-p2a && sha256sum -c SHA256SUMS.txt`，并注明"错误的 cwd 打印 `FAILED open or read`，
+  与哈希不符无法区分"）。
+
+**我在绑定仍在进行时复算，四个身份逐字节未变**（这是要点：绑定期不得重构建/重暂存，否则 Verifier 的绑定对象就失效了）：
+
+```
+cd impl/stage-p2a && sha256sum -c SHA256SUMS.txt   ->  4/4 OK
+2bf961bf80f99e7690f1def6bc7f6165bfe557404ebbd39fb81170f1ad2444c2  bin/bishengir-compile
+179788df75f07ca19b301eef7d787992eed428c78787914c2e92256ed1beb0cb  bin/bishengir-opt
+5e7ccae20f4e2a1887d1bdd87f787ea97f2732f7564a67013e737a163482fb42  lib/meta_op.aiv.c310.O2.bc
+0a34be8759a082d2b446e5369455d20c26d432eea19a5ca516c0e189ddafc258  lib/meta_op.aiv.c310.O0.bc
+```
+
+容器侧同时确认**本树无任何 `ninja` / `cc1plus` / `bishengir` 进程在跑**（唯一在跑的构建属于他人树），
+故"一个构建目录同一时刻只有一个构建"与"绑定期不重构建"两条同时成立。
+
+**已即时告知 Verifier 该路径变更**（其脚本/笔记若仍引用旧路径，现在会读失败，而不是哈希不符），并附上四个身份值。
+**同时向 Verifier 指出一个证据缺口**：`impl/scratch/late-trace.log`（Implementor 自有）只证明了 9 个 pinned 选项
+`occurrences=1 echo=1` 与 `:540` 的 fail-closed 行，**不含 pass 流**，因此判别式的"preflight 真的跑过"这一半
+目前在盘上无证据；`:540` 一行无法区分"preflight 跑过并通过"与"`runPipeline` 静默什么都没做"。
+`--print-pass-id` 在暂存编译器上是**真实存在的旗标**（`lead/p2a-admission/help-staged-compile.txt:30`），
+故要求验收运行带该插桩并记录 `hivm-verify-late-input` 出现在拒绝行之前 —— 这正是让周边 NOT_RUN 成为**正当范围裁定**
+而非规避的东西。
+
+### 11. 第三种 grep 陷阱经复核确认为**生成器固有行为**（非 P2-A 产物）—— Lead 独立复算（2026-10-13T15:2xZ）
+
+Implementor 提出异议：裸名计数为 2 不是 P2 引入的，而是 TableGen 生成器对**该表面上每个选项**都这样发。
+**我没有采信其转述，而是在一个完全不含 P2 代码的树上独立复算**：
+
+| 复算项 | 实测 |
+|---|---|
+| 参照树（只读） | `/home/y00897153/workspace/tilelang-mlir-ascend/3rdparty/AscendNPU-IR-Dev/build/…/CompileOptions.cpp.inc`，52,204 B，**mtime `2026-09-11T04:06`**（早于 P2 约一个月） |
+| 该树既有选项的裸名计数 | `grep -c appendBishengOptions` → **2** |
+| 两行原文 | `:8` `static llvm::cl::opt<std::string, /*ExternalStorage=*/true> appendBishengOptions(`；`:11` `,llvm::cl::location(appendBishengOptionsFlag)` |
+
+**结论（已写入 `p2-architecture.md` §2.1 的陷阱清单，并把标题"两个陷阱"更正为"三个"）**：倍增是**生成器**对
+该表面的固有行为，**任何年代的任何构建（含 P1 钉定件）皆然**。因此验收断言**必须**以
+`llvm::cl::opt<…>` / `Pass::Option<…>` **声明**、或带引号拼写 `"input-ir-stage"`（实测恰好 1）为准；
+**以裸名计数并要求 1 的检查会在正确构建上误报 BLOCK** —— 这正是本项要防的假 BLOCK。
+
+**暂存包复核（同一时刻，绑定仍在进行）**：新清单 `impl/stage-p2a/SHA256SUMS.txt` sha256
+`6d1d4a06d64c50823fbf938105aef7c4a6d33d8d26ba6531a9de102f85de033f`（与 Implementor 自报一致），
+全 `impl/` 下**无残留旧清单**；`cd impl/stage-p2a && sha256sum -c SHA256SUMS.txt` → **4/4 OK**。
+**四行摘要与旧 358 B 版本逐行一致**（旧版我在本会话中已完整读过，两相对照即为独立确认），故这次搬迁是**保内容的**。
+
+---
+
+## P2-A 验收裁定：**不接受（1 个真实 FAIL，1 个已披露的假绿），授权定向修复第 1 次**（Lead，2026-10-13T15:4xZ）
+
+Verifier 的 P2-A 验收已落地（绑定时刻 `2026-10-13T15:24:48Z`）。**我从盘上独立复算了其每一条裁定，不采信其转述**，
+结论：**P2-A 不予接受**。这不是流程形式，而是冻结测试集抓到了一个**载荷性设计偏离**。
+
+### 1. 我独立复算通过的部分（这些确实成立）
+
+| 项 | 我的复算 |
+|---|---|
+| 绑定 | `p2_compiler` = 暂存 `2bf961bf…`；`late_stage_flag` = `--input-ir-stage=late-hivm`；O2 = `5e7ccae2…`（**与 P1 历史钉逐字节相同** ⇒ "P2 未重生成模板"由假设升级为事实）；**O0 保持 null**；基线 `c6838fc0…` 与 P1 opt `0761c6e6…` 未被覆盖 |
+| 判别式（**直接证据，非间接**） | stdout `[PassID] hivm-verify-late-input/module/0`；stderr `:2` `IR Dump Before … LateInputVerifierPass (hivm-verify-late-input)`，`:48` `IR Dump After …`（**全文件 `Failed` 出现 0 次**），`:95` pass statistics，`:99` **唯一** `[ERROR]` = `:544` 那段 P2-A stub；`:487`/`:511` 的诊断均未出现 |
+| 判别式所示输入 | 即 golden Late 输入本身：`hivm.module_core_type<AIV>`、三参数 `memref<524288xf32, gm>`、`dyn_shared_memory_buf = 196608`、UB pointer_cast 基址 `0/65536/131072`、四个 set/wait、store 带 `{l2_cache_mode = 4 : i32}`、末尾 `pipe_barrier[<PIPE_ALL>]` |
+| 三面 grep（重生成树上） | ConfigUtils 8869 B **mtime 仍 2026-10-09**（从未重生成）；PassOptions 277 `Pass::Option<`（276+1），`^inputIRStage` 恰 1（`:1193`，在 `GEN_ALL` 441–1675 内、不在任何 group 块内），单行错误锚点得 0（多行陷阱成立）；CompileOptions `"input-ir-stage"` 恰 1（`:742`），裸名 2（陷阱 (c)） |
+| 运行时指纹 | 暂存 compile **1**（`:80` 顶层）/ 暂存 opt **2**（`:258`,`:517`）/ P1 opt **0** |
+| 作用域套件 | `23 PASS / 1 FAIL / 0 BLOCKED / 0 NOT_RUN`（`work/p2a-acceptance/suite-summary.json`，utc `15:28:29Z`）—— 与 §3 范围裁定一致，**A1/A10–A15/C1–C5,C7+/D1–D11 全部 NOT_RUN 且非 PASS** |
+| golden 里 `UB_SIZE` 与 `dyn_shared_memory_buf` 并存 | 判别式 dump 中二者**同时出现且各自正确**（`UB_SIZE 2031616 : i32` 属 target_system_spec；`dyn_shared_memory_buf = 196608` 属 entry）⇒ goal §4.2 line 161 的混淆在当前记录里**未发生** |
+
+### 2. 真实缺陷：**B2 FAIL**，根因是 V7 未实现 `cache4` 合取项（Implementor 侧）
+
+我复算了 B2 的日志（`verify/logs/suite/B2.stderr`，48 行）：
+
+- `:2` 是 `IR Dump After … LateInputVerifierPass` —— 该 pass **跑完且未失败**；
+- `:25` 的 store 是 `outs(%subview_1 …)`，**完全没有** `l2_cache_mode` 属性；
+- 全文件**没有任何** `Late input validation` 行；**唯一** `[ERROR]` 是 `:48` 的 `:544` stub。
+
+对照 B4（同类但形状缺陷）：`:2`/`:3` 有两条真实诊断
+`Late input validation V6 (geometry/sync) FAILED: …` 与 `Late input validation V7 (store cache/DMA subset) FAILED: unsupported DMA layout …`，
+`:52` 为 `[ERROR] Late mode: input validation failed`。**故 V7 确实存在且会触发** —— 它只覆盖 DMA 形状那一半。
+
+**并已定位到源码层面的刻意决定**（`regbase/LateInputVerifier.cpp:854-858`）：
+
+```
+// V7 is the narrower Late-mode DMA-shape gate and deliberately DOES NOT
+// require the value 4 (an explicit 0 and an absent carrier are both legal
+// inputs on this path).
+```
+
+这**违反已接受的设计** `p2-architecture.md` §2.4（V7 的断言原文即 "`l2_cache_mode = 4 : i32` on the
+entry's single store"），也违反 goal §6.2（"cache4 未被 cache0 取代"）与 D025/D031 的整条谱系 ——
+那条谱系存在的全部理由就是 cache-4 载体是**载荷性**属性。`StoreOp` verifier 的合法值集是 `{0,1,2,4}`
+（**0 在其中**），故"op verifier 已挡住"不成立：它挡不住"降到 0"。
+
+**且该偏离未被上报**：`impl/P2A-REPORT.md` 对 V7 只有一行"V1–V7 checks"，全文未出现该决定。
+即：偏离写在代码注释里，**不是**写给我的；是冻结测试集抓到的，不是自查报的。
+
+### 3. B1 的 PASS 是**假绿**（Verifier 主动披露，未改 oracle —— 处置正确）
+
+`verify/logs/suite/B1.stderr` 我逐行读过：`.rc=1`，`l2_cache` 出现在 `:25`，而该行是
+`--mlir-print-ir-after-all` 的 **IR dump 正文**（`{l2_cache_mode = 0 : i32}`），**不是**校验器诊断；
+全文件 `Late input validation` 行数为 0，唯一 `[ERROR]` 仍是 `:48` 的 stub。故 B1 记录的 PASS
+**即使 V7 从未运行也会 PASS** —— 与 P1 的 `B8.CACHE4` 属同一类 oracle 弱点：key 搜索可被 dump 正文满足。
+
+**处置**：Verifier **没有**事后编辑 sealed 断言（那正是被禁止的"失败后加强 oracle"），而是把它作为
+生产侧发现上报。**我裁定：B1 的冻结裁定不作为任何验收证据**，且**不得**为了修它去动 sealed 测试集；
+修复后必须用**判别性补充探针**证明捕获是语义的（见下 §5）。
+
+### 4. 我自己的文档是这次偏离的**促成条件**，已修正
+
+§2.4 原句"V7 is the *narrower* Late-mode gate"中的 "narrower" 可被读成"范围更窄 ⇒ 只管 DMA 形状"。
+**这是我文档的歧义，不是 Implementor 的凭空发明。** 已在 §2.4 就地补一段显式消歧：V7 有**两个**合取项
+（载体存在且**恰为 4** 且类型 `i32`；DMA 形状），"narrower" 仅指比 `StoreOp` verifier 多挡形状，
+**不**指只挡形状，并写明 `verifyStoreCacheMode` 同样不提供该合取项。
+
+### 5. 裁定与授权
+
+- **P2-A = 不接受**（NOT ACCEPTED）。理由：V7 缺失载荷性合取项，导致 goal §6.2 的 cache4 证据链在 P2-A 这一环无门可守。
+- **授权定向修复第 1 次**（CLAUDE.md：同一根因最多两次定向修复后必须由 Challenger 独立复核）。
+- **不得**以"B2 是作用域产物"为由豁免 —— 已核：同批 B4–B11 拿到了真实诊断，证明 preflight 跑过且有机会触发，B2 是"错因拒绝"而非"rc≠0"。
+- **不得**修改任何测试/夹具/sealed 套件；**不得**触碰 P1 保留件、D031 的 compiler pin、以及 `build/bin` 的 P1 身份。
+- 修复通过后由 Verifier 重新绑定**新**构建的身份并重跑作用域套件；被取代的 `2bf961bf…` 须在身份清单中**留痕**（不得静默替换）。
+- 若 Implementor 仍不同意该方向，**回给我裁决**，不得自行按原读法再次实现。
+- 若修复第 1 次仍 FAIL，**立即唤醒 Challenger**（属"focused hard failure"），不再自行尝试第 2 次。
+
+### 12. 修复进行中 + 我自己的指令歧义已更正（Lead，2026-10-13T15:50Z）
+
+**修复已开工**：`bishengir/lib/Tools/bishengir-compile/regbase/LateInputVerifier.cpp` 工作树为 `M`（mtime `23:43:53`），新合取项文本已在（`:861` "carry l2_cache_mode, its value must be exactly 4, and its type must be i32"；`:890` "but the Late contract requires exactly 4"），而原先把该行为写成"刻意不要求"的注释已不再匹配。
+
+**我自己的指令歧义（同类问题的第 N 次，记下来）**：修复简报里我写了 "no touching … `build/bin`'s restored P1 identity"，
+但**修复本身必然要重构建**，因此按字面读会自相矛盾。已即时更正为"**不得让 `build/bin` 停留在未钉定状态**"，
+并明确重复 `p2-architecture.md` §3.3 的 G1–G4（该规则本身就写了"若 P2 构建被重跑，步骤 3–4 连同守卫一并重复"）：
+
+- G1 显式重构建**两个**目标（`bishengir-opt` 与 `bishengir-compile` 是不同 link 边，不得指望 Ninja 自己发现）；
+- G3 校验暂存包哈希 **且** `bishengir-opt --help` 仍列出 `--hivm-verify-late-input`；
+- G4 冻结新的完整 `bin/`+`lib/` 暂存包；
+- **受守卫的还原**须以 **G2 回拨 mtime** 的方式重做：`build/bin/bishengir-compile` → `c6838fc0…`、
+  `build/bin/bishengir-opt` → `0761c6e6…`，并留存守卫产物。
+
+**为何这是载荷性的而非仪式性的**：`c6838fc0…` 正是 **A2 的普通路径字节同一性回归**所比对的 `baseline_pre_p2_compiler`，
+且 Verifier 在本次验收中刚复验过该钉。它一旦漂移，A2 那条本来干净的结果就作废。
+
+**另有一点交办**：若修复**重生成**了 `meta_op.aiv.c310.O2.bc`，新值应记为 P2 自身身份而**不得**顶掉 P1 钉那一行 ——
+驱动层改动本不应重生成模板，故若真的重生成，此事本身要在报告中单列一行。`docs/p2-binary-abi.md` §0
+已开设"被取代身份须留痕"表，`2bf961bf…` 为第一行，后继项待 Implementor 报告后填入。
+
+**Verifier 侧**：已于 `15:41` 转 idle，其三条消息与我的裁定在途中交错（不影响裁定）。已请其**待命**，
+并重申三条承重项：B2 翻成带点名 V7 诊断的 PASS；撤掉 `--mlir-print-ir-after-all` 的 dump-抑制探针
+（`b01`/`b02`）以证明捕获是语义的；B4 诊断措辞不变且 V6 仍触发。
+
+### 13. 复验计划补丁：**冻结套件里没有正例能发现"V7 开始全拒"**（Lead，2026-10-13T15:5xZ）
+
+我在给 Verifier 的复验计划里漏了一条，**这是我自己的疏漏，已即时补上并记为我的遗漏**：
+
+**修复后必须重跑判别式，确认 V1–V7 仍然"接受" golden Late 输入。**
+
+理由是结构性的：**B 行全是负例**，而唯一的冻结正例 A1（Late 正向编译期望 rc=0/ELF）因 P2-A 在 `:544` 刻意封闭而为 NOT_RUN。
+因此修复之后，**冻结套件里没有任何一条能察觉"V7 变成了见谁拒谁"** —— 而这种修复会把 B2 与 B1 一起翻绿，看起来像干净的修复。
+判别式是唯一能区分"V7 现在强制了载体合取项"与"V7 现在连合法输入也拒"的仪器，而它是我下令的探针、不是冻结行，
+所以第二轮最容易漏掉。
+
+修后须在报告中并列两半：
+
+| 输入 | 必须结果 |
+|---|---|
+| `vadd_late_p1v2.mlir`（golden，含 `l2_cache_mode = 4 : i32`） | preflight **接受** —— PassID + After dump 头部非 `Failed` + 无校验器行；rc=1 只来自 `:544` |
+| `b01_cache0.mlir`（值 0，撤 dump） | 被**点名的 V7 诊断**拒绝 |
+| `b02_cache_carrier_deleted.mlir`（缺失，撤 dump） | 被**点名的 V7 诊断**拒绝 |
+
+**若 golden 输入开始被拒，那是修复的 FAIL，不是更严格的 PASS** —— 必须照实报，不得报成 B2 转绿。
+"靠打破正例来抓住负例"正是这个配对要防的失效模式。
+
+### 14. 修复的暂存与提交纪律（Lead 裁定，2026-10-13T16:0xZ）
+
+Verifier 提出了一个不该由它自己决定的问题：修复重暂存时，旧的 `2bf961bf…` 包是**留盘**还是**原地替换**。
+我裁定如下，并已同时告知两侧以免分叉：
+
+**（1）新开目录 `impl/stage-p2a-r1/`，旧目录 `impl/stage-p2a/` 逐字节原样保留（含其 `SHA256SUMS.txt`）。**
+理由：Verifier 的绑定与报告针对的就是 `2bf961bf…`，且 D034 正是把该身份记作"产生 B2 FAIL 的那个"；
+原地覆盖会让我的裁定引用到**已不存在的字节**。故无需快照，两侧并列引用即可。
+
+**（2）修复是 follow-up commit，绝不 amend。** `ddc212e299f4493cc1ed8fa8a24cb6c9408e42b6` 是**经评审并已被否决**的状态，
+不是草稿：它已在身份清单里，且有验收报告引用它。重写会让那个 sha 变成孤儿。
+故在同一条本地分支上追加第二个 commit（message 写明是 D034 修复第 1 次：V7 载体合取项），**仍不 push、仍无 upstream**。
+
+**一般化规则（本项目已有此规则，此处显式写到"修复/提交"这一层）**：**被取代的身份一律保留、不做垃圾回收** ——
+与 P1 钉存活的原因同一条。这正是 `p2-binary-abi.md` §0 新表所记的东西，只是从"文件"扩展到"提交与目录"。
+
+另：Verifier 已把复验清单持久化到 `…/memory/p2a-not-accepted-reverify-plan.md`（跨上下文丢失仍存活），
+并主动承诺"若 B2 仍失败、或通过的理由不是点名的 V7 行，则再次 NOT ACCEPTED，**不会拿它与其余 23 条平均**"。
+该纪律我明确背书：23/24 的通过计数**不是**裁定。若第 1 次修复失败，唤醒 Challenger 是**我的**决定 —— 它只报告失败并停下，
+不得自行软化、不得自行开始提修复方案。
+
+### 15. 修复第 1 次落地与 Lead 的独立初核（2026-10-13T23:5x +08 / 15:5xZ）
+
+实现者在 `feat/tilelang-hivm-late-pipeline` 上追加 **`cfaa59677a8b63587140ab271d56db9e22c593ab`**
+（"P2-A repair 1 (D034): V7 must enforce the cache-4 carrier conjunct"），单文件 `+45/−9`，
+**follow-up，未 amend** `ddc212e2…`，仍无 upstream、未 push。构建是增量的：只重编 `LateInputVerifier.cpp.o`
+与两个可执行文件的链接，**没有任何 `.inc` 被重生成** —— 与"仅改 `.cpp`"的说法一致。
+
+**新身份（Lead 亲自从正确 base 复算，仅供定位；验收以 Verifier 的测量为准）：**
+
+| 角色 | SHA-256 | 状态 |
+|---|---|---|
+| `stage-p2a-r1/bin/bishengir-compile` | `1a3f20f80d73908ce0b081608bb2af7132254261fd15f5d213e939d206df7c36` | 新的活动身份 |
+| `stage-p2a-r1/bin/bishengir-opt` | `81bc93d43f37db34f33ae44f3b67ba71e9efd6bfb8a979da3715439a2d9c8b03` | 同上 |
+| `lib/meta_op.aiv.c310.O2.bc` | `5e7ccae2…`（**未变**） | 仍为唯一被绑定的 bitcode |
+| `lib/meta_op.aiv.c310.O0.bc` | `0a34be87…`（**未变**） | 仍不绑定 |
+
+**这一条把一个先前悬着的问题就此关闭**：`p2-binary-abi.md` §0 曾写"若修复重生成 O2 `5e7ccae2…`，
+则新值须记作 P2 自己的身份、且不得挤掉 P1 钉的那一行"。**实测未重生成**（两个模板与旧包逐字节相同），
+故该分支未触发；O2 的"P1 历史钉"与"P2-A-r1 活动身份"仍是同一串字节，记录无需分叉。
+
+**Lead 的独立初核（性质：定位与去风险，非验收；验收证据归 Verifier）：**
+
+- 两个包**各自以自身为 base** 校验均 **4/4 OK**（`cd impl/stage-p2a-r1 && sha256sum -c SHA256SUMS.txt`；
+  旧包同法）。旧包另加 `SUPERSEDED.md`，说明它**不是**记录物，且其清单对这四个文件仍内部自洽。
+- `build/bin` 已回到 `c6838fc0a175ec6bb05214780a2a3e99ab478285620996dd5bea4c69f26aabe9`（mtime `13:46:21`）
+  与 `0761c6e662ee015e30425ee29e0c2314753aa356b21eb4119ff99747327a1977`（mtime `14:46:23`）——
+  **mtime 就是原来那两个**，说明 G2 的回溯生效、Ninja 不会把它当作"当前"。A2 依赖该基线钉。
+- 容器 `s00653124_tilelang` 内**无构建进程在跑**，串行化规则未被破坏。
+
+**实现者自报的运行（`impl/scratch/r1-probes/`）只作定位，不作证据。** 其内容为：
+`b01_cache0`（值 0）与 `b02_cache_carrier_deleted`（缺失）在**撤掉 `--mlir-print-ir-after-all`** 的条件下
+均 rc=1，且 stderr 是被**点名的 V7 诊断**（"l2_cache_mode = 0 but the Late contract requires exactly 4"、
+"the entry's single store carries no l2_cache_mode attribute"）。撤 dump 后仍能匹配，说明拒绝是语义的。
+但这是**实现者自跑**，按本项目规则**不能**充当验收证据；Verifier 必须以自己的脚本重跑。
+
+**复验已派发**，绑定 `impl/stage-p2a-r1/`，清单九条（B2 转绿为验收承载行、撤 dump 探针、
+**判别器必须仍接受 golden** 这一正例半边、B4 措辞、三个生成面 + `--help` 指纹、A2 基线钉、
+NOT_RUN 保持、B1 oracle 弱点记为长期限制、新清单自述 base）。日志写入 `verify/work/p2a-acceptance-r1/`，
+使第一次（被否决的）运行保持可重建。
+
+**并发中的设计复核 —— 以及我在本次自查里先写错、随后更正的一件事。** 我在 Gate 3 关闭后改过
+`p2-architecture.md`，故请 Challenger 做一次**窄范围**确认（V7 载体合取项是否是正确的契约；修复简报是否过/欠规定）。
+给它的**第一版简报把前提写错了**：我说"§2.4 是 APPROVE 之后唯一落地的改动"。实测不成立 ——
+以 `git log --date-order 6571851..HEAD -- docs/p2-architecture.md` 计，APPROVE 记录（`6571851`，21:43）之后
+共有 **8 个 commit** 触碰该文件；其中 3 个（`f7fc1e7`/`a54c907`/`094c730`，21:48–21:50）已由
+**`1e6e686`"record the post-edit re-affirmation of the gate-3 APPROVE"** 覆盖，而**其余 5 个没有再次确认的记录**
+（`3349809`/`236c295`/`b258664`/`e4d7f1c`/`d6b02cf`，22:30–23:17；`git diff --stat 1e6e686 -- docs/p2-architecture.md`
+→ **148 插入 / 17 删除**）。我已发出更正，并把问题拆成 (1a) 那 5 个 commit 是否改动过已批准的要求（我的判断：
+是"已批准信封之内"的证据与勘误记录，因为它们**收窄**论断、改正数字），与 (1b) 我的 §2.4 消歧（32 插入 / 1 删除，
+六个改动里**唯一**触及契约的那个）。
+
+**门禁状态：验收在 Challenger 的设计确认回来之前不关闭。** 即便 B2 按点名的 V7 行转绿，
+P2-A 的接受也是"**以设计承认为条件**"的，不得先行宣告通过。
+P2-B 未开始；除 P2-A 验收子集外**每一行执行证据仍是 NOT_RUN**；未 push；`hivm-poc-evidence/` 仍为本地独占。

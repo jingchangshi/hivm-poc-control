@@ -29,6 +29,31 @@ Two rules hold for every row: **the value is recorded for a file the run actuall
 **a hash copied from a document is not evidence** — it is re-measured at acceptance and the mismatch is
 reported, never smoothed over.
 
+**Superseded staged identities are retained, never overwritten** (rule added 2026-10-13, D034). A staged
+bundle that has been bound and reported against by the Verifier keeps its hash in this inventory even
+after it is replaced, so the identity a completed verification actually consumed stays reconstructible:
+
+| superseded identity | what it was | bound and reported by | superseded by |
+|---|---|---|---|
+| `bishengir-compile` `2bf961bf80f99e7690f1def6bc7f6165bfe557404ebbd39fb81170f1ad2444c2` | the P2-A entry-only build (`ddc212e2…`), staged as `impl/stage-p2a/bin/bishengir-compile` | the Verifier's P2-A acceptance at `2026-10-13T15:24:48Z` (`p2-verification.md` §0.6) — **NOT ACCEPTED**, one real FAIL (`§0.7`, B2) | the repair-1 build `1a3f20f80d73908ce0b081608bb2af7132254261fd15f5d213e939d206df7c36`, staged as `impl/stage-p2a-r1/bin/bishengir-compile` (build-tree commit `cfaa5967…`) — **landed, awaiting re-verification** |
+
+Its companion `bishengir-opt` `179788df75f07ca19b301eef7d787992eed428c78787914c2e92256ed1beb0cb` is
+superseded by `81bc93d43f37db34f33ae44f3b67ba71e9efd6bfb8a979da3715439a2d9c8b03` in the same
+`stage-p2a-r1/` bundle.
+
+**The templates were *not* regenerated — this row's contingency did not fire (measured 2026-10-13).** An
+earlier version of this paragraph said that O2 `5e7ccae2…` is **also** the P1 historical pin, so *if* the
+repair regenerated it the new value would have to be recorded as P2's own identity without displacing the
+P1 pin's row. Measured on the r1 bundle, **both `lib/meta_op.aiv.c310.O2.bc` and `…O0.bc` are
+byte-identical to the superseded bundle's** (`cd impl/stage-p2a-r1 && sha256sum -c SHA256SUMS.txt`
+→ 4/4, with O2 still `5e7ccae2…` and O0 still `0a34be87…`). The repair is a `.cpp`-only change and the
+incremental build log confirms it: one object file recompiled, two executables relinked, **no `.inc` and
+no template bitcode rewritten**. So O2's "P1 historical pin" and "live P2-A-r1 identity" remain the same
+bytes and the two claims do not need to be split here. Had they differed, the split would have been
+mandatory — the two are different claims about possibly the same bytes, and this record must never
+collapse them. Both bundles verify 4/4 **from their own bases**; the superseded one carries a
+`SUPERSEDED.md` and is not the artifact of record.
+
 ## A. Build identity (goal §6.1)
 
 | # | field | value | status |

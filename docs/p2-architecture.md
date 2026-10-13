@@ -174,7 +174,7 @@ fingerprint `InputIRStage` is predicted to have, exhibited by an option already 
 acceptance can compare against a known-good twin instead of against a forecast, and the `std::string`
 storage type matches exactly.
 
-**Two traps in turning that table into a grep, both of which would produce a false verdict.** *(a) The
+**Three traps in turning that table into a grep, any of which would produce a false verdict.** *(a) The
 emitted declaration is multi-line* — `Pass::Option<std::string>` ends one line and `inputIRStage{`
 begins the next (and the `CompileOptions.cpp.inc` form likewise puts the type on the `static
 llvm::cl::opt<…>` line and the spelling and `cl::location` on the following lines). A single-line
@@ -193,6 +193,19 @@ Anchor on the spelling `"input-ir-stage"` (one) or on the `static llvm::cl::opt<
 declaration shape, never on the bare name. Note this trap applies **only** to
 `CompileOptions.cpp.inc`: `PassOptions.cpp.inc` uses `Pass::Option`, which has no `Flag` form, so its
 bare-name count is already 1.
+
+**Trap (c) is pre-existing generator behaviour, not a P2-A artifact — measured against a pre-P2 build,
+so a bare-name count of 2 must never BLOCK.** The implementor raised the objection and the Lead
+independently re-measured it on a tree that contains **no P2 code at all**: the read-only reference
+tree `/home/y00897153/workspace/tilelang-mlir-ascend/3rdparty/AscendNPU-IR-Dev/build/…/CompileOptions.cpp.inc`
+(52,204 B, mtime **2026-09-11T04:06**, i.e. a month before P2) has `appendBishengOptions` declared at
+`:8` as `static llvm::cl::opt<std::string, /*ExternalStorage=*/true> appendBishengOptions(` with
+`,llvm::cl::location(appendBishengOptionsFlag)` at `:11`, and `grep -c appendBishengOptions` → **2**.
+So the doubling is what the TableGen generator emits for *every* option on this surface, in any build,
+P1 pinned included. The consequence is the one that matters for acceptance: a check that counts the
+bare name and demands 1 would fire BLOCK on a **correct** build of either era, so the assertion must
+count the `llvm::cl::opt<…>` / `Pass::Option<…>` **declaration**, or the quoted spelling
+`"input-ir-stage"` (measured: exactly one).
 
 **A bounded consequence on the pass route, recorded now because it is the same "silent ignore" family
 as §2.2's two doors.** `regbase::BiShengIRCompilePass::runOnOperation` builds a **default-constructed**
@@ -491,6 +504,24 @@ in this order:
 V7 is where "cache4 符合 D012 已批准的保守 DMA 子集" (§4.2) becomes executable. Any value other than
 0/1/2/4 is already rejected by the `StoreOp` verifier added in D012; V7 is the *narrower* Late-mode
 gate.
+
+**What "narrower" does and does not mean — disambiguated 2026-10-13 (Lead), because the accepted P2-A
+implementation read it the other way and the frozen suite caught the consequence (B2 FAIL).** V7 has
+**two** conjuncts and both are V7's:
+
+1. **the carrier conjunct** — the entry's single store carries `l2_cache_mode`, its value is **exactly
+   4**, and its type is `i32`. An **absent** carrier and an explicit **`0`** are *both* V7 failures.
+2. **the DMA-shape conjunct** — that same store lies in the D012-approved conservative subset.
+
+"Narrower" means V7 is narrower than *the `StoreOp` verifier* only in the sense that V7 additionally
+rejects DMA shapes the op verifier permits. It does **not** mean V7 checks only the shape. The
+`StoreOp` verifier's value set is `{0,1,2,4}` — **0 is a value it accepts**, so a module the op
+verifier passes can still be a Late input that has silently lost the cache-4 carrier. That case is
+exactly what the goal's §6.2 evidence chain ("cache4 未被 cache0 取代") and the whole D025/D031 lineage
+exist to prevent, so it cannot be left to a verifier whose legal set includes 0. Requiring the value
+and the presence at the entry is therefore not redundant with D012 — it is the only gate on this path
+that catches degradation. `verifyStoreCacheMode` (§7 below) is likewise a shape/subset predicate and
+does not supply the conjunct.
 
 **V7 reads the parsed op, never the artifact's comments — the two disagree, and that is already on
 record.** The frozen artifact's header (`:25`,`:27`) and its inline note (`:184-188`) assert the
