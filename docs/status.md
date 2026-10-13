@@ -4300,3 +4300,31 @@ Challenger `review-2` 于 `2026-10-14T18:27:04Z` 给出书面裁定，已按其�
 `stage-p2b-r1` 是一套**完整**的分阶段产物：`bin/` 两个可执行、`lib/` 两个模板 bitcode，`SHA256SUMS.txt` 在**它自己的目录**下 `sha256sum -c` 得 **4/4 OK**；其 manifest 自述"相对 stage-p2b 的 delta 只有携带边界日志的那四个文件"。二进制 mtime `01:00:24` 晚于四个源文件的 `00:52–00:53`，即该二进制确实由当前 dirty 源构建；`impl/scratch/p2b-r1-build.log` 尾行 `NINJA_RC=0`，日志里能看到四文件重编与两个可执行 link。**边界说明**：该日志本身**没有**写出 `in-container.sh`（grep 计数 0），所以"它是容器内构建"目前是**推断**——依据是 `p2b-r1-host-incident.txt` 记录的宿主构建必在 `lib/Support/Process.cpp.o` 失败（glibc 2.31/libstdc++ 9 对容器 2.39/13），而这次全量构建成功；这条推断应当由 verifier 用可执行的证据补上，不要当作已测。
 
 因此：**A2／A13／B12a／B12b 的重测与 routing 成对测试都不依赖 implementor 那个被挂起的命令**，后者只剩"重复冻结行 A2 的 ordinary 半边"这一件事。
+
+### §24 追加 16（Lead 预跑检查：r1 的路由插桩把四个冻结负例行的"诊断关键字"变成了免费词——其中两行是**新增**的，2026-10-14）
+
+这是把"新增插桩的日志文本会成为此后每一次运行的 stderr 的一部分"这条纪律（实例 5、6）**在跑之前**用一次全量普查执行掉，而不是跑完再回头解释。
+
+方法：从冻结套件 `run_p2_suite.py` 里抽出**所有被当作 stderr 匹配器的字符串常量**，逐个测试是否为六条 marker 行的子串。两个拒绝辅助函数的匹配形态已核：
+
+- `_expect_reject`（`:571-594`）：`rc != 0` 之后 `named = any(k.lower() in blob for k in diag_keys)`，并且把**第一个命中的 key** 写进记录（`:593` `hit`）。
+- `_expect_catch`（`:955-977`）：同样的 `[k for k in diag_keys if k.lower() in blob.lower()]`，记录 `named[0]`。
+
+关键后果：被 marker 满足的 key 不只是"也满足"，而是**这一行拿来当理由引用的那个词**。
+
+| 行 | 位置 | `diag_keys` | 经 marker 变免费的词 | 是否新增 |
+|---|---|---|---|---|
+| A4 | `:604` | `aveintrin, regbaseintrins, stage, late` | `stage`, `late`（在 `[P2-BOUNDARY] late-route stage=late …` 内） | 否——早已经 `[ERROR] Late mode:` 免费（D040 实例 5） |
+| B12c | `:1329` | `link-aicore-bitcode, bitcode, extra, late` | `bitcode`（stub 自身文本已有）、`late`（第二条免费词） | 否，但区分度进一步下降 |
+| **B4** | `:1056` | `align, unsupported, layout, cache` | **`layout`**（在 `inferLayoutOptimization` 内） | **是** |
+| **B7** | `:1116` | `PIPE_ALL, barrier, entry, terminal` | **`entry`**（在**全部六条** marker 的 `entry=` 字段内） | **是** |
+
+"是否新增"的判定依据是**字面量对照**：r1 之前的 stub 流是 `[INFO] Using merged native A5 regbase pipeline` + `[ERROR] Late mode: the bitcode identity gate and the HIVMC A5 lowering are not implemented in this build (P2-B tail only). Refusing to emit an artifact. No output was written.`——其中**不含** `layout`，也**不含** `entry`。所以 B4 与 B7 是**新增的假绿**，而且恰好是这两行的记录会把样板文本当作"诊断"引用。
+
+marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四文件 diff），而它是 Late 分支唯一的被调用者，因此在任何 Late 运行里它都排在所有诊断之前。
+
+**值得记下的讽刺**：这套插桩的目的正是**证明路由**，而它在六行里都写了通用词 `entry=`，于是毒化了一行——B7 的真实主题恰恰是**入口作用域的 terminal barrier**，`entry` 这个词原本承载的就是那行断言的语义。
+
+**修的边界（照 D043 已撤回过的裁定）**：这是**匹配器**的问题，不是措辞的问题。**不得**改写 marker 去躲开 oracle 的词表——那只会让下一个消息、下一个文件名、下一次 dump 再次失守；正确做法是把这些行**结构化地**绑定到该 fixture 的缺陷特异诊断上，并配上四条必须各自失败的负对照。
+
+**证据级别**：本条由**字面量 + 源码位置**测得，**没有执行任何编译器，也没有产生任何流**——绑定到具体 run ID 与二进制 SHA 的流必须由 verifier 的那次运行产生。四行（A4/B4/B7/B12c）已列入 D040 的行清单。
