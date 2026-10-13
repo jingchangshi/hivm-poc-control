@@ -2466,3 +2466,31 @@ it for the rest of the run"。∴ 粒度是**per manager run**，不是 per acti
 - 并记下类注释给出的**结构性**理由（而非仅靠实测缺席）：*"the passes that would rewrite `mix_mode` are
   not in the denylist"* —— 即这类 pass 在 Aiv 模式下**仍会执行**，且对**其后**的 manager 不构成任何冻结，
   这正是 V1 入口检查看不到的窗口。
+
+**第 3 门最终确认（review-2，`idle_notification`，2026-10-13T13:54:00.601Z，逐字）**：该消息在 `094c730`
+（E5 措辞改写）**之后**到达，∴ 它确认的是**改动后**的措辞，而非改动前：
+
+> Scoped entry-design verdict: APPROVE. Recording the resolved execution mode at each entered pass manager
+> is justified. PassExecutionPolicy detects mode at that manager's first action and freezes it for the run;
+> a preceding manager could change attributes that a later manager observes. V1 validates the original
+> input, so it cannot establish the mode of every later manager.
+>
+> The E5 wording in …/docs/p2-pass-trace.md:117 captures that distinction correctly. Each entered manager
+> should report Mix; a later Aiv transition fails the accepted design. This does not require recomputing
+> mode for every pass action.
+>
+> The accompanying corrections are sound: C1–C11 are P2's first ABI measurements, with expectations
+> defined independently from the frozen input and template source; the absence of setLowerToLLVM callers
+> is scoped to handwritten source, since a generated setter exists.
+>
+> This approval closes the entry-design review only. Actual Late routing, validator execution, pass counts
+> and effects, C310 template consumption, ABI preservation, and binary authenticity remain NOT_RUN. The
+> verifier's test-freeze amendments recorded in …/docs/p2-verification.md:22 remain a separate obligation
+> before implementation. Hardware numerical correctness belongs to P3.
+
+已核对：`p2-pass-trace.md:117` 正是 E5 行，措辞与要求一致；`p2-verification.md:22` 正是 §0.1a（v1 冻结的
+Lead 复核，含四项缺口）。∴ **第 3 门 APPROVE 覆盖 `094c730` 之后的文档状态**，无遗留措辞项。
+
+**`verify` 进展（同刻实测）**：转录 543 条，最后活动 13:55:01Z —— 正在把测试清单从 v1 的 **35** 项扩到
+**40** 项（改写 A13、新增 A14/A15、更新 REGISTRY），即 v2 修订本身，不是卡住。**§8 步骤 4 的门禁仍
+是这一冻结落地**；P2 生产代码仍 **0 行**。
