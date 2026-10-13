@@ -4341,3 +4341,17 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 ```
 
 于是 `late`、`stage`、`entry`、`layout` 四个词**确实存在于被打印的那几行字面量里**，B4 的 `layout` 与 B7 的 `entry` 由此从源码级主张变成产物级事实。**不要**把整份二进制里 `layout` 出现 329 次、`entry` 278 次这类计数当证据引用——那是符号表与全字符串表的噪声，拒绝匹配器跑的是**那次运行的 stderr**，不是二进制；本条唯一相关的度量是"marker 行本身含这些词"。顺带记下：`[P2-BOUNDARY]` 这个标签本身就含子串 `bound`（冻结套件 `:145` 有一个 `"bound"` 状态串，但它是绑定辅助函数的返回值、不是 stderr 匹配器，所以不构成冲突——这类"是子串但不做匹配"的情形必须逐条看角色，不能只做子串判定）。
+
+### §24 追加 17（D052(c) 的路由门禁项有了现成的冻结落点：**ordinary 正例就是 A2**；而在 r1 上 A2 一次承担三件事，2026-10-14）
+
+`t_a2`（`run_p2_suite.py:540-568`）把 `tests/ordinary/ordinary_regbase_memcpy_f32.mlir` 通过 `CFG.p2_compiler` 编译，命令里**没有**任何 late 标志（`:547-548` 只有 `--target Ascend950PR_9579 -o kernel.o`），断言产物 sha 等于 pre-P2 ordinary 基线 `01fce255…`。这正是挑战者 D052(c) 要的"ordinary pre-P2 fixture 经同一个最终编译器"，而且它的断言落在**产物**上——所以在 A2 上加 marker 断言**不会**扰动它的回归主张。于是：
+
+| A2 在 r1 上同时是 | 为什么 |
+|---|---|
+| (i) ordinary 路径回归 | 产物 sha 对 pre-P2 基线 |
+| (ii) r1 的 **instrumentation-only 证明** | r1 的分阶段 manifest 自称"没有控制流变化"，而唯一能证实它的检查就是这条 ordinary 产物字节恒等——implementor 那个被挂起的命令原本要做的也正是这件事 |
+| (iii) 路由对的 **ordinary 正例** | 加上"必须有 ordinary marker、必须没有 late-route marker" |
+
+路由对的 Late 正例用任一 Late 行（A13 的 plain-Late 子运行，或 A1），两半各自带交叉缺席子句。
+
+**必须一并记下的限制，免得读者过度主张 A2**：`t_a2` 的第一句是 `need_late("A2")`（`:541`），而 `need_late`（`:175-190`）只检查**绑定**——配置已载入、`p2_compiler` 非空/在盘/sha 等于声明值、`late_flag` 非空、`in-container.sh` 在盘；它对这次调用是否真的走 Late 一无所查。于是一个 ordinary 行可能因**Late 路由**的理由被记 NOT_RUN（`late_stage_flag binding is null`、`p2_compiler sha mismatch … (BLOCKED)`）。所以 A2 并非独立于 Late 绑定可执行，且它的 `tid` 形参未被使用、任何 reason 串都不会点出行号。这本身不算缺陷（ordinary 与 Late 共用同一个二进制，绑定它是合理的），但**在 Late 绑定未就位时不得把 A2 当作独立对照引用**。
