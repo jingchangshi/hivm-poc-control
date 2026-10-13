@@ -248,3 +248,24 @@ and explicitly never asserts on it), so it cannot repair D-b. It is recorded in 
 D039 as a candidate **additive** instrument only — and D043/Q6d **BLOCKS** a statistics-only
 *replacement* of the frozen acceptance while **APPROVING** it as supplementary corroboration; no row
 here was flipped by it.
+
+### E.3 Third instrumentation channel (boundary markers) — measured; the artifact the acceptance ran predates it
+
+Six sites emit `[P2-BOUNDARY] …` on **stderr** (deliberately stderr, so the channel can never contaminate stdout, which every PassID row reads):
+
+| marker emitted | site | fires when |
+|---|---|---|
+| `late-route stage=late entry=runLateHIVMPipeline` | `regbase/LatePipeline.cpp:494` | the Late branch was entered — at the **top** of the function |
+| `ordinary-regbase-pipeline entry=runRegBasePipeline` | `regbase/BiShengIRCompileMain.cpp:353` | function entry; covers **both** callers (`Driver.cpp:92`, `PassPipeline.cpp:564`) |
+| `retry-loop iteration=N of=M` | `regbase/BiShengIRCompileMain.cpp:408` | once **per retry iteration**; the claim is a count, so a boolean would not carry it |
+| `inference entry=inferMixedCV` | `regbase/Utility.cpp:68` | function entry; a plain `module.walk` that schedules no pass, so the pass trace is blind to it |
+| `inference entry=inferLayoutOptimization` | `regbase/Utility.cpp:112` | function entry; same reason |
+| `a5-compile entry=runHIVMCCompileA5` | `hivmc/A5/HIVMCMainA5.cpp:952` | function entry, covering both callers |
+
+**Measured presence of the literal `P2-BOUNDARY` in each staged binary** (`grep -c -a -F`, 2026-10-14): `stage-p2a` (`2bf961bf…`) **0**; `stage-p2a-r1` (`1a3f20f8…`) **0**; **`stage-p2b` (`47e02604…`) 0 — and that is the artifact the archived P2-B acceptance bound as `p2_compiler`**; `stage-p2b-r1` = `build/bin` (`ea217b8d…`) **6**, matching the six sites. Sweep of `verify/work/p2b-acceptance/logs-suite-p2b/`: neither `P2-BOUNDARY` nor `late-route` appears in **any** file; `A2.stderr` (372 B) and `A2.stdout` (0 B) are both 0. **Consequence for this file's own rows: A1–A3 have no executable evidence in the archived run** — the channel did not exist in the binary that produced it — so an A-row reported PASS from that run would be a PASS over a binary that could not emit the evidence. This is the D048 measurement; it does not by itself flip any row (they are already NOT_RUN), it fixes what "NOT_RUN" is *for*. The frozen suite is independent of this: `run_p2_suite.py` contains **zero** references to the marker strings, so no frozen row claims them, and the routing claim remains uncovered by the oracle.
+
+**Limits of this channel — stated so the rows above are read at their true strength.**
+- **Presence proves entry, never completion.** `late-route` fires before `verifyPinnedOptions` (`LatePipeline.cpp:497`) and before the fail-closed stub, so a run rejected immediately afterwards still prints it. A1 is evidence that the Late branch was **taken**, not that the Late pipeline ran.
+- **The ordinary-route count is ≥1, not exactly 1.** `ordinary-regbase-pipeline` sits at the function entry precisely because `runRegBasePipeline` has two callers, so an ordinary run may print it more than once. Any ordinary-route assertion must be a presence test.
+- **An absence clause is sound only when conjoined with the presence clause on the same run.** A binary carrying no instrumentation yields *everything* absent, so a standalone "absence of X on a Late run" row is a guard that cannot fire — the class catalogued in `docs/decisions.md` D040/D042/D049. A1 is correctly written as one row carrying both clauses; A2/A2b/A3 are read as **conditional on A1's presence clause**, and at P2-C the row set must include a positive control proving the marker channel is live on the binary under test before any of these zeros is quoted.
+- **It is not a substitute for section B.** The channel names six functions; it says nothing about which passes ran, in what order, or how many times. It answers §4.1's routing questions and nothing else.
