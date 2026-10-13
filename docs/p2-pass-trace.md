@@ -51,6 +51,34 @@ Rules that apply to every row:
 | A4 | `runHIVMCCompileA5` invoked **exactly once**, outside any retry loop | A5 boundary log count = 1, taken at the **function entry** (`hivmc/A5/HIVMCMainA5.cpp:944`) so both callers are covered (`BiShengIRCompileMain.cpp:448`, `hivmc/HIVMCMain.cpp:45`) | NOT_RUN |
 | A5 | ordinary request (§4.1(9)) byte-for-byte unaffected | ordinary-input compile with and without the new binary; pass sequence compared | NOT_RUN |
 
+### A.0 Anchor corrections, measured at HEAD `cfaa59677` (2026-10-14)
+
+**Anchor by function name, not by line number.** The line numbers in the table above were read at
+`80e29e6f2` (the commit this document cites). P2-A's `ddc212e29` inserted the Late branch into
+`regbase/Driver.cpp`, which shifted the anchors the A-rows name. Measured now:
+
+| row | anchor named above | at `80e29e6f2` (as written) | at HEAD `cfaa59677` (measured) |
+|---|---|---|---|
+| A2 | `regbase/Utility.cpp:100` and `:61` | correct | **unchanged** — `inferLayoutOptimization` `:100`, `inferMixedCV` `:61` |
+| A2 | `Driver.cpp:68`/`:73` (where the Late branch returns before) | correct | **`Driver.cpp:79`/`:84`** |
+| A2b | `regbase/BiShengIRCompileMain.cpp:345` (`runRegBasePipeline` signature) | correct | **unchanged** — `:344-346` |
+| A2b | caller `Driver.cpp:81` | correct | **`Driver.cpp:92`** |
+| A2b | caller `PassPipeline.cpp:564` | correct | **unchanged** |
+| A4 | `hivmc/A5/HIVMCMainA5.cpp:944` | **the path is wrong** | **`bishengir/lib/Tools/hivmc/A5/HIVMCMainA5.cpp:944`** — there is no `Tools/bishengir-compile/` segment in this path; `:944` is the `runHIVMCCompileA5` signature, as intended |
+
+**Measured absence, not assumed:** at HEAD, `regbase/Utility.cpp` contains **zero** `llvm::errs()`
+calls and both functions begin directly with their `module.walk`, and `runRegBasePipeline` has no log
+before `checkInOutOptionsValidity(config)`. So **A1, A2, A2b, A3, A4 are un-runnable as the tree
+stands** — the instrumentation they measure is not present. That instrumentation is in P2-B's scope
+(recorded in `docs/status.md` §23 addendum); these rows stay **NOT_RUN** until it lands and the run is
+archived, and no row may be flipped by inference from another.
+
+**Why this note exists:** the anchors above were recorded as line numbers, and line numbers in a file
+the phase itself edits are not stable identifiers. A log placed at the stale `Driver.cpp:81` would be
+placed on nothing (that line is no longer the call), and the row would then measure a log that is
+absent for the wrong reason. Same failure shape as the delta-4 literal corrected in
+`p2-verification.md` §A.
+
 ## B. Forbidden — must be zero scheduled invocations
 
 Each of these must be **absent — zero in total, summed over every manager the run enters** — from a
