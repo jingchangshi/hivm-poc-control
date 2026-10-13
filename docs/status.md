@@ -4832,3 +4832,24 @@ review-2 已答复我发去的第五批问题（其回复落在其 transcript `0
 
 **未做**：不构建、不跑编译器、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送。
 
+### §24 追加 41（**身份清单推进到 P2-B 范围；归档套件的被测二进制归属入册 D077；pass-trace 的 HEAD/工作树前提更正**，2026-10-14）
+
+本段记录三笔提交与两项封版前派发。**未构建、未跑编译器、未编辑 runner/binding、未动 `build/bin`、未改权限、未推送。**
+
+**1. `docs/p2-binary-abi.md` 身份清单推进到 P2-B 范围（`c29574b`）。** D074 已判定 `stage-p2b-r1` 就是 P2-B 的最终 bundle，因此身份不再"待重建"而是直接入账：新增行 **A2-B** 记录编译器绝对路径、SHA-256 `ea217b8d…`、205,436,664 B、mtime `01:00:24 +0800`、树 `cfaa59677` 且 `git status --porcelain` **非空**（四文件 `+82/−7`）、四个源文件 SHA 与 mtime 排序论证；**其"提交"这一半明确写成 OPEN，不予抹平**。A2 改为指向 §0 的被取代表，P2-A repair-1 的 `bishengir-compile`/`bishengir-opt` 哈希移入 §0 保留；A3 补齐 r1 bundle 四个哈希、自基准 `4/4 OK`、marker 6/3 与"`stage-p2b`（`47e02604…`，**0** marker）已被取代"。
+
+**2. 我自己把"cut → binary"的对应关系从推断升级为直测。** 原先的记录只有 mtime 排序 + "之后无源改动"，这是两条可用证据里较弱的一条。本次直测（`2026-10-13T20:59:53Z`）：`git status --porcelain` 恰为 4 行 ` M`、**零 untracked**；四个源文件 mtime 全部早于链接（`00:52:44`–`00:53:10` vs `01:00:24.091299895`）；**`build/bin/bishengir-compile` 与 `impl/stage-p2b-r1/bin/bishengir-compile` 字节相同且 mtime 精确到纳秒相同**（即后者是前者的保元数据拷贝）；`git diff --stat` = 4 files, `+82/−7`；四个文件内 `[P2-BOUNDARY]` grep 计数 1/2/2/1 = 六处。**更强的证据是内容而非时间**：二进制里含有该 cut 自己新引入的六个字面量。此结论已并入 A2-B。已把"ccache 与共享 build dir 下该推断是否仍然成立"作为第 (a) 问派给 Challenger，未自行结论。
+
+**3. `docs/p2-pass-trace.md` 两处前提性陈述更正（`adc1629`）——只改陈述，不动任何行状态。** 文件首行仍写 "no P2 compiler exists yet"，而其自身 §E.3 早已知道 r1 二进制含六个 marker；"A1/A2/A2b/A3/A4 are un-runnable as the tree stands" 一句把 **HEAD 与工作树混为一谈**：HEAD `cfaa59677` 的 `Utility.cpp` 确为 0 个 `errs()`，但**未提交的 cut 已在工作树里放下六处 marker**。改为显式的 HEAD/工作树二分，并把这些行仍为 NOT_RUN 的理由**具体化**：唯一归档在案的 run 由 `stage-p2b` `47e02604…` 产生，**该二进制根本无法发出这一通道**（§E.3 / D048），所以它的零属于 D040/D042 的"无法触发的守卫"类，而不是证据。**没有任何行被翻转。**
+
+**4. 顺带查证、并明确记为"不是发现"的一项。** 我一度把"归档 P2-B 套件全部 36 条命令都跑在**无插桩**的 `stage-p2b` 上"当作新发现；查证后确认 `docs/p2-pass-trace.md:265` 的 D048 段**早已逐字记录**，包括"那就是归档验收所绑定的 `p2_compiler`"这一后果。**它仍是真事实，但不是我的发现**——记在这里以免后来者重复推导（同类教训见"负面覆盖声明本身也是一项检查"）。
+
+**5. 入册 D077：套件 summary 必须**以数据**携带自身被测身份。** 由第 4 项量到的一处**新的、更窄的**缺口：归档 `logs-suite-p2b/suite-summary.json` 的键恰为 `['config','utc','counts','results']`，`config` 是**路径**，文件里**没有任何字段**命名或哈希编译器。所以它的 `{PASS:28, FAIL:6, BLOCKED:0, NOT_RUN:1}` **单看无法与"对 r1 的 run"区分**。记录本身不隐瞒（`ACCEPTANCE-P2B.txt:17-18` 开头即披露 `impl/stage-p2b/` 及其 sha）——**缺口在机器可读产物上，而恰恰是它会被引用**。这是 D076 第 2 条的**伴随条**而非替代：那条让 summary 枚举每个 registry id，这条让它命名产生这些结果的二进制。**列为封版前条件**，非独立验收阻断。
+
+**6. 两项派发。**
+- 给 verifier（第六批）：(i) `run_p2_suite_v3.py:373` **超时路径上的潜在崩溃**——`subprocess.run(..., text=True, timeout=600)` 的 `TimeoutExpired` 不保证返回 `str`，`(e.stderr or "") + "
+TIMEOUT
+"` 会 `TypeError`，随后两行 `write_text` 同因失败；于是**唯一用于报告挂起的那条路径会抛栈而不是记下 rc=124**（Pyright 在 `373:45` 报出，且**跨两次编辑存活**，属活缺陷）。这是"无法报告的检查"家族。(ii) D077 的 summary 身份入数据要求。(iii) 措辞：`routing_detail` 的 late-half detail 写 "all four ordinary markers absent"，它对**四个 pattern** 为真，而二进制有**六个** marker site 且其中一个无 pattern 可匹配（D075）——读者会当成 marker 计数。
+- 给 Challenger `review-2`（第六批，其自上一批后 idle）：请其**独立裁决我自己的两行** D074/D075（含上文第 2 项的 ccache/共享 build dir 反例、`stage-p2b` 的"按范围而非按缺陷被取代"是否成立、**源 cut 未提交时该产物能否用于 P2-B 验收**、以及提交动作是否会反过来使 mtime 论证失效），并**追问其此前提出而我未追问的封版范围问题**（seal 究竟钉住什么才算可被第三方核验）。
+
+**未做**：不构建、不跑编译器、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送；**未对 implementor 挂起的权限提示做任何处置**。
