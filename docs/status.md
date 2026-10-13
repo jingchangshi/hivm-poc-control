@@ -3816,4 +3816,72 @@ correctness fix 流程，届时**P2-A 的契约需要重新确认**，这一点�
   所以"给 ordinary 路径也经过的函数加一行 stderr 日志"对 A2 **不可见**，前提是产物字节不变 ——
   而这正是该行在测的东西。**A2 是产物级的，不是输出文本级的**，这一点已追告 Implementor。
 
-**下一步**：等三份回报；未 push；`hivm-poc-evidence/` 本地独占。
+### §24 追加 2（同日）：E4 只满足一半 —— 按我自己**预先立下**的规则，**B1–B7 在 P2-B 是 NOT_RUN**；另新测到一条**独立于 IR dump** 的仪器化通道（D039）
+
+#### 1. E4 的实测状态：半满足，且缺少的那一半是**结构性**的
+
+- **首哨兵在**：`inline.err` 的第 2 个头就是 validator（`LateInputVerifierPass`，
+  arg `hivm-verify-late-input`），tail 的第 1 项 `AnnotationLowering` 紧随其后。
+- **末哨兵 `convert-hivm-to-llvm` 不在，而且不是实现没做到**：Late 入口是**两次** `runPipeline` ——
+  `late-preflight`（validator，可选追加 `AppendDeviceSpec`）与 `late-tail`（tail），
+  `regbase/LatePipeline.cpp:528-570`；`convert-hivm-to-llvm` 属 A5 lowering，即 goal §3.1 的 **step 5**，
+  由 D037 明确划归 **P2-C**。tail 与 A5 的 pass 集不相交（全仓只有
+  `hivmc/A3/PassPipelineA3.cpp:64` 与 `hivmc/A5/PassPipelineA5.cpp:52` 两处 add，本路线只有 A5 那处可达），
+  所以 **step-3-only 的构建里末哨兵不可能出现**。Implementor 把 E4 记为 **NOT satisfied 是对的**，
+  我已当面确认并要求它**不许软化**。
+
+#### 2. 我按自己预先立下的规则裁自己
+
+`docs/p2-pass-trace.md:147-148` 是我在 P2-B 开工**之前**写下的：
+
+> If E1–E5 are not all satisfied, every zero in section B is **NOT_RUN**, regardless of what the trace shows.
+
+E4 未满足 ⇒ **B1–B7 在 P2-B = NOT_RUN**，不是 PASS。§5.2 的那些零（我自己复扫过套件 18 个拼写全为 0）
+是**真实流上的真实测量**，Implementor 应继续把它们当测量报告；但它们**还不是覆盖证明**，
+因为一次没有末哨兵的运行无法证明这次扫描走到了链尾。**它们到 P2-C 才转化**：那时运行抵达 A5，
+末哨兵由 A5 自己提供。
+
+**同时立一条禁令**：**不得**为了让 E4 满足而在 step-3-only 的构建里**人为注入**一个
+`convert-hivm-to-llvm` 哨兵或空跑一次 A5。那会把"结构性缺失"变成"制造出来的证据"，
+且必然绕过 §6.2 的 bitcode 身份门。**宁可 B 行 NOT_RUN，不要 B 行假绿。**
+
+#### 3. 新测到的一条通道：`--mlir-pass-statistics`（我量的；**尚未用于翻任何一行**）
+
+`compile.err` 里有两块 `... Pass statistics report ...`，按**类名、按进入顺序**枚举了本次运行
+实际进入的 manager：
+
+- **`late-preflight`**：`LateInputVerifierPass`（一块报告）
+- **`late-tail`**（另一块）：`AnnotationLowering` / `AllocToAlloca` /
+  `(func.func Pipeline) InsertInitAndFinishForDebug` / `MarkDisableLoad` /
+  `(func.func Pipeline) InsertInferSyncBlockLockNumAndInitFunc, LowerCreateSyncBlockLock` /
+  `MarkSyncBlockLockWithSubblock` / `InsertFreeLockVarBeforeReturn` / `ConvertHIVMToStandard` /
+  `ConvertHIVMAVEToStandard` / `(func.func Pipeline) FixCallUnknownLoc` / `ExpandStridedMetadata` /
+  `ConvertHIVMAVEToAVEIntrin` / `(func.func Pipeline) HoistVstas` /
+  `ConvertAscendDPXToHIVMRegbaseIntrins` / `DecomposeFRem` / `SCFToControlFlow` /
+  `ConvertAffineToStandard` / `ArithExpandOpsPass`
+
+**数一下：恰好 19**，与我修正后的 `p2-architecture.md` §3.1 表**逐项对齐**，SIMT/DPX 那四个
+（`AdaptGPUKernel`/`HoistCallScalarToCaller`/`DPXDivOptimization`/`SIMTInsertInitAndFinishForDebug`）
+**一个都不在**（`--pure-simt` 被 §2.3 拒 ⇒ 构造期那个 gated 分支就不成立）。两块报告的数量
+**独立证实了"两个 manager"这个拓扑**，与 D037 批准的两 manager 一致。
+
+**这条通道顺带在执行层独立确认了 D-a**：真正跑起来的是 `Infer → LowerCreate → Mark → Free`
+**四个** finalize pass，**没有 `BindSyncBlockLockArg`**（它是 `Prepare` 相位的 pass）。
+此前 D-a 的"缺席"只有源码结构一层证据；现在有了一层**运行期**证据。
+
+**诚实的边界（写下来免得被当作强于它本身的东西）**：
+
+1. 这条通道我目前只用来支持**存在与顺序**（presence/order）的**正面**断言。
+   MLIR 统计树对"**被调度但未执行**"的条目是否也列名，我**没有测**，
+   所以它的**缺席信号**还没有表征 —— 它**不能**单独承担 B 行的零声明，
+   也**不能**用来把 A11 的 `missing_lock` 一笔勾销。
+2. 它**不是**冻结套件使用的通道：`run_p2_suite.py:733-735` 明写 pass-statistics 只"记录"、
+   **从不断言**（理由是 in-process HIVMC tail 可能不产出它）。所以它**修不了 D-b**，
+   只能作为 D038 处置裁决里**追加式**补充检查的候选。
+3. 它是**真 MLIR 仪器化**（pass manager 运行期自报），不是源码 grep 计数，
+   因此符合 goal §5 对证据形式的要求。
+
+**因此：本条不占用 D038 的裁决，也没有任何一行因它转绿。在 Challenger 裁决回来之前，`verify/` 一个字节都不改。**
+
+**下一步**：等三份回报（Implementor 提交 + G/I 复测；Verifier P2-B 验收 + 四条复现；Challenger 五问裁决
+外加本条追加的第 6 问）；未 push；`hivm-poc-evidence/` 本地独占。
