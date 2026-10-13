@@ -3249,3 +3249,46 @@ V2（"the module has no hacc.target attribute"）**与** V7（"…carries no l2_
   - **B2** 必须由**缺失载体**诊断命中。
 
 **裁定口径不变**：某一行若因"它本不该捕获的那行"而转绿，那是**同因通过**，按 D034 **不构成验收**。
+
+### 19. 修复第 1 次的复验结果（Lead 独立复核；2026-10-13T16:01:58Z Verifier 报告）
+
+Verifier 报告在 `verify/work/p2a-acceptance-r1/ACCEPTANCE-r1.txt`（`16:01:58Z`）。r1 套件于 `15:55:28Z` 完成：
+**24 行全 PASS，B2 由 FAIL 翻为 PASS**。以下是**我自己**从盘上逐项复算的结果（不采信报告结论）：
+
+| 检查项 | 我的独立测量 | 结论 |
+|---|---|---|
+| **B2 承载行** | `verify/logs/suite/B2.stderr:2` = `Late input validation V7 (store cache/DMA subset) FAILED: the entry's single store carries no l2_cache_mode attribute` | ✅ 由**缺失载体**诊断命中，非形状尾串 |
+| **B1** | `B1.stderr:2` = `…FAILED: l2_cache_mode = 0 but the Late contract requires exactly 4` | ✅ 由**取值**诊断命中（不再靠 dump 正文） |
+| **B3 未被改动** | `B3.stderr` = `'hivm.hir.store' op invalid store l2_cache_mode 7; valid store modes are 0, 1, 2, 4` + `Failed to parse input file` at `:189:5` | ✅ 仍是 **D012 `StoreOp` 解析期**闸门，未漂移到 V7 |
+| **B4 措辞** | `b4-compare/first-V6.txt` vs `r1-V6.txt`、`first-V7.txt` vs `r1-V7.txt` —— `diff` 均 **IDENTICAL** | ✅ 形状半边未被扰动（但见下方待办 2） |
+| **撤 dump 探针** | `probes/b01.stderr`（708 B）、`b02.stderr`（894 B），`l2_cache` 仅出现在校验器行 | ✅ 语义拒绝 |
+| **判别器（正例半边）** | `discriminator/stdout` 41 B、`stderr` 10408 B；golden 仍被接受 | ✅ 非全线拒绝 |
+| **两个 manifest** | 各自以自身为 base 均 **4/4 OK**；旧包有 `SUPERSEDED.md` | ✅ 无陈旧清单 |
+| **`build/bin` 钉** | `c6838fc0…`（mtime `13:46:21`）、`0761c6e6…`（mtime `14:46:23`） | ✅ G1–G4 生效，A2 基线钉完好 |
+| **容器** | 无构建进程在跑 | ✅ 串行化未被破坏 |
+
+**§16 的订正 —— 我错了一处，且这一处会把 FAIL 误读成回归。**
+§16 我写道"第一次验收运行没有正例行"，并据此**要求把 `A1` 加进选择**。**该指令是错的，已撤回。**
+`regbase/LatePipeline.cpp:544` 在校验通过之后**无条件**打印
+"[ERROR] Late mode: the Late pass sequence and the bitcode identity gate are not implemented in this build (P2-A
+entry only). Refusing to emit an artifact. No output was written." 并 **`return EXIT_FAILURE;`**。
+故 golden 在 P2-A **永远**是 rc=1 且无产物；而 `A1`（`run_p2_suite.py:507`）要求 **`rc == 0`** + `.o` + ELF + machine `0x1029`。
+**所以 A1 在 P2-A 按构造不可能通过**，把它加进去只会得到一个新 FAIL 并被读成回归；
+`need_late` 也拦不住它（绑定已解析，它会**真跑**）。**第一次运行排除 A1 是正确判断。**
+**P2-A 的正例就是判别器**（golden 被校验器接受），正是 Verifier 跑的那件仪器。
+**A1 在 P2-C/P2-D 尾段落地后成为必需行、且预期 PASS**；在 P2-A 若有人不加 `--only` 跑全套，A1 的 FAIL 属**设计内**，不得记为缺陷。
+
+**我的失误模式（第二次自查纠错，值得记下）**：我先从**跑测器代码**推出"A1 是正例、被漏掉了"，
+却**没有先核对这一行的可运行前提**（该行要求 rc==0，而 P2-A 的入口设计上就返回 FAIL）。
+前一次（§15 给 Challenger 的简报）也是同型：先按印象陈述，后实测推翻。
+**改正的做法：凡对"某行应当通过/应当被加入"下判断前，先核对它的前提在该阶段是否成立。**
+
+**仍未结清（已派发给 Verifier，均为小项）**：
+1. `first-V7.txt` 的**来源**必须写明 —— 它是否取自第一次运行、提前另存、还是用**被取代的** `2bf961bf…` 重建。
+   （`logs/suite/B4.stderr` 已于 `23:55` 被就地覆盖，故来源不能从盘上推定；内容正确性我不怀疑，但**断言需要来源**。）
+2. A 组回归的**显式陈述** —— `a03`–`a09` 本身不带载体，修复后 `A4.stderr`/`A9.stderr` 也各多出一条 V7 行；
+   我判断无碍（`_expect_catch` 不要求排他，且 r1 汇总 A3–A9 全 PASS），但需写明而非留作隐含。
+3. §17 的**修复前重建**（用保留的 `2bf961bf…` 重跑 b01/b02），以恢复 D034 的引注。
+
+**门禁：P2-A 的接受仍以 Challenger 的设计确认为条件，不先宣告通过。** 证据面已经齐备且经我独立复核；
+待设计确认回来后一并裁定。P2-B 未开始；未 push；`hivm-poc-evidence/` 仍为本地独占。
