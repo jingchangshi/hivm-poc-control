@@ -3328,6 +3328,52 @@ entry only). Refusing to emit an artifact. No output was written." 并 **`return
 两个探针按构造就是 r1 期的产物。受影响的只是**报告的一个分项断言**，而正确处理是**把它标为无据**，
 不是因为它"很可能为真"就让它留着。
 
+### §20 追加（2026-10-14，同日）：我**撤错了**那个分项 —— 见证在**agent transcript** 里，我搜了"证据树"就以为搜完了
+
+**Verifier 指出并给出了具体位置；我没有采信，而是自己去那个文件重测。结果它是对的，我错了。**
+
+**我独立复测**（`python3 -I`，直接读 jsonl，不采信转述）：
+`…/subagents/agent-averify-fd1c402be6c7e059.jsonl` **第 870 条**，`type: user`（tool_result），
+`timestamp 2026-10-13T15:30:49.675Z` —— 比 `15:55:16` 的就地覆盖**早 24 分 26 秒**。
+该记录体长 **17876 字符**，就是**首次运行的 B4 stderr**：带 `LateInputVerifierPass Failed` 的 After 头，
+且同时含 V6 与 V7 行。用**精确字节比较** `json.dumps(line)[1:-1] in record`：
+`first-V6.txt`(487 B) 与 `first-V7.txt`(496 B) **两条都在该记录里逐字出现** ——
+（原始子串判断为 False 只是因为 JSON 转义，这正是必须用 escaped 形式比较的原因）。
+去空白后 486 / 495 字符，**与报告数字一致**；我先前写的 "487/496 B" 是**量错了对象**（含换行的字节数 vs 去空白的字符数）。
+
+**结论：那个"逐字节相同"的分项断言现在站得住，且不是循环论证** —— 它有**早于覆盖**的见证。
+`first-*.txt` 不是文件拷贝、也不是用被取代二进制重建，而是**转写**（15:59:48Z 写下），与该记录逐字节吻合。
+
+**边界（我同时记下其强度上限）**：该见证是**harness 的 agent transcript**，**在证据树之外、未做哈希钉死**，
+所以它见证的是**内容与时间**，不是密码学身份。比哈希钉死的产物弱，但远强于"r1 的字节与自身比较"。
+
+**我的失误模式（第三次，同型）：** 我做了"穷举搜索"，但**把"证据树"当成了"全部可及记录"**。
+transcript 也是记录的一部分。**改正的做法：撤下任何分项断言之前，搜索范围必须覆盖 agent transcript，
+而不只是 `hivm-poc-evidence/`。** 已写入记忆 `p2-suite-logs-overwrite-in-place`。
+
+**另一件把举证责任倒过来的事（比 §0.6 更强的一条）**：Verifier 用**保留的被取代** `2bf961bf…`
+重跑了 b01/b02（跑前重算该二进制 SHA；manifest 从 `impl/stage-p2a/` 自身 base 仍 4/4；
+fixture 重新哈希到冻结前缀），按套件调用原样复现，结果写进 `pre-repair-reconstruction/`
+并**标注为重建**（绝不放进首次运行的槽位）：
+- **recon-b01**：rc=1，无产物，**零**条 `Late input validation`，After 非 Failed，键**只**在 `stderr:25`
+  的 IR dump 体里命中 —— **复现了 B1 的空洞 PASS 机制**。
+- **recon-b02**：rc=1，无产物，**零**验证行，**任何位置都不命中键**，唯一错误是 `:544` stub ——
+  **逐字复现 D034 的 B2 FAIL**（"does not name any of ['l2_cache','cache_mode','carrier'] — wrong-reason rejection"）。
+**即：旧二进制仍然 B2 失败、仍然以错理由通过 B1，而新二进制两者都不再 —— 翻转可归因于修复本身，
+不是 oracle 漂移。这是"被证明"而不是"被论证"。**
+
+**另两项按证据复核（r1 运行）**：
+- **A 组回归为零**：两次运行 A2–A9 全部 PASS，且每条 A 行的 detail **逐字节相同**；V7 在无载体 fixture 上的
+  共触发（`A4.stderr` 多一条 V7、`A9.stderr` 多一条 carrier-absent）**无害**，因为 `_expect_catch`
+  只要**一个**键、且**不断言排他**。
+- **错理由审计（报"命中哪一行"而非"PASS"）**：B1 的**设计值**诊断现在真的在 `B1.stderr:2`
+  （`l2_cache_mode = 0 but the contract requires exactly 4`），dump 体那行仍在 `:26`；B2 命中 `:2` 的
+  carrier-absent 行；**B3 仍是解析层**（`invalid store l2_cache_mode 7` / `Failed to parse input file`，
+  零验证行），D012 门仍然完好。
+
+**保留缺陷本身的修复**：r1 的逐行日志已**原样**复制到 `verify/work/p2a-acceptance-r1/logs-suite/`
+（`cp -a` + `RETENTION.txt`，runner 的固定目录不动，留给下一次运行）。
+
 **我自己的失误（第二批）**：我把这个未测量的分项**先写进了 §0.9 和 `docs/p2-verification.md`**，
 再去测量。顺序错了。§0.9 现已按实测改写：该分项标为**无独立证据、暂不成立**，
 待修复前重建给出真实的前侧后再判定。
