@@ -4271,3 +4271,32 @@ Challenger `review-2` 于 `2026-10-14T18:27:04Z` 给出书面裁定，已按其�
 另有 **12** 条 pattern 在这批流上全为 0。**逐条看过，全部是"目标不同"而非失效**：`DIAG_LINE_RE`（MLIR `loc(...)` 诊断，这批流里没有解析错误）、`UNKNOWN_OPTION_RE`（未知选项错误路径）、`BOUNDARY_LINE_RES` 的两条通用级联行（这批流带的是 stub 错误而不是级联）、692/695 的常量解析（作用于 dump body 的操作数而非整条流）、以及 1327/1432/1445/1458 四条 fixture 专属断言（`pge.b8`、`%c16384_i64|%c32768_i64`、`memref<4096xf32`、`arith.muli %c32768_i64` —— 属 B 类某个具体负例 fixture）。
 
 **必须写下的读法**：本工具的 0 **不等于**缺陷——只有当该 pattern 所属的行确实会喂给它这一类流时，0 才是信号；否则把 0 当缺陷就是把"子集当全体"反过来再犯一次。它的正确用法是在**套件真实跑完之后**、用那次运行自己产生的流重跑一遍，那时每个 0 才有指向。所以本条只结一个结论：**v3 的正则字面量层，就"应当被这批流触发的那些 pattern"而言，已经没有开不了火的**；其余 12 条留待套件运行时的流来判。
+
+### §24 追加 15（挑战者三项裁决已入账；D049 的"scope 与端到端"两项要求由 Lead 当场测清；**routing 门禁项现在无需任何构建即可执行**，2026-10-14）
+
+挑战者 `review-2` 于 ~19:48Z 一次性给出三项裁决，已逐字入 `docs/decisions.md`：**D051**（D045 金丝雀两段式优先级；D046 作为独立第六类；C6 by-path 批准）、**D052**（D048 配置式修正批准；`baseline_pre_p2_compiler.path` 不得留在构建树；**routing 从"已披露的覆盖缺口"升格为修订门禁项**）、**D053**（D050 机制级通过、A13 成对控制、D049 规则批准）。摘要见 §24 追加 14 之后不再重复。
+
+**(1) D049 遗留要求一：29/58 与 58/58 的 scope 必须被解释，而不是被怀疑。** 已测：`A10.stderr` 中真正含 `IR Dump` 的 header 行共 **58** 行 = **29 `Before` + 29 `After`**。`DUMP_RE` 的字面量里写死了 `IR Dump After`，**按设计只吃 After**，所以它的完整 scope 就是 29——不是漏了 29 条；`DUMP_WITH_BODY_RE` 写成 `(Before|After)`，完整 scope 就是 58。两条正则在 After 集合上逐行一致（去重后各 20 条唯一行）。结论：**没有未解释的计数差异**。
+
+**(2) D049 遗留要求二：把修好的 parser 端到端跑起来，证明消费者拿到的是预期的记录类型。** 不跑套件、只用 `ast` 抽出的两个函数喂真实流：
+
+| 消费者 | 真实输出 | 形状 |
+|---|---|---|
+| `parse_pass_streams(A10.stdout, A10.stderr)` | passid **33** 条 | 全部 `(str,str,int)` 三元组 |
+| 同上 | dumps **29** 条 | 全部 `(str,str)` 二元组 |
+| `parse_dump_bodies(A10.stdout + "\n" + A10.stderr)` | **58** 条 | 全部 dict，键恰为 `{phase,name,arg,body}`，`body` 为 `str`；`Before` 29 / `After` 29 |
+
+并且逐点验证了 v2 那个隐患的现状：`rec[3]` 仍然抛 `KeyError: 3`（dict 的固有行为，所以正确修法在**消费者侧**），而消费者的 `dump_recs[k].get("name","?")` 正常工作；全文再无对 dump 记录做整数下标的消费点（`grep 'rec\['` 的命中全部落在注释与 `dump_recs[...].get(...)` 上）。
+
+**(3) 一个改变关键路径的度量：routing 门禁项现在就能跑，不需要构建、不需要任何权限。** D052(c) 要求"Late fixture 经最终 bundle 必须带 Late 路由标记且不带 ordinary 标记；ordinary fixture 经同一最终编译器必须带 ordinary 标记且不带 Late 标记，标记行要绑定到具体 run ID 与二进制 SHA"。它需要一个**带边界标记的二进制**——而那个二进制已经存在：
+
+| 二进制 | sha256 | `P2-BOUNDARY` 出现次数 |
+|---|---|---|
+| `impl/stage-p2b/bin/bishengir-compile` | `47e02604…` | **0**（归档验收绑定的就是它，所以任何归档流都不含路由证据） |
+| `impl/stage-p2b-r1/bin/bishengir-compile` | `ea217b8d…` | **6** |
+| `AscendNPU-IR-1/build/bin/bishengir-compile` | `ea217b8d…` | **6** |
+| `AscendNPU-IR-1/build/bin/bishengir-opt` | `4c31167b…` | 3 |
+
+`stage-p2b-r1` 是一套**完整**的分阶段产物：`bin/` 两个可执行、`lib/` 两个模板 bitcode，`SHA256SUMS.txt` 在**它自己的目录**下 `sha256sum -c` 得 **4/4 OK**；其 manifest 自述"相对 stage-p2b 的 delta 只有携带边界日志的那四个文件"。二进制 mtime `01:00:24` 晚于四个源文件的 `00:52–00:53`，即该二进制确实由当前 dirty 源构建；`impl/scratch/p2b-r1-build.log` 尾行 `NINJA_RC=0`，日志里能看到四文件重编与两个可执行 link。**边界说明**：该日志本身**没有**写出 `in-container.sh`（grep 计数 0），所以"它是容器内构建"目前是**推断**——依据是 `p2b-r1-host-incident.txt` 记录的宿主构建必在 `lib/Support/Process.cpp.o` 失败（glibc 2.31/libstdc++ 9 对容器 2.39/13），而这次全量构建成功；这条推断应当由 verifier 用可执行的证据补上，不要当作已测。
+
+因此：**A2／A13／B12a／B12b 的重测与 routing 成对测试都不依赖 implementor 那个被挂起的命令**，后者只剩"重复冻结行 A2 的 ordinary 半边"这一件事。
