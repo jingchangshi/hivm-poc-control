@@ -1,6 +1,6 @@
 # Design decision register
 
-Updated: 2026-10-13 (**P2 AUTHORIZED — D032**). **Current status: new P1 (D031) CLOSED; P2-A…P2-D
+Updated: 2026-10-13 (**P2 AUTHORIZED — D032; P2 v2 test freeze admitted and its record defects closed — D033**). **Current status: new P1 (D031) CLOSED; P2-A…P2-D
 AUTHORIZED by the user's own directive `docs/p2-goal-1013.md` (line 7), which is the explicit
 authorization P2-ADMISSION condition C8 required. P2 stops at the P3 gate on completion; P3–P6 remain
 unauthorized.** The historical header below is retained, not rewritten. The user decided every open
