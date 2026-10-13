@@ -2720,9 +2720,10 @@ config↔pass-options 的**唯一**生成桥 `genConfigToOptions`（`ConfigsToOp
 
 | 生成文件 | 实测（P2 前） | P2 构建后的预测 |
 |---|---|---|
-| `ConfigUtils.cpp.inc` | `inputIRStage`/`inputIRStageFlag` **0** 次；9 个 `GEN_<GROUP>_OPTION_SETUP` 守卫，体均为 `options.X = config.getX();` | 仍为 **0**（无 passGroup ⇒ 任何守卫块都不可能含它）。非 0 ⇒ 前提被证伪 |
+| `ConfigUtils.cpp.inc` | `inputIRStage`/`inputIRStageFlag` **0** 次；**3 个** `GEN_<GROUP>_OPTION_SETUP` 组（HFUSION / HFUSION_TO_HIVM / HIVM，共 9 行匹配、127 条 `options.X = config.getX();` 体）（**更正**：此前记为"9 个守卫"，把匹配行数当成了组数） | 仍为 **0**（无 passGroup ⇒ 任何守卫块都不可能含它）。非 0 ⇒ 前提被证伪 |
 | `ConfigUtils.cpp.inc` | `GEN_PASS_OPTION_TO_CONFIG` **0** 次 | 仍为 **0** —— `regbase/PassPipeline.cpp:540` 的 `#define` **什么都不守卫**；**反向**（pass options → config）压根未生成，旁边的 `// TODO now` 是唯一痕迹 |
-| `PassOptions.cpp.inc` | （P2 前无 `InputIRStage`） | 每个定义 `GEN_ALL_OPTION_REGISTRATION` 的编译单元中**恰好 1 个**，合计 **2** |
+| `PassOptions.cpp.inc` | 单一共享文件，276 个 `Pass::Option<`，其中 **150** 个在 `GEN_ALL_OPTION_REGISTRATION` 块内（441–1669 行）；该宏仅在 **2** 个 TU 中 `#define`（`lib/Tools/bishengir-compile/PassPipeline.cpp:241`、`regbase/PassPipeline.cpp:570`） | 文件中**恰好 1 个** `inputIRStage`，且位于 `GEN_ALL_OPTION_REGISTRATION` 块内、**不在**任何 `GEN_<GROUP>_REGISTRATION` 块内。**"2" 是编译单元计数，不是文件计数** —— 单文件 grep 查到 2 是不可满足的 |
+| `CompileOptions.cpp.inc` | 整文件位于 `#ifdef GEN_OPTION_REGISTRATIONS` 下；条目形如 `static llvm::cl::opt<std::string, /*ExternalStorage=*/true> appendBishengOptions( "append-bisheng-options" …, llvm::cl::location(appendBishengOptionsFlag))` | 恰好 1 个 `inputIRStage` / `"input-ir-stage"` / `llvm::cl::location(inputIRStageFlag)` —— 这是**顶层 CLI 注册面**，`--help` 证据与 `getNumOccurrences()` 回读所作用的那一面 |
 
 ⇒ "没有任何路径把 pass-option 的值回写进 config"是**生成器的性质**，而非该选项组列表的性质；且这不仅靠读源码，
 而是在产物上有 0 计数支撑。
@@ -2733,6 +2734,20 @@ config↔pass-options 的**唯一**生成桥 `genConfigToOptions`（`ConfigsToOp
 （该路径从来不映射 pass→config），而 Late 入口的既定范围是 compile 工具（§2.2 item 1）⇒ **不要求 P2-A 改动**。
 记录原因：§2.2 的最坏情形正是"Late 请求静默走普通管线"，这是 §2.2 **未列名**的第三条门。是否在范围内属
 §8 step 8 的 Challenger 待议项。
+
+**"0" 有既存对照件，因此不是预测。** `AppendBishengOptions`（`Options.td:879`）是**已发布**的无组
+`std::string` 选项，实测**今天就不在 `ConfigUtils.cpp.inc` 中**（0 次），同时出现在 `CompileOptions.cpp.inc`
+与 `GEN_ALL_OPTION_REGISTRATION` 块里 —— 这正是预测给 `InputIRStage` 的**三文件指纹**，由树中既有选项展示。
+⇒ 验收可与**已知良好对照件**比对，而非与预测比对；且存储类型（`std::string`）完全一致。
+
+**把这个表变成 grep 时的两个陷阱，两者都会给出假判定。**
+*(a) 生成的声明是**多行**的* —— `Pass::Option<std::string>` 结束一行、`inputIRStage{` 起下一行（`CompileOptions.cpp.inc`
+同理：类型在 `static llvm::cl::opt<…>` 行，拼写与 `cl::location` 在后续行）。单行模式
+`grep 'Pass::Option<std::string> inputIRStage'` 在**正确构建上返回 0**，而按"0 即声明缺失"的读法就会 BLOCK。
+应锚定行首名（`^inputIRStage`）或拼写（`"input-ir-stage"`），并核对上一行的类型。
+*(b) "2" 是编译单元计数，不是文件计数*：`PassOptions.cpp.inc` 是**单一共享文件**，正确构建在其中只得 **1** 个
+`inputIRStage`；两个对象之所以存在，是因为两个 TU 各自编译那一个 `GEN_ALL_OPTION_REGISTRATION` 块。对文件 grep
+"2" 不可满足；"2" 的那一半须在源码层（上述两个 `#define` 点）或预处理层验证。
 
 同期确认：Implementor 的 `regbase/Driver.cpp` 改动把 `config.getInputIRStage() == kStageLate` 的提前返回放在
 `runRegBaseCompile` **首句**，与 §2.2 item 2 一致；`bishengir-compile.cpp`（`main`，§2.2 item 1 的 argv 扫描与

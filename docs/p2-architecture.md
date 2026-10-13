@@ -161,9 +161,31 @@ files in the current (pre-P2) build tree:
 
 | generated file | measured | prediction after the P2 build |
 |---|---|---|
-| `ConfigUtils.cpp.inc` | **0** occurrences of `inputIRStage` / `inputIRStageFlag`; 9 `GEN_<GROUP>_OPTION_SETUP` guards, each body an `options.X = config.getX();` | still **0** — the def is group-less, so no guarded block can contain it. A non-zero count means the option acquired a `passGroup` or the generator changed |
+| `ConfigUtils.cpp.inc` | **0** occurrences of `inputIRStage` / `inputIRStageFlag`; **3** `GEN_<GROUP>_OPTION_SETUP` groups (HFUSION, HFUSION_TO_HIVM, HIVM — 9 matching lines, 127 `options.X = config.getX();` bodies) | still **0** — the def is group-less, so no guarded block can contain it. A non-zero count means the option acquired a `passGroup` or the generator changed |
 | `ConfigUtils.cpp.inc` | **0** occurrences of `GEN_PASS_OPTION_TO_CONFIG` | still **0**. The `#define` at `regbase/PassPipeline.cpp:540` guards **nothing** today: the reverse direction (pass options → config) is not generated at all, and the `// TODO now` beside it is the only trace of it. So "no path copies a pass-option value back into the config" is a property of the *generator*, not of this option's group list |
-| `PassOptions.cpp.inc` | (pre-P2: no `InputIRStage`) | exactly **one** `Pass::Option<std::string> inputIRStage` per translation unit that defines `GEN_ALL_OPTION_REGISTRATION` — two in total |
+| `PassOptions.cpp.inc` | one shared file, 276 `Pass::Option<` declarations, **150** of them inside the `GEN_ALL_OPTION_REGISTRATION` block (lines 441–1669); `GEN_ALL_OPTION_REGISTRATION` is `#define`d in exactly **2** TUs (`lib/Tools/bishengir-compile/PassPipeline.cpp:241`, `regbase/PassPipeline.cpp:570`) | **exactly one** `inputIRStage` declaration, inside the `GEN_ALL_OPTION_REGISTRATION` block and inside **no** `GEN_<GROUP>_REGISTRATION` block. The *file* gets one; the *preprocessed* count is two (two TUs each compile that one block) — see the grep note below |
+| `CompileOptions.cpp.inc` | whole file under one `#ifdef GEN_OPTION_REGISTRATIONS`; entries shaped `static llvm::cl::opt<std::string, /*ExternalStorage=*/true> appendBishengOptions( "append-bisheng-options" …, llvm::cl::location(appendBishengOptionsFlag))` | **exactly one** `inputIRStage` / `"input-ir-stage"` / `llvm::cl::location(inputIRStageFlag)`. This is the top-level CLI registration — the surface the `--help` proof and the `getNumOccurrences()` read-back exercise |
+
+**The "0" in row 1 has a pre-existing control, so it is not a prediction.** `AppendBishengOptions`
+(`Options.td:879`) is a group-less `std::string` option that already ships, and it is **absent from
+`ConfigUtils.cpp.inc` today** (measured: 0 occurrences) while being present in both
+`CompileOptions.cpp.inc` and the `GEN_ALL_OPTION_REGISTRATION` block. That is the same three-file
+fingerprint `InputIRStage` is predicted to have, exhibited by an option already in the tree — so the
+acceptance can compare against a known-good twin instead of against a forecast, and the `std::string`
+storage type matches exactly.
+
+**Two traps in turning that table into a grep, both of which would produce a false verdict.** *(a) The
+emitted declaration is multi-line* — `Pass::Option<std::string>` ends one line and `inputIRStage{`
+begins the next (and the `CompileOptions.cpp.inc` form likewise puts the type on the `static
+llvm::cl::opt<…>` line and the spelling and `cl::location` on the following lines). A single-line
+pattern like `grep 'Pass::Option<std::string> inputIRStage'` returns **0 on a correct build**, which
+under a "0 means the declaration is absent" rule reads as BLOCK. Anchor on the name at line start
+(`^inputIRStage`) or on the spelling (`"input-ir-stage"`) and check the type line above it. *(b) "Two"
+is a translation-unit count, not a file count.* `PassOptions.cpp.inc` is **one shared file**, so a
+correct build yields **one** `inputIRStage` in it; the two objects exist because two TUs each compile
+that one `GEN_ALL_OPTION_REGISTRATION` block. Grepping the file for "two" is unsatisfiable; the "two"
+half of the claim is verified at the source level (the two `#define` sites above) or by preprocessing,
+not by grepping the generated file.
 
 **A bounded consequence on the pass route, recorded now because it is the same "silent ignore" family
 as §2.2's two doors.** `regbase::BiShengIRCompilePass::runOnOperation` builds a **default-constructed**
