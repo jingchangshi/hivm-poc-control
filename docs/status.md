@@ -4616,3 +4616,20 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **同一个修复里的标识符陷阱**：绑定文件里的 "r1" 指的是 **P2-A** 的修复-1（`superseded_p2_compiler_r1` = `1a3f20f8`），而 P2-B 的修复**也叫 r1**（`ea217b8d`）。**两个不同的 r1**——所以重指向必须**按 sha 指名**，绝不能按后缀。与 D068 同族。
 
 **未做**：没有构建、没有动 `build/bin`、没有动任何绑定文件（那是 Verifier 的执行动作）、没有改权限、没有推送。
+
+### §24 追加 32（顺手把一条 Pyright 诊断量到底：`run_ic` 的超时分支**不会** TypeError——但它**什么都不捕获**，2026-10-14）
+
+**起因**：静态检查报 `run_p2_suite_v3.py:332` "Operator `+` not supported for types `bytes` and `Literal['\nTIMEOUT\n']`"。按本项目纪律，静态告警不能当结论，也不能靠读 CPython 源码推断，**要量**。
+
+**实测**（本机 `python3` 3.11.14，用与 `run_ic` 同形的调用：`capture_output=True, timeout=` 且 `text=True` 与 `text=False` 各一次，子进程先打印一行再 `sleep`）：
+
+| | `e.stdout` 类型 | `e.stderr` 类型 | `(e.stderr or "") + "\nTIMEOUT\n"` |
+|---|---|---|---|
+| `text=True` | `NoneType` | `NoneType` | **不抛异常**，得 `'\nTIMEOUT\n'` |
+| `text=False` | `NoneType` | `NoneType` | **不抛异常** |
+
+**结论一（诊断关闭）**：在**被测量的这个解释器上**，超时分支不会 TypeError——因为 `TimeoutExpired.stdout/stderr` 都是 `None`，`or ""` 命中左值。Pyright 的报错是类型层面的，不是本平台的实际缺陷。（容器内解释器版本可能不同，故此结论**限定在已测量的解释器**，不推广。）
+
+**结论二（这条是实测出来的新事实，Pyright 没报）**：同一个测量说明，**超时分支会把部分输出整体丢掉**——`stdout` 与 `stderr` 都是 `None`，于是 600 s 超时后写进 `<tag>.stdout/.stderr` 的只有空串与一行 `TIMEOUT`。对一个**把 IR dump 打到 stderr** 的编译器来说，这恰好丢掉了唯一能解释超时的证据。严重度**低**（本阶段单 tile F32 VADD 实测编译约 1 s，600 s 超时实际不会触发；且 `rc=124` + 空流会**响亮地 FAIL**，不会造成假绿），所以**不立 D 行**，只作为一条有界的观察记录在案；若 Verifier 顺手修，正确方向是超时时把已产生的部分输出取出，而不是改 `text=` 参数（那会把 Pyright 的告警变成真缺陷）。
+
+**未做**：没有构建、没有动 `build/bin`、没有动绑定文件、没有改权限、没有推送。
