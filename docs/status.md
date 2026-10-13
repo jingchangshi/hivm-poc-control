@@ -3343,3 +3343,56 @@ entry only). Refusing to emit an artifact. No output was written." 并 **`return
    裁定基础不变；**门禁仍然只挂在 Challenger 的设计确认上**。
 
 未 push；未动 build 树；`hivm-poc-evidence/` 仍为本地独占。
+
+---
+
+## 2026-10-14 第 19 轮收口（§21）：Challenger 设计确认返回 —— 三项全部 **APPROVE**，A1 排除被确认为**正确**；我设的唯一悬挂门禁就此关闭
+
+**Challenger 的裁定（逐字保留，它不写 `.md`，由我落盘）**：
+
+> 1. **Yes.** V7 must reject an absent `l2_cache_mode`, any value other than exactly `4`, and any carrier whose type is not `i32`; absent and explicit `0` are both failures. `StoreOp` accepts `{0,1,2,4}`, and lowering can turn an absent carrier into zero, so no downstream stage restores cache4. `verifyStoreCacheMode` also checks value, target, and shape, but does not enforce the required cache4 carrier.
+>
+> 2. **Yes.** The §2.4 paragraph clarifies the byte-unchanged approved V7 row. The five later commits correct or measure option-surface and staging evidence within the approved envelope; they do not alter the Late cut or G1–G4 semantics. No additional design review round is required.
+>
+> 3. The repair brief is complete and appropriately narrow. I have no remaining design objection. The new staged build and re-verification are acceptance evidence owned by the Verifier/Lead; the contract and delta review itself is approved.
+>
+> **APPROVE — the requested design contingency is closed.** … "Present and nonzero" would admit modes `1` and `2`, which are legal general store modes but do not satisfy this frozen VADD contract. … **Excluding A1 from P2-A is correct.** Record it as NOT_RUN because the entry-only build deliberately stops after validation. Golden preflight acceptance followed by the stub's exit `1` proves validator acceptance; it does not prove successful binary compilation. A1 remains mandatory at P2-C/P2-D. This is independent approval of the contract, document delta, and repair source. **I have not independently inspected the new r1 execution logs**, so the reported 24/24 result remains Verifier/Lead evidence for adjudicating scoped P2-A acceptance.
+
+**我据此下的判断与动作**：
+
+1. **唯一悬挂门禁关闭。** 我在 §19 设的条件是"P2-A 的接受以 Challenger 的设计确认为条件"。三项均为 Yes，
+   且它另行确认 **A1 的排除正确**（这是我在 §19/§0.9a 自我更正过的那一条 —— 现在由独立方确认，
+   而不是只由我自己认定）。**注意边界**：Challenger 明确声明它**没有**独立查看 r1 的执行日志，
+   所以 24/24 的**执行**证据归 Verifier/Lead；它的批准是**契约与文档 delta** 的批准。两者不混为一谈。
+2. **但我不立刻写"P2-A ACCEPTED"。** Challenger 在三封信里三次点出同一件**更强的廉价仪器**：
+   用**新 staged 的 `bishengir-opt`** 跑**独立** late-input validator（无 IR dump）—— 期望 golden **rc=0**、
+   b01/b02 **rc!=0 且具名 V7**。它把这条与"compile 路线配对探针"并列为推荐（后者我们已做）。
+   我判断值得**先跑再判**，两个理由：
+   (a) 我们现有的**正例是推出来的**：discriminator 里 golden 的 rc 是 **1**（来自 `:544` stub），
+       "validator 接受了 golden"是由 `PassID` + After-not-`Failed` + 零验证行**推断**的；
+       独立 opt 给出一个**没有 stub 挡路的直接 rc=0**，把推断变成直测。
+   (b) 它正好**兑现 §0.4**：§0.4（"测试跑在新建并 staged 的 `bishengir-opt` 上，而非 P1 钉死的二进制"）
+       自冻结起一直是 **NOT_RUN**。这一跑是它唯一的真实缺口。
+   **先判后翻是不必要的风险**，而这一跑很便宜（单容器作业）。故：先跑，再裁定。
+   已明确要求 Verifier：**仪器无效 ≠ P2-A 失败** —— 若该 pass 无法独立调用（需要合并管线上下文、
+   或缺某个选项），原样报告并停止，那是**关于仪器的事实**，不得记为任何行的 FAIL，更不得由 golden 的
+   非零返回推出"validator 拒绝 golden"。CLI 拼写以**实测 `--help`** 为准，不采信转述的
+   `--hivm-verify-late-input='target=Ascend950PR_9579'`。
+3. **一处措辞更正已落实（Challenger 提了两次，值得当真）**：我在 §0.7 写 "`verifyStoreCacheMode` is a
+   shape predicate too" —— **不准确**。它同时检查 value / target / shape。相关的**结论**不变且更窄：
+   **它和 `StoreOp::verify` 都不要求存在 `l2_cache_mode = 4`**，且 `HIVMToStandard.cpp:1425-1429`
+   把"属性缺失"降为常量 `0`，故下游无补救。§0.7 已按此改写并留更正说明 —— **记录不得靠一个不准确的
+   标签站住**，即使结论碰巧是对的。
+4. **Implementor 的主动披露，我裁定：保留，不移动。** 它在 `impl/stage-p2a/` 内加了 `SUPERSEDED.md`
+   （它自己标出这是唯一可能越界之处，并主动提出可移到 `impl/`）。**裁定：留在原处。** 理由：
+   该目录的**四件 artifact 字节与 mtime 未变**、`SHA256SUMS.txt` 逐字节相同（`6d1d4a06…`），
+   所以 D034 引用的字节仍可解析；而"一个描述被拒身份的 4/4 manifest 不带旗标"**正是陷阱本身**
+   （`sha256sum -c` 会全 OK，读者会以为它仍是记录）。一个**旗标文件不是替换**，它不改变任何被引用的字节。
+   我不要求移动，因为移动会把旗标与它标注的 bundle 分开，反而更容易漏读。
+   **条件**：该旗标**不得**被任何 manifest 覆盖（现状就是如此：manifest 仍指 4 件，
+   `stage-p2a/` 从自身 base 仍 4/4 OK），且引用该目录时**必须同时给出 base**（同 `sha256sum -c` 的既有教训）。
+5. **它的过程自陈我接受**：把一处**承重**门控的收窄写进代码注释而没有上报，是流程错误；
+   且其理由在实体上也错（D012 的 `StoreOp` 合法集是 `{0,1,2,4}`，0 在那里合法，路径上没有别的东西补上这个连词）。
+
+**门禁**：**scoped P2-A 接受的裁定 pending 上面那条独立 validator 探针**（challenger 的设计条件已关闭，
+这是我为"先测后判"自加的一道小门）。**P2-B 未开始**；未 push；未动 build 树；`hivm-poc-evidence/` 本地独占。
