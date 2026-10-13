@@ -54,6 +54,24 @@ mandatory — the two are different claims about possibly the same bytes, and th
 collapse them. Both bundles verify 4/4 **from their own bases**; the superseded one carries a
 `SUPERSEDED.md` and is not the artifact of record.
 
+**Structural precondition for B3/B4, measured from disk 2026-10-14 — structural only, execution still
+NOT_RUN.** `find <stage> -type l` returns **nothing** for either bundle: `bin/bishengir-compile`,
+`bin/bishengir-opt` and both `lib/*.bc` are **regular files** (`stat -c %y … f`). That matters because
+`getLibDirFromExecutable` (`BiShengIRCompileMain.cpp:63-76`) does `real_path` (which resolves symlinks),
+strips the filename, appends `../lib` — so a **symlinked** `bin/` entry would silently resolve back to the
+build tree and use `build/lib`, the opposite of what staging is for. With no symlinks, `real_path` of the
+staged binary is the staged path itself, so `../lib` is `<stage>/lib` **by construction**. Second half:
+`<stage>/lib/` holds **exactly** the two P2-tree templates (`meta_op.aiv.c310.O2.bc` 31,206,796 B and
+`…O0.bc` 27,695,180 B) and **not** the pre-D012 `44e4387b…` (31,179,496 B, 2026-10-09) that
+`build/install/lib/` carries — so B7's "no old bitcode" is satisfiable from this layout. **What this does
+not establish, and must not be read as establishing:** that the compiler *chose* this path at run time
+(that is B3's `/proc/self/exe` observation), that O2 was *selected* over O0 (B2), or that the linked
+kernel *consumed* the template (B1/B5/B6). Those remain NOT_RUN rows and require an executed compile.
+The layout only removes one failure mode; it is not evidence of the selection. (Incidental, harmless and
+recorded so it is not mistaken for drift: the superseded bundle's `lib/*.bc` kept the build-time mtime
+`13:46` because it was staged with `cp -p`, while the r1 bundle's are `23:45` from a plain copy — the two
+bundles' SHAs match, so the content is identical and the mtime difference carries no meaning.)
+
 ## A. Build identity (goal §6.1)
 
 | # | field | value | status |
