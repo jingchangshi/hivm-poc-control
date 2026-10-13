@@ -34,7 +34,20 @@ standalone template has the right dataflow.
 | B5 | the **fourth i32 Store libcall argument** in the emitted LLVM IR matches the template ABI — expected value frozen from the template source below | NOT_RUN |
 | B6 | `cache4` is **not** replaced by cache0 anywhere in the link/optimize chain the final kernel uses | NOT_RUN |
 | B7 | no old bitcode, cached object, or fallback template is used — **two distinct C310 O2 templates exist in-tree with different SHAs**, and the second is pre-D012 (`p2-architecture.md` §3.3) | NOT_RUN |
-| B8 | **missing required C310 bitcode in Late mode fails hard** — expected: a diagnostic naming the missing required template and **no binary**. Negative: isolated template directory with the required AIV file absent **and** a distinct extra bitcode supplied. Today's behaviour (warning at `HIVMCMainA5.cpp:112-114` plus a binary, masked by `-Wno-override-module`) is recorded as a **finding about the existing route**, not fixed for the non-Late route. | NOT_RUN |
+| B8 | **missing required C310 bitcode in Late mode fails hard** — expected: a diagnostic naming the missing required template and **no binary**. This is **four separate negatives**, not one combined case (`p2-architecture.md` §3.3): N1 required template absent; N2 a template present but **not the recorded identity** (this is the row that catches the pre-D012 `44e4387b…`); N3 `--link-aicore-bitcode` supplied; N4 absent *and* an extra supplied — rejected with no binary and **without prescribing which diagnostic fires**. Today's behaviour (warning at `HIVMCMainA5.cpp:112-114` plus a binary) is a **hypothesis predicted from source, NOT_RUN until executed**, and is recorded as a **finding about the existing route**, not fixed for the non-Late route. An unexecuted successful-link outcome stays NOT_RUN, never PASS. | NOT_RUN |
+
+**A correction carried into this file: `-Wno-override-module` is not a duplicate-symbol suppression.**
+An earlier draft of `p2-architecture.md` §3.3 claimed the flag let a user-supplied bitcode define the
+same symbols as the required template. Measured, the flag is `DiagGroup<"override-module">` whose only
+diagnostic is *"overriding the module target triple with %0"*
+(`clang/Basic/DiagnosticFrontendKinds.td:47-48`) — and its two sites sit in the ccec **frontend**
+argument list (`HIVMCMainA5.cpp:97`, next to `-cce-bitcode-is-aicore`) and in the `--save-linked-ir`
+command echo (`:227`). The substitution vector is fully explained without it, by the list-based link
+path (`getExtraDeviceBCPaths()` seeds the list at `:110`; the meta-op path is appended only when the
+core type is in `bitcodePaths`, warning otherwise at `:112-114`; `bitcodePathList.empty()` at `:180` is
+the only hard failure and cannot trigger once an extra is supplied; every path is linked as
+`-cce-link-aicore-ll-module <BCPath>` at `:185-188`). **A negative asserting the flag's absence would
+therefore prove nothing** — it would pass on a build that still substituted a template.
 
 **B-row preconditions, measured 2026-10-13 (`p2-architecture.md` §3.3).** Two facts bound what B1–B7
 can claim, and both must be settled by *execution*, not by path:

@@ -2090,3 +2090,88 @@ cache 策略正是 P2 所构建的那一个提交引入的。
 `docs/p2-binary-abi.md` §B 前置条件。**注意**：以上均为控制仓文档，**不是生产代码**。
 
 **未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍等 `verify` 与 `review-2`。
+
+---
+
+## P2 架构门（§8 step 3）Challenger 第 4 轮 REVISE —— 四项修正已逐条独立复核并落入架构文档
+
+**阶段**：P2-A 架构门（goal §8 step 3）。**仍未写任何 P2 生产代码**（P2 生产代码 0 行）。
+
+**裁决**：`review-2`（agent type `challenger-opus`，**实际 served model `gpt-6.1-sol`**，取自其自身
+transcript 的 gateway `model` 字段，非由 agent-type 推断）第 4 轮裁决 **REVISE —— 设计范围**。
+Challenger 明确写出：Verifier 的测试冻结未完成**不**阻塞本裁决，**修正所列各点后即可给出 scoped
+entry-design APPROVE**。裁决原文（三条消息）已由 Lead 逐字留存于
+`p2-20261013-late-pipeline/review/challenger-entry-design-verdict-round4.md`（Challenger 本轮**未**自写
+文件，故由 Lead 按既定规则代为逐字持久化；来源 transcript 记录 `rec394`/`rec420`/`rec426`）。
+
+**四项修正 —— Lead 均先回到本地源码独立复核，再改文档，未采信任何一条**：
+
+1. **冻结选项处置**。`--enable-static-bare-ptr=false` 显式出现即**拒绝**（该 flag 在本路径上经
+   `cl::location` 写入且 transfer helper 从不传递，故为静默无效；`emitGetterSetter = 0`，
+   `hivmc/Config.h:830` 默认 `true`）；`--enable-optimized-metaop` **显式 pin 为 true（O2）**
+   （`Options.td:818-826` 默认即 true）；`--enable-hivm-auto-storage-align` **pin true**
+   （`Options.td:662-666`）；`--enable-lib-call-no-inline` **pin true**。**关键发现**：TableGen 默认值
+   **不是** regbase 路线上的有效默认值 —— `applyArchDependentCompileDefaults`
+   (`BiShengIRCompileConfig.cpp:374-383`，`:463`/`:481`/`:486` 调用) 在 `isRegBasedArch` 时、且仅当用户
+   **未显式传参**（`hasExplicitCLOption`）时，把 `enable-lib-call-no-inline`、`enable-hivm-unit-flag-sync`、
+   `enable-preload` 三者设为 **true**，而三者在 `Options.td` 中都写着 `"false"`；`--enable-lib-call-no-inline`
+   的自身描述也写着 *"Enabled by default on RegBase and disabled by default on membase."* ∴ 照选项表写出的
+  检查会有三行方向相反。**`--save-linked-ir` 与 `--save-temps` 拆开**：前者不是输出路径而是**产物类型**
+   （`HIVMCMainA5.cpp:68-71` 把 `.o` 换成 `.ll` 且文件名加 `_linked`；`:158-163` 追加
+   `-Xclang -disable-llvm-optzns -S -emit-llvm`，即同时**关闭优化**）∴ Late 模式**拒绝**，不得出现在任何
+   用于产出被验收二进制的调用中；后者 `std::string` 默认 `""`（`Options.td:339-345`）确为目录，仅作诊断。
+
+2. **恢复"两个推断函数零调用"**。此前 §3.2 的一版把该主张弱化为"该 flag 无消费者"，理由是二函数只
+   `module.walk`、不加 pass。理由对、结论错：它描述的是**普通路径**。实测 `inferLayoutOptimization` 在
+   `regbase/Driver.cpp:68` **无条件**调用、`inferMixedCV` 在 `:73` 调用，两者都在 `runRegBaseCompile`
+   (`:63-85`) 内 —— 而 §2.2 的 Late 分支正是以其**首语句**返回。∴ Late 路径上二者**一次也不会被进入**，
+   这正是目标 §4.1(1)"分流"的要求，主张既有意义又可断言。二者不矛盾：**零调用**由**各自函数入口**
+   （`Utility.cpp:100`、`:61`）的边界日志**缺席**来断言；**pass 轨迹不能代替**，因为二者是普通
+   `module.walk`，不加 pass，轨迹按构造看不见它们。边界日志的位置也一并修正为**函数入口**：
+   `runRegBasePipeline`（`BiShengIRCompileMain.cpp:345`）有**两个**调用者（`Driver.cpp:81` 与
+   `PassPipeline.cpp:564` 的 in-pass 形式），`runHIVMCCompileA5`（`hivmc/A5/HIVMCMainA5.cpp:944`）也有
+   **两个**（`BiShengIRCompileMain.cpp:448` 与 `hivmc/HIVMCMain.cpp:45`）—— 记在调用点上就不成其为计数。
+
+3. **模板主张与反例修正**。`-Wno-override-module` **不是**重复符号抑制：实测它对应
+   `DiagGroup<"override-module">`，唯一诊断是 *"overriding the module target triple with %0"*
+   （`third-party/llvm-project/clang/.../DiagnosticFrontendKinds.td:47-48`），两处出现
+   （`HIVMCMainA5.cpp:97` 紧邻 `-cce-bitcode-is-aicore`；`:227` 在 `--save-linked-ir` 的回显里）都与
+   **前端告警抑制**一致。替换向量**不依赖**该 flag，而完全由两处静默跳过解释：
+   `bitcodePathList` 由 `getExtraDeviceBCPaths()` 起头、meta-op 路径仅在 core type 命中时追加
+   （否则只告警 `:112-114`）、`bitcodePathList.empty()`（`:180`）是唯一硬失败**且**在用户已提供额外 bitcode
+   时不可能触发、每个存活路径都被 `-cce-link-aicore-ll-module` 链入（`:185-188`）。∴ **断言该 flag 缺席的
+   反例什么都证明不了**。反例拆成**四个**：N1 必需模板缺席（存在性）、N2 模板在位但**非记录身份**（这正是
+   抓住 pre-D012 `44e4387b…` 的那行）、N3 提供 `--link-aicore-bitcode`（选项策略）、N4 两者同时（**不得**
+   规定哪个诊断优先，因为选项拒绝会合法地先触发）。"今天会产生告警和二进制"是**由源码预判的假设，执行前
+   一律 NOT_RUN**；未能证明"没有写出二进制"的行同样保持 NOT_RUN，不得由退出码推断。
+
+4. **轨迹与白名单精确化**。引 `--help` 实测：pinned 二进制上**四个**过滤器都存在 ——
+   `--mlir-print-ir-after-change`、**`--mlir-print-ir-after-failure`**（*"only print if the pass failed"*，
+   即"仅失败才打印"，最易被误留、且会让干净轨迹与"什么都没跑"无法区分）、以及逐 pass 选择器
+   `--mlir-print-ir-before=<pass-arg>`/`--mlir-print-ir-after=<pass-arg>`。覆盖率运行必须用**未过滤**的
+   before-all + after-all。管理器按**实际进入者**枚举，**被正确绕过的 retry wrapper 无须出现**（反向也写进
+   了：要求所有可构造的管理器都出现会使正确的 Late 运行不可伪证）；计数**按函数作用域**，"二十个构造条目
+   不等于二十次执行"（`PassPipeline.cpp:564` 的 in-pass 构造正是反例之一）。
+
+**4d —— Lead 的复核超出 Challenger 所指，并抓出第三处缺陷。** Challenger 点名要求白名单用规范身份
+（`builtin.module`、`func.return`）。Lead 没有手改清单，而是跑了白名单本该据以生成的**实测 census**：
+容器内 pinned `build/bin/bishengir-opt` `0761c6e6…` 对冻结输入 `d1023ac1…` 执行
+`--mlir-print-op-generic`，退出码 **0**，得 **21** 个不同算子。census 证实了 Challenger 点的两个名字，
+**并发现评审未点名的第三处**：**`scf.yield` 原清单里完全没有**（`scf.for` 恰有一个体终结符）。
+三处遗漏后果相同：V1 会**拒绝被接受的冻结输入**，使每个 Late 测试都因错误原因失败 —— 正是目标 §7 B 所禁。
+census 命令已写入 `docs/p2-architecture.md` §2.4 作为**再生成规程**（并明确白名单必须是**全名闭集等值**
+比较，`startswith("hivm.")` 之类前缀测试会放进 `hivm.hir.mmad` 等，等于完全失去区分能力）。
+
+**已落文档**：`docs/p2-architecture.md` §2.3.1（选项表逐行冻结 + 新增"TableGen 默认≠有效默认"块）、
+§2.4（V1 精确白名单 + 21 算子 census 表 + 三处修正）、§3.1（`getLowerToLLVM` 措辞精确化：Late 直调绕过
+全部门闸，断言 `LowerToLLVM=true` 是**入口不变量**而非依赖）、§3.2（六条前置条件：四过滤器、实际进入的
+管理器、按函数作用域计数、恢复零调用主张）、§3.3（`-Wno-override-module` 更正 + 四反例表 + NOT_RUN 纪律）；
+`docs/p2-pass-trace.md` A2/A2b/A4、过滤与计数规则、E1/E2、C1；`docs/p2-binary-abi.md` B8 + 更正段；
+`docs/p2-verification.md` A1/A2b/A9/A12/A13、B10、E0。**以上均为控制仓/证据树文档，不是生产代码。**
+
+**下一步**：请 `review-2` 就修正后的架构做 scoped entry-design 复审（goal §8 step 3 收口）；同时
+`verify` 的测试冻结（§8 step 2）仍在进行。步骤 4（Implementor P2-A）仍须等二者报告后开始。
+
+**未变**：P2 生产代码 **0 行**；`hivm-poc-evidence/` 仍为**本地专属**（不发布、不推送、不托管）；
+两仓库远程配置未改、未推送；本轮全部改动仅落在 `hivm-poc-control/docs/` 与
+`hivm-poc-evidence/p2-20261013-late-pipeline/review/`。

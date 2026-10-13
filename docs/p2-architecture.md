@@ -231,21 +231,57 @@ convention stays on. Late mode inherits this exactly; it must not "fix" it (that
 agreement with the Golden) and must not let a user believe the flag took effect. Each such option is
 either proved irrelevant and recorded, or rejected in Late mode with a diagnostic naming it.
 
-The options to adjudicate this way, because each can move ABI, bitcode, synchronization or output:
+The options to adjudicate this way, because each can move ABI, bitcode, synchronization or output.
+Each row's disposition is now **frozen** — "reject or pin" is not a disposition, it is a deferral, and a
+Late invocation must have exactly one allowed value per row:
 
 | option | touches | Late-mode disposition |
 |---|---|---|
-| `--enable-static-bare-ptr` | LLVM call conv (ABI) | not transferred; stays `true`; documented, or rejected |
+| `--enable-static-bare-ptr` | LLVM call conv (ABI) | **reject an explicit `=false`**; an explicit `=true` is accepted because it agrees with the effective value. Not transferred, so `=false` is silently ineffective and the convention stays `true` (`hivmc/Config.h:830`); accepting `=false` would mean accepting a request the toolchain does not honour |
 | `--link-aicore-bitcode` | extra device bitcode list | **reject** — a substitute template must never mask the required C310 AIV one (§3.3) |
 | `--enable-hivm-inject-barrier-all-sync` | injects `--cce-auto-sync=bar-all` | **reject** — automatic sync injection is forbidden (§3.2) |
-| `--disable-fma` / `--disable-decompose-reduction` / `--disable-reorder-instruction` | instruction selection | unaffected by the Late cut; carried unchanged by the helper |
-| `--save-linked-ir`, `--save-temps` | output paths only | allowed (diagnostic), but must write outside the pinned paths |
-| `--enable-optimized-metaop` | selects `meta_op.aiv.c310.<O0\|O2>.bc` | **reject** in Late mode, or pin the selection explicitly — the choice is part of P2's recorded binary identity (§3.3) |
+| `--disable-fma` / `--disable-decompose-reduction` / `--disable-reorder-instruction` | instruction selection | carried unchanged by the helper — so unlike the bare-ptr row these *do* take effect; **pin** to the measured values, because instruction selection is part of the binary identity |
+| `--save-linked-ir` | **not an output path — an artifact type.** `SaveLinkedIR` (`Options.td:1132-1139`, `bool`, default false) switches the ccec output extension `.o`→`.ll` and its filename gains `_linked` (`hivmc/A5/HIVMCMainA5.cpp:68-71`), and appends `-Xclang -disable-llvm-optzns -S -emit-llvm` to the ccec argument list (`:158-163`) | **reject in Late mode** — it both changes what is produced (LLVM text, not an object) and disables the optimization the binary identity depends on. It cannot appear in any invocation that is meant to produce the accepted binary |
+| `--save-temps` | output **directory** only — `std::string`, default `""` (`Options.td:339-345`) | allowed as a diagnostic; must write outside the pinned paths. Kept separate from `--save-linked-ir` above: one is a destination, the other is a transformation |
+| `--enable-optimized-metaop` | selects `meta_op.aiv.c310.<O0\|O2>.bc` (`Options.td:818-826`, `bool`, **default `true` = O2**) | **pin explicitly to `true`** — the choice is part of P2's recorded binary identity (§3.3), and it must be pinned by an explicit argument rather than inherited from a default |
 | `--enable-tuning-mode`, `--enable-auto-multi-buffer`, `--multibuffer-mode` | tuning / multibuffer | **reject** — no tuning retry and no multibuffer in Late mode (§4). Spellings measured on the pinned binary (`--enable-auto-multibuffer` does **not** exist) |
 | `--append-bisheng-options` | passes flags to the downstream compiler | **reject** — an arbitrary downstream flag set is not part of the frozen contract |
-| `--enable-hivm-auto-storage-align` | `ConvertHIVMToStandardOptions::isOpsAligned` in the tail | **reject or pin** — it parameterizes the very conversion the Late contract fixes |
-| `--enable-lib-call-no-inline` | `ConvertHIVMToStandardOptions::markLibCallNoInline` in the tail | **reject or pin** — same; and note sanitizer/debug-info silently force it `false` inside the tail |
+| `--enable-hivm-auto-storage-align` | `ConvertHIVMToStandardOptions::isOpsAligned` in the tail | **pin `true`** — TableGen default is already `true` (`Options.td:662-666`); pinning states it rather than inheriting it |
+| `--enable-lib-call-no-inline` | `ConvertHIVMToStandardOptions::markLibCallNoInline` in the tail | **pin `true`** — and that is *not* the TableGen default. See the arch-dependent-defaults note below |
+| `--enable-hivm-unit-flag-sync` | synchronization mode of the inject-sync pass | **pin `true`** — same mechanism; a synchronization-affecting option may not float |
+| `--enable-preload` | CV-pipelining skew | **pin `true`** — same mechanism |
 | `--enable-multi-kernel`, `--enable-bin-relocation`, `--enable-symbol-analysis`, `--enable-manage-host-resources` | host/link packaging | out of scope for P2; reject rather than guess. Spellings measured: `--enable-multi-kernel` (not `--multi-kernel`). `--compile-host` is **not a CLI option at all** — see §2.3 |
+
+**One rule makes the table mechanical, and it is what "pinned" means above:** every row that is not
+rejected is a row whose value must be **supplied explicitly** by the Late entry. An explicit argument
+is the only way to make `hasExplicitCLOption` true, which is in turn the only way the arch-dependent
+defaults below cannot move the value out from under a recorded binary identity. **Any explicit value
+that differs from the pinned one is rejected with a diagnostic naming the option and both values** —
+never silently overridden, because silent override would make the compile log disagree with what the
+binary was actually built from.
+
+**A TableGen default is not the effective default on the regbase route, and three rows above depend on
+that.** `applyArchDependentCompileDefaults`
+(`Tools/bishengir-compile/BiShengIRCompileConfig.cpp:374-383`, called at `:463`, `:481`, `:486`) returns
+early unless `isRegBasedArch(config.getTarget())`, and otherwise sets, for each option **only when the
+user did not pass it explicitly** (`hasExplicitCLOption`, `:366-371`):
+
+```cpp
+if (!hasExplicitCLOption("set-workspace-multibuffer"))     config.setSetWorkspaceMultibuffer(2);
+if (!hasExplicitCLOption("limit-auto-multi-buffer-buffer"))config.setLimitAutoMultiBufferBuffer(MultiBufferStrategy::NO_LIMIT);
+if (!hasExplicitCLOption("enable-hivm-unit-flag-sync"))    config.setEnableHIVMUnitFlagSync(true);
+if (!hasExplicitCLOption("enable-preload"))                config.setEnablePreload(true);
+if (!hasExplicitCLOption("enable-lib-call-no-inline"))     config.setEnableLibCallNoInline(true);
+```
+
+So `--enable-lib-call-no-inline`, `--enable-hivm-unit-flag-sync` and `--enable-preload` all read
+**`false`** in `Options.td` (`:1200-1206`, `:584-588`, `:653-660`) and are all effectively **`true`** on
+any Ascend950PR Late run. The TableGen file for `--enable-lib-call-no-inline` even says so in its own
+description — *"Enabled by default on RegBase and disabled by default on membase."* A Late-mode check
+written from the option list would therefore get three rows backwards. This is also why the disposition
+is **pin**, not merely "don't set": the pinning argument must be passed explicitly, so that
+`hasExplicitCLOption` is true and the arch-dependent function cannot move the value underneath a
+recorded binary identity.
 
 The two conversion-options rows are a **new finding from reading the tail's own source**, not from the
 option list: `buildLowerToLLVMPipeline` builds `ConvertHIVMToStandardOptions` from the config before
@@ -275,7 +311,7 @@ in this order:
 
 | # | check | reject condition |
 |---|---|---|
-| V1 | stage identity | the module is not a Late HIVM/AVE stage: it contains HFusion/tensor ops, `llvm.func`/`llvm.*`, or any op outside the P1-verified whitelist (`hivm.*`, `ave.*`, `func`, `arith`, `scf`, `memref` — note `cf` is **not** in it, see below); **or** any function carries `mix_mode` / any `FilterPassesAttr` (either activates the Mix/Aiv pass-execution policy — see §3.2) |
+| V1 | stage identity | the module is not a Late HIVM/AVE stage: it contains HFusion/tensor ops, `llvm.func`/`llvm.*`, or any op outside the **exact** P1-verified whitelist enumerated below — the whitelist is a closed list of fully-qualified operation names, **never** a prefix pattern like `hivm.*` or `ave.*` (see below); **or** any function carries `mix_mode` / any `FilterPassesAttr` (either activates the Mix/Aiv pass-execution policy — see §3.2) |
 | V2 | target agreement | `hacc.target` present in the module at parse time **and** equal to the CLI target; a module without it is rejected in Late mode (the normal path's `AppendDeviceSpec` is not allowed to invent a missing target silently here) |
 | V3 | module/core metadata | `hivm.module_core_type = #hivm.module_core_type<AIV>` present; entry carries `hacc.entry` + `hacc.function_kind<DEVICE>` + `hivm.func_core_type<AIV>` |
 | V4 | entry ABI | exactly three GM arguments, `memref<524288xf32, #hivm.address_space<gm>>` in A/B/C order, void return, no extras |
@@ -336,14 +372,50 @@ Two implementation constraints on V7, both load-bearing and both easy to get sub
 The independent `StoreOp` verifier (`Dialect/HIVM/IR/HIVMDMAOps.cpp:391-413`) checks valid values and
 the target; it is a third check, not a substitute for V7.
 
-**Whitelist source of truth for V1.** The frozen artifact
-(`p1v2-20261013-d025/snapshot/impl/vadd_late.mlir`, `d1023ac1…`) uses exactly: `module`, `func.func`,
-`func.call`, `arith.constant`, `arith.muli`, `arith.index_cast`, `memref.subview`,
-`hivm.hir.pointer_cast`, `hivm.hir.get_block_idx`, `hivm.hir.load`, `hivm.hir.store`,
-`hivm.hir.set_flag`, `hivm.hir.wait_flag`, `hivm.hir.pipe_barrier`, `ave.hir.pge`, `ave.hir.vload`,
-`ave.hir.vadd`, `ave.hir.masked_store`, `scf.for`, `return`. V1's whitelist is derived from **that
-list**, not invented: `cf` is deliberately **excluded**, because `ConvertSCFToCF` runs *later* in the
-tail, so a `cf` op in the input means the input is not the P1 Late stage.
+**Whitelist source of truth for V1 — an executed census, not a reading of the pretty-printed file.**
+An earlier draft of this section listed the operations from the artifact's *custom* (pretty-printed)
+form, and that form is misleading in exactly the way a whitelist must not be: it hides the resolved
+names of the enclosing and terminating operations. **Measured** on the frozen artifact
+(`p1v2-20261013-d025/snapshot/impl/vadd_late.mlir`, `d1023ac1…`) with the pinned
+`build/bin/bishengir-opt` in the container:
+
+```
+bishengir-opt vadd_late_p1v2.mlir --mlir-print-op-generic -o -
+```
+
+Generic form is the right oracle because it prints every operation's **canonical** name. The census
+has **21** distinct operations:
+
+| op | count | | op | count |
+|---|---|---|---|---|
+| `builtin.module` | 1 | | `hivm.hir.store` | 1 |
+| `func.func` | 2 | | `hivm.hir.set_flag` | 2 |
+| `func.return` | 2 | | `hivm.hir.wait_flag` | 2 |
+| `func.call` | 1 | | `hivm.hir.pipe_barrier` | 1 |
+| `arith.constant` | 7 | | `hivm.hir.pointer_cast` | 3 |
+| `arith.muli` | 1 | | `ave.hir.pge` | 1 |
+| `arith.index_cast` | 1 | | `ave.hir.vload` | 2 |
+| `memref.subview` | 6 | | `ave.hir.vadd` | 1 |
+| `scf.for` | 1 | | `ave.hir.masked_store` | 1 |
+| `scf.yield` | 1 | | `hivm.hir.load` | 2 |
+| `hivm.hir.get_block_idx` | 1 | | | |
+
+Three corrections to the earlier list, all of which would have made V1 **reject the frozen input**:
+
+- `module` → **`builtin.module`** (the top-level op's canonical name);
+- `return` → **`func.return`** (the VF helper's and the entry's terminators);
+- **`scf.yield` was missing entirely.** `scf.for` has exactly one body terminator, `scf.yield`, once.
+  Both `func.return` and `scf.yield` are terminators that a whitelist built by skimming the body would
+  omit — and a V1 that rejected the accepted fixture would fail every Late test for the wrong reason,
+  which is the failure §7 B forbids.
+
+V1's whitelist is this table's op column, **exactly**, with no wildcard rows: `cf` is deliberately
+**excluded**, because `ConvertSCFToCF` runs *later* in the tail, so a `cf` op in the input means the
+input is not the P1 Late stage. The whitelist must be implemented as a closed set of full operation
+names compared for equality — a prefix test such as `op.getName().startswith("hivm.")` would admit
+`hivm.hir.mmad`, `hivm.hir.copy` and every other HIVM op, i.e. would not distinguish the Late stage
+from a pre-Late one at all. The census command above is also the **regeneration procedure**: if a
+future accepted fixture changes the op set, re-run it and re-derive the list; never widen the pattern.
 
 **Implement the validator as a registered MLIR pass, defined inside the regbase library.** Rationale,
 and it is a testability argument rather than a style one: as a registered pass (e.g.
@@ -471,13 +543,22 @@ void buildBiShengHIRAVEToLLVMPipeline(OpPassManager &pm, const BiShengIRCompileM
 - `getEnableHIVMCompile()` — gates only the AVE builder, i.e. the branch Late **skips**. Because Late
   calls `buildLowerToLLVMPipeline` directly, this flag is **irrelevant to Late mode** and must not be
   forced by the entry; forcing it would only widen the blast radius on the ordinary route.
-- `getLowerToLLVM()` — the gate Late depends on. Measured: `LowerToLLVM` is a
-  `BiShengIRCompileInternalStateOpt` (`Options.td:1557-1563`, comment at `:1548-1550`) with default **`true`**, explicitly
-  documented in-file as *"still real options/config entries … not currently surfaced as normal
-  generated CLI/pass options"*, and **no `setLowerToLLVM` call site exists anywhere in the tree**
-  (grep over `*.cpp`/`*.h`/`*.td`). So on this build the tail always runs, and Late's direct call is
-  consistent with the ordinary route rather than a special case. The Late entry still asserts the
-  value rather than assuming it, because a default is not a contract.
+- `getLowerToLLVM()` — the gate that governs **the ordinary route's** reach into the tail. Measured:
+  `LowerToLLVM` is a `BiShengIRCompileInternalStateOpt` (`Options.td:1557-1563`, comment at
+  `:1548-1550`) with default **`true`**, explicitly documented in-file as *"still real
+  options/config entries … not currently surfaced as normal generated CLI/pass options"*, and **no
+  `setLowerToLLVM` call site exists anywhere in the inspected BiShengIR source** (grep over
+  `*.cpp`/`*.h`/`*.td`). So on this build the tail always runs, and Late's direct call is consistent
+  with the ordinary route rather than a special case.
+
+  **Precision worth keeping, because it decides what the entry must do:** the direct Late call
+  bypasses all three wrapper gates, so `LowerToLLVM` is **not a dependency of Late mode** — the direct
+  `buildLowerToLLVMPipeline` call would run whatever the flag said. Asserting `LowerToLLVM = true` is
+  therefore an **entry invariant**, i.e. a statement about the configuration the Late entry fixes so
+  that the module's lineage is unambiguous, not a condition its own call is subject to. The Late entry
+  asserts the value rather than assuming it, because a default is not a contract; but a negative that
+  claimed "Late did not run the tail because the flag was false" would be testing a mechanism that
+  cannot exist on this path.
 
 **The tail contains a conditional sub-block that the exact-20-pass claim depends on being dead.** The
 SIMT/DPX block inside `buildLowerToLLVMPipeline` (`:269-289`: `AdaptGPUKernel`,
@@ -557,7 +638,7 @@ comes from a per-pass IR trace with the pass names of §3.1, **not** from source
 count. `--mlir-disable-threading` is mandatory for that trace: without it the after-all order is not
 deterministic.
 
-**A trace is only evidence if coverage is demonstrated.** Four preconditions, each of which must be
+**A trace is only evidence if coverage is demonstrated.** Six preconditions, each of which must be
 shown for the run that produces the archived trace, because a pass that ran but was not instrumented
 is indistinguishable from a pass that did not run:
 
@@ -568,9 +649,16 @@ is indistinguishable from a pass that did not run:
    `regbase/BiShengIRCompileMain.cpp:448`, defined at `hivmc/A5/HIVMCMainA5.cpp:944` — so the A5
    MLIR pipelines, including the single `ConvertHIVMToLLVM`, are inside the same trace. The ccec
    **subprocess** is not, and is covered instead by P2-C's binary/ABI checks, not by this trace.
-2. **No change-filtering is on.** `--mlir-print-ir-after-change` is *not* used for the coverage run;
-   it suppresses passes that did not change the IR, which would make a "not present" reading
-   ambiguous.
+2. **No filtering of any kind is on — and there are three distinct filters, all measured present on
+   the pinned binary.** The coverage run uses the **unfiltered**
+   `--mlir-print-ir-before-all` **and** `--mlir-print-ir-after-all`, and none of:
+   `--mlir-print-ir-after-change` (*"only print if the IR changed"*),
+   `--mlir-print-ir-after-failure` (*"only print if the pass failed"* — a failure-only filter, which
+   would leave a clean trace looking as if nothing ran), or the per-pass selectors
+   `--mlir-print-ir-before=<pass-arg>` / `--mlir-print-ir-after=<pass-arg>`, which silently narrow the
+   trace to the named passes. Verified on `build/bin/bishengir-opt` `0761c6e6…` via `--help`. A trace
+   produced with *any* of the four is **not** usable for a zero in §3.2, because "absent from the
+   trace" then no longer implies "not scheduled".
 3. **Complete logs are captured.** The trace is written with `--mlir-print-ir-tree-dir=<dir>` as a
    file tree under the P2 evidence directory, and the run's stdout/stderr are captured in full and
    archived — not pasted into a report and not truncated.
@@ -580,12 +668,29 @@ is indistinguishable from a pass that did not run:
    read from it is void. That is necessary and **not sufficient**: two sentinels say nothing about the
    pass managers *between* them. Coverage must be established **per pass manager** — enumerate the
    managers the run creates (the regbase tail's, the RetriablePassManager retry wrappers, and the A5
-   in-process pipelines) and show each appears in the trace. A run in which one manager was built
-   without the registered options produces a trace that looks complete and silently omits everything
-   that manager did.
+   **actually entered** — not the ones the source suggests could be built — and show each appears in
+   the trace. "Actually entered" is the operative word in both directions: a manager that is
+   constructed and then not run contributes headers that prove nothing, and a manager that ran without
+   the options contributes nothing at all. The enumeration is therefore read **from the trace** (which
+   nested-pipeline headers appear, and inside which pass), and the run's own log line for each manager
+   entry is the cross-check. The converse is equally load-bearing: a retry wrapper that the Late route
+   **correctly bypasses** does not appear, and its absence is **not** a coverage hole — requiring every
+   manager the *source* can construct to be present would make a correct Late run unfalsifiable. The
+   list of managers that must appear is the list the Late invocation actually enters. A run in which
+   one of *those* was built without the registered options produces a trace that looks complete and
+   silently omits everything that manager did.
 
 5. **The trace must not be silently filtered.** See the filtering sub-section below. This is the
    precondition most likely to invalidate an otherwise clean trace.
+
+6. **A count is per function scope, not per construction.** "Twenty construction entries do not imply
+   twenty executions." The registration/`GEN_PASS_REGISTRATION` machinery, nested `PassManager`
+   construction inside a pass body (the in-pass form at `PassPipeline.cpp:564` is exactly this), and
+   multi-threaded cloning can each produce several *entries* for one *execution*. Every count in §3.1
+   and §3.2 that is written as "exactly once" or "zero" is therefore taken **within one function
+   scope** — the instrumented `runOnOperation`/`execute` boundary for that function — and the raw
+   trace is archived alongside it so the scoping is checkable. Where the claim is about a *function*
+   rather than a pass (§3.2's boundary logs), the count is the boundary log's, not the trace's.
 
 **A printed header does not prove the pass body ran.** Measured in
 `third-party/llvm-project/mlir/lib/Pass/Pass.cpp`: the instrumentation callback fires at `:516-518`
@@ -638,26 +743,42 @@ therefore **small boundary logs placed at the actual boundaries**, not a new fra
 
 | boundary | what the log records | why it is the right place |
 |---|---|---|
-| ordinary-pipeline entry | one line immediately before `runBiShengIRPipeline` (`bishengir-compile.cpp:188`) | the fall-through destination the Late route must never reach |
-| inference | one line at the top of `inferLayoutOptimization` and `inferMixedCV` (`regbase/Utility.cpp:100`, `:95`) | these are plain walks, invisible to the pass trace; only a log can show they did or did not run |
+| **ordinary regbase pipeline** | one line at the **function entry** of `runRegBasePipeline` (`regbase/BiShengIRCompileMain.cpp:345`) | the fall-through destination the Late route must never reach. It must be at the **function**, not at a call site: `runRegBasePipeline` has **two** callers — `regbase/Driver.cpp:81` and the in-pass `BiShengIRCompilePass::runOnOperation` at `regbase/PassPipeline.cpp:564` — so a log at `Driver.cpp:81` alone would leave the second entry uncovered and a Late run that reached the pass form would print nothing |
+| membase ordinary pipeline | one line immediately before `runBiShengIRPipeline` (`bishengir-compile.cpp:188`) | the other fall-through destination. Kept for completeness even though an Ascend950PR Late run cannot reach it: `hasRegBaseTarget` is true, so `:185` always returns first |
+| inference | one line at the **top** of `inferLayoutOptimization` (`regbase/Utility.cpp:100`) and `inferMixedCV` (`:61`) | these are plain `module.walk`s, invisible to the pass trace; only a log can show they did or did not run. Both calls are in `runRegBaseCompile` (`Driver.cpp:68`, and `:73` under `getEnableTritonKernelCompile()`), which the Late branch returns out of |
 | retry | one line per iteration of the retry loop (`regbase/BiShengIRCompileMain.cpp:393-456`, `tryTimes = 2` at `:376`) | the loop re-runs the pipeline; a count, not a boolean, is what shows "exactly once" |
-| A5 compile | one line at `runHIVMCCompileA5` (`regbase/BiShengIRCompileMain.cpp:448`) | proves exactly one A5 invocation |
+| A5 compile | one line at the **function entry** of `runHIVMCCompileA5` (`hivmc/A5/HIVMCMainA5.cpp:944`) | proves exactly one A5 invocation. Again the **function**, not the call site: there are two callers — the retry loop at `regbase/BiShengIRCompileMain.cpp:448` and the standalone `hivmc` tool at `hivmc/HIVMCMain.cpp:45` — so a count taken at `:448` would not be a count of A5 compiles, only of one caller's calls to them |
 
 The existing `"[INFO] Using merged native A5 regbase pipeline\n"` (`bishengir-compile.cpp:118`) is
 the pattern: cheap, greppable, already in the codebase. The archived log must then contain the Late
-routing line and **no** ordinary-pipeline line, **no** retry line, and exactly **one** A5 line —
-each of those absences/counts being a positive assertion against a log that *would* have shown them.
+routing line and **no** ordinary-`runRegBasePipeline` line, **no** `runBiShengIRPipeline` line, **no**
+`inferLayoutOptimization` line, **no** `inferMixedCV` line, **no** retry line, and exactly **one**
+`runHIVMCCompileA5` line — each of those absences/counts being a positive assertion against a log that
+*would* have shown them. Each boundary line carries its own stable prefix so that absence is
+distinguishable from a truncated log; a log that ends early must not read as absence.
 
-`inferLayoutOptimization` is a **different case, and an earlier draft of this section got it wrong.**
-Measured: it is a plain `module.walk` (`Tools/bishengir-compile/regbase/Utility.cpp:100-120`) that
-sets `config.setEnableLayoutOptimization(false)` when it finds a `linalg.batch_matmul`, a
-`triton_print` call, or a `scope.scope`, and otherwise does nothing. It adds **no passes**, so
-"zero executions of `inferLayoutOptimization`" is not a meaningful claim — the function is called
-unconditionally and, on the Late input (which has none of those ops), is a no-op that leaves a config
-flag at its default. The correct claim is about the **flag's consumers**: the Late route must show
-that no layout-optimization pass is scheduled, and the evidence is the driver/pipeline state, not a
-trace line. The same reasoning applies to `inferMixedCV`, which likewise only sets a config flag
-(`Utility.cpp:95-97`).
+**The zero-calls claim for both inference functions is restored, and an intermediate draft of this
+section had it wrong in the other direction.** That draft argued that because
+`inferLayoutOptimization` adds no passes and only sets a config flag, "zero executions" was not a
+meaningful claim. The measurement behind it was right and the conclusion was wrong, because it
+described the **ordinary** route. Measured at HEAD: `inferLayoutOptimization` is called
+**unconditionally** at `regbase/Driver.cpp:68` and `inferMixedCV` at `:73`, and both calls sit inside
+`runRegBaseCompile` (`:63-85`) — the function P2-A branches out of as its **first statement** (§2.2
+item 2). So on the Late route neither function is entered even once, which is exactly what goal
+§4.1(1)`s "分流" requires, and the claim is both meaningful and assertable.
+
+The two facts are not in tension; they are two different pieces of evidence for the same row:
+
+- **Zero calls** is asserted from the **boundary log at each function's top** (`Utility.cpp:100`,
+  `:61`) — a log line that is absent because control never arrived.
+- **A pass trace cannot substitute for it.** Both functions are plain `module.walk`s that add no
+  passes (`Utility.cpp:100-120`; `:61-97`), so the trace is blind to them by construction. That is
+  *why* the boundary log exists, not a reason to drop the claim.
+
+The **secondary** claim — that no layout-optimization pass is scheduled and nothing consumes the
+`setEnableLayoutOptimization` flag — is worth stating as well, but as a consequence, not as the
+primary assertion: it is what would still have to hold if a future refactor moved the calls above the
+branch point. `inferMixedCV` likewise only sets `config.setEnableMixedCV` (`Utility.cpp:61-97`).
 
 So the §3.2 negatives — zero executions of `buildLowerAVEPipelines`' contents (the AVE optimizer:
 VectorToHIVMAVE, ArithToHIVMAVE, reduction/loop/layout transforms, AVENormalizeOps), GraphSyncSolver,
@@ -674,7 +795,7 @@ input that cannot link its template must not produce an artifact that merely loo
 entry records the resolved absolute path, the SHA-256, and the resolved O0/O2 level
 (`resolveTemplateBitcodeOptLevel`, `BiShengIRCompileMain.cpp:104`) into the compile log.
 
-**There are TWO silent-skip sites, not one, and a masking vector besides.** Measured:
+**There are two silent-skip sites, and they compose into a substitution vector.** Measured:
 
 1. **Attach time** — `addBitcodeAttrsToModule` (`regbase/BiShengIRCompileMain.cpp:79`) uses
    `addIfExists`, so a missing `meta_op.aiv.c310.<O0|O2>.bc` contributes **no attribute** and no
@@ -684,18 +805,57 @@ entry records the resolved absolute path, the SHA-256, and the resolved O0/O2 le
    **pushed onto that same list**. If the core type is absent from `bitcodePaths`, the code emits only
    `"[WARNING]cannot find bitcode from hivm attribute for coreType:…"` (`:112-114`) and **continues to
    link**, producing a binary built from whatever extra paths were supplied. `bitcodePathList.empty()`
-   is the only hard failure (`:180`), and it cannot trigger when the user supplied an extra bitcode.
-3. **Masking** — the downstream invocation passes `-Wno-override-module` (`HIVMCMainA5.cpp:97`, also
-   `:227`), which suppresses the duplicate-symbol diagnostic, so a user-supplied `--link-aicore-bitcode`
-   can define the same symbols as the required template and silently substitute for it.
+   is the only hard failure (`:180`) — and by construction it cannot trigger when the user supplied an
+   extra bitcode, because that list is non-empty at entry. Every surviving path is then appended as
+   `-cce-link-aicore-ll-module <BCPath>` (`:185-188`). So an extra `--link-aicore-bitcode` is **always
+   linked**, whether or not the required template is also there; it does not need to *displace* the
+   template to be wrong, it only needs to be in the link.
+
+**A correction to an earlier draft of this section: `-Wno-override-module` is not a duplicate-symbol
+suppression, and the substitution vector does not depend on it.** The earlier draft claimed the flag
+suppressed a duplicate-symbol diagnostic so that a user-supplied bitcode could "define the same symbols
+as the required template". Measured, that is wrong: `-Wno-override-module` maps to
+`DiagGroup<"override-module">` whose only diagnostic is
+`"overriding the module target triple with %0"`
+(`third-party/llvm-project/clang/include/clang/Basic/DiagnosticFrontendKinds.td:47-48`) — a **clang
+frontend warning about the target triple being overridden** by the command line. Its two occurrences
+(`hivmc/A5/HIVMCMainA5.cpp:97`, in the ccec argument list immediately after `-cce-bitcode-is-aicore`;
+and `:227`, inside the `--save-linked-ir` command echo) are both consistent with that and with nothing
+else: it is a warning-suppression flag for the compile, not a link-time symbol rule. The vector is
+entirely explained by items 1 and 2 — a missing template contributes no attribute, and the link
+proceeds on whatever extra paths exist — with no help needed from this flag. This matters for test
+design: a negative asserting that `-Wno-override-module` is absent would prove nothing about
+substitution and would pass on a build that still substituted.
 
 Therefore P2-C's hard failure must be enforced **at the entry, on the resolved path**, before either
 site can be reached: resolve the required C310 AIV template, fail closed if it does not exist or its
 SHA-256 does not match the recorded identity, and **reject `--link-aicore-bitcode` in Late mode**
-(§2.3.1) so no substitute can mask the required template. The distinguishing experiment: an isolated
-template directory with the required AIV file *absent* and a *distinct* extra bitcode supplied must
-produce a diagnostic naming the missing required template and **no binary** — today it produces a
-warning and a binary. Existing behaviour at both sites is logged as a finding, not fixed for the
+(§2.3.1) so no substitute can enter the link.
+
+**The negatives are four separate tests, not one combined case.** An earlier draft collapsed them into
+a single "isolated template directory with the required AIV file absent and a distinct extra bitcode
+supplied", which conflates three independent mechanisms and cannot tell which one fired:
+
+| # | input state | what it isolates | expected |
+|---|---|---|---|
+| N1 | required `meta_op.aiv.c310.O2.bc` **absent** from `<stage>/lib`, no extra bitcode | the entry's existence check | diagnostic **naming the missing required template**; **no binary** |
+| N2 | a template **present but not the recorded one** (the independently pinned pre-D012 `44e4387b…` from `build/install/lib`, or any file whose SHA-256 differs) | the entry's **SHA-256** check, as distinct from mere existence | diagnostic naming the path **and the hash mismatch**; **no binary**. This is the row that catches the two-template hazard below |
+| N3 | `--link-aicore-bitcode <some other .bc>` supplied, required template present and correct | the option policy of §2.3.1 | rejection naming the option; **no binary** |
+| N4 | required template **absent** *and* a distinct extra bitcode supplied — the combined case | that the entry's checks are **not** bypassed by a non-empty bitcode list | rejection; **no binary**, **without prescribing which diagnostic fires** |
+
+N1/N2 differ in kind, not degree: existence and identity are different checks, and only N2 can fail
+when a *stale but real* template sits under `<stage>/lib`. N3 is the only one that exercises the option
+policy. N4 deliberately does **not** fix diagnostic precedence: because `--link-aicore-bitcode` is
+rejected first (§2.3.1), N4 may legitimately report the *option* rejection rather than the missing
+template, and a test that demanded the template diagnostic would be over-specified and would fail on a
+correct implementation. That is exactly why N1 exists separately — N1 has no extra bitcode, so the
+template check is the only one that can fire.
+
+**"Today it produces a warning and a binary" is a hypothesis, and it is NOT_RUN until executed.**
+It is stated here as the expected finding (§3.3 item 2 predicts it from the source), not as a measured
+result — no unaudited probe has been run. The same applies to N4's current outcome: if the harness
+cannot demonstrate **that no binary was written**, the row stays **NOT_RUN** rather than being inferred
+from an exit code. Existing behaviour at both sites is to be logged as a finding, not fixed for the
 non-Late route.
 
 **Two distinct C310 templates exist in-tree, and the P1-pinned one predates the committed template

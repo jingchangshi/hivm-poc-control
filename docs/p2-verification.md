@@ -28,17 +28,20 @@ Two rules decide whether a row here may ever read PASS:
 
 | # | test | expected | status |
 |---|---|---|---|
-| A1 | correct Late routing | Late routing line present; ordinary-pipeline line absent | NOT_RUN |
+| A1 | correct Late routing | Late routing line present; the ordinary-`runRegBasePipeline` boundary line absent (logged at the function entry, `BiShengIRCompileMain.cpp:345`, so both callers are covered) | NOT_RUN |
 | A2 | ordinary RegBase path unchanged | same pass sequence as before the change | NOT_RUN |
+| A2b | zero calls to both inference functions | **absence** of the boundary log at `inferLayoutOptimization` / `inferMixedCV` function entry (`Utility.cpp:100`, `:61`) — asserted as zero *calls*, the pass trace being blind to both by construction | NOT_RUN |
 | A3 | wrong target rejected | explicit diagnostic; no artifact | NOT_RUN |
 | A4 | wrong stage rejected | explicit diagnostic | NOT_RUN |
 | A5 | wrong core rejected | explicit diagnostic | NOT_RUN |
 | A6 | wrong device spec rejected | diagnostic **naming the differing field** | NOT_RUN |
 | A7 | forbidden passes did not execute | zero scheduled invocations, coverage demonstrated | NOT_RUN |
 | A8 | required pass order correct | the §3.1 order, with per-pass IR effects | NOT_RUN |
-| A9 | LLVM lowering exactly once | `--convert-hivm-to-llvm` count = 1 | NOT_RUN |
+| A9 | LLVM lowering exactly once | `--convert-hivm-to-llvm` count = 1, counted at the pass boundary within one function scope (construction entries are not executions) | NOT_RUN |
 | A10 | Late without a target | Late-specific diagnostic, **no** artifact; must never reach the ordinary pipeline | NOT_RUN |
 | A11 | Late + legacy delegation env (`BISHENGIR_LEGACY_A5_REGBASE`) | explicit diagnostic, **no** delegation | NOT_RUN |
+| A12 | the §2.3.1 option policy, row by row | each **rejected** row produces a diagnostic naming *that* option; each **pinned** row is pinned by an explicit argument (so `hasExplicitCLOption` is true and `applyArchDependentCompileDefaults` cannot move it). A rejection test that passes because the driver reported an unknown option is a **wrong-reason pass**, not acceptance (`--compile-host` is the measured example) | NOT_RUN |
+| A13 | `--save-linked-ir` rejected in Late mode | named diagnostic; **no** binary — it switches the artifact to `.ll` and appends `-Xclang -disable-llvm-optzns -S -emit-llvm`, so it cannot appear in an invocation meant to produce the accepted binary. A diagnostic-only invocation is permitted but is **separately labelled and produces no artifact** | NOT_RUN |
 
 ## B. Semantic counterexamples (goal §7 B) — the heart of P2
 
@@ -56,7 +59,7 @@ Each row names the **semantic** assertion it must fail on. The frozen inputs are
 | B7 | UB byte offsets changed | no false PASS | NOT_RUN |
 | B8 | DMA payload changed | no false PASS | NOT_RUN |
 | B9 | GM block offset changed | no false PASS | NOT_RUN |
-| B10 | missing or wrong C310 bitcode | explicit failure, no binary | NOT_RUN |
+| B10 | missing or wrong C310 bitcode | explicit failure, no binary — split into **N1** (required template absent), **N2** (template present but not the recorded identity — the pre-D012 `44e4387b…` case), **N3** (`--link-aicore-bitcode` supplied), **N4** (absent *and* an extra supplied, rejected without prescribing diagnostic precedence). "Today produces a warning and a binary" is a source-predicted hypothesis and is **NOT_RUN** until executed | NOT_RUN |
 | B11 | (negative) mutated store reaching the **scalar fallback** while keeping cache mode 4 | preflight rejection naming the unsupported DMA shape — textual strides alone are not enough | NOT_RUN |
 
 ## C. Compiler and old-path regression (goal §7 C)
@@ -85,6 +88,7 @@ are not duplicated here.
 
 | # | item | status |
 |---|---|---|
+| E0 | **gate 3, entry design** (goal §8 step 3) | **REVISE (round 4)** — the Challenger accepted the architectural cut and the corrected selector, validator registration and preflight plan, matching-spec reuse, filtering invariant, copied `bin/lib` staging and guarded restore, and stated a scoped **entry-design APPROVE** can follow the four listed corrections without waiting for the test freeze. All four were re-verified against local source and applied 2026-10-13; a re-review request is the next action. Verdict persisted verbatim at `p2-20261013-late-pipeline/review/challenger-entry-design-verdict-round4.md` | recorded |
 | E1 | the Challenger independently reviews the **final Git diff** | NOT_RUN |
 | E2 | … the **real execution logs** | NOT_RUN |
 | E3 | … the **key negatives** | NOT_RUN |

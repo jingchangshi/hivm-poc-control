@@ -14,9 +14,20 @@ Rules that apply to every row:
   establishes "not scheduled". **Presence** establishes only "scheduled", not "executed" — so any row
   claiming a pass *worked* must also show its **effect in the emitted IR**, or a counter at the
   `execute`/`runOnOperation` boundary.
-- The instrumentation run uses `--mlir-print-ir-before-all --mlir-print-ir-after-all
-  --mlir-print-ir-module-scope`, with `--mlir-print-ir-after-change` **off** and
-  `--mlir-print-ir-tree-dir=<dir>` archiving the complete trace.
+- The instrumentation run uses **unfiltered** `--mlir-print-ir-before-all --mlir-print-ir-after-all
+  --mlir-print-ir-module-scope`, with `--mlir-print-ir-tree-dir=<dir>` archiving the complete trace.
+  **Four filters are off, all four measured present on the pinned binary** (`--help`): `after-change`
+  (*"only print if the IR changed"*), **`after-failure`** (*"only print if the pass failed"* — a
+  failure-only filter, the one most easily left on by accident and the one that makes a clean trace
+  indistinguishable from a run where nothing happened), and the per-pass selectors
+  `--mlir-print-ir-before=<pass-arg>` / `--mlir-print-ir-after=<pass-arg>`. A trace produced with any
+  of them is unusable for a zero in section B.
+- **Counts are per function scope.** A construction entry is not an execution: nested `PassManager`
+  construction inside a pass body (`PassPipeline.cpp:564` is exactly that) and retry wrappers can
+  produce several entries for one execution, and nested function passes can execute separately on the
+  entry and on the VF helper. Every "exactly once"/"zero" below is counted within one function scope.
+  Where the claim is about a **function** rather than a pass (section A), the count is the boundary
+  log's, not the trace's.
 - Every row is reported **together with the resolved Mix/Aiv mode** (`p2-architecture.md` §3.2):
   a zero read is meaningless without it.
 - A row whose coverage is not demonstrated per pass manager is **NOT_RUN**, not PASS.
@@ -26,9 +37,10 @@ Rules that apply to every row:
 | # | claim | evidence needed | status |
 |---|---|---|---|
 | A1 | Late routing line present; ordinary-pipeline line absent | archived driver log; both lines are boundary logs (`p2-architecture.md` §3.2) | NOT_RUN |
-| A2 | inference boundaries: `inferLayoutOptimization` / `inferMixedCV` did not run (or ran and set no consumed flag) | boundary log lines + the consumers of the flag | NOT_RUN |
+| A2 | `inferLayoutOptimization` / `inferMixedCV` were **not called at all** | **absence** of the boundary log line at each function's top (`regbase/Utility.cpp:100`, `:61`). The claim is zero *calls*, not "ran and set no consumed flag": the Late branch returns as the first statement of `runRegBaseCompile`, before `Driver.cpp:68`/`:73`. The pass trace cannot substitute — both are plain `module.walk`s that add no passes | NOT_RUN |
+| A2b | no ordinary regbase pipeline line | **absence** of the `runRegBasePipeline` boundary log, placed at the **function entry** (`regbase/BiShengIRCompileMain.cpp:345`) so that both callers (`Driver.cpp:81`, `PassPipeline.cpp:564`) are covered | NOT_RUN |
 | A3 | retry loop executed **zero** iterations in Late mode | per-iteration boundary log count = 0 | NOT_RUN |
-| A4 | `runHIVMCCompileA5` invoked **exactly once**, outside any retry loop | A5 boundary log count = 1 | NOT_RUN |
+| A4 | `runHIVMCCompileA5` invoked **exactly once**, outside any retry loop | A5 boundary log count = 1, taken at the **function entry** (`hivmc/A5/HIVMCMainA5.cpp:944`) so both callers are covered (`BiShengIRCompileMain.cpp:448`, `hivmc/HIVMCMain.cpp:45`) | NOT_RUN |
 | A5 | ordinary request (§4.1(9)) byte-for-byte unaffected | ordinary-input compile with and without the new binary; pass sequence compared | NOT_RUN |
 
 ## B. Forbidden — must be zero scheduled invocations
@@ -50,7 +62,7 @@ resolved mode recorded.
 
 | # | claim | evidence needed | status |
 |---|---|---|---|
-| C1 | the 20 tail passes ran, in the §3.1 order | trace order + per-pass **effect** in the IR (e.g. `cf` blocks after `--convert-scf-to-cf`; no `hivm.hir.*` after the conversions) | NOT_RUN |
+| C1 | the 20 tail passes ran, in the §3.1 order | trace order + per-pass **effect** in the IR (e.g. `cf` blocks after `--convert-scf-to-cf`; no `hivm.hir.*` after the conversions). The §3.1 table is the **base pipeline construction list, not twenty runtime executions**: nested function passes execute separately on the entry and the VF helper, so the count is per pass **and per operation scope** | NOT_RUN |
 | C2 | `ConvertHIVMToLLVM` = **exactly 1**, owned by HIVMC A5 | trace count = 1, and the pass is inside the A5 pipeline, not the tail | NOT_RUN |
 | C3 | `AppendDeviceSpec` count = 0 in state 2 (complete matching spec) and = 1 in state 1 | trace count per state | NOT_RUN |
 | C4 | the validator pass ran **before item 1** of the tail | trace order: validator precedes `--annotation-lowering` | NOT_RUN |
@@ -89,8 +101,8 @@ negative for this row is an input with the terminal barrier moved into the VF he
 
 | # | precondition | status |
 |---|---|---|
-| E1 | every pass manager in the run installs the instrumentation options (regbase tail, RetriablePassManager wrappers, A5 in-process) | NOT_RUN |
-| E2 | `--mlir-print-ir-after-change` off | NOT_RUN |
+| E1 | every pass manager the run **actually enters** installs the instrumentation options — enumerated from the trace, not from the source. A manager the Late route correctly bypasses (e.g. a retry wrapper) is **not** required to appear; requiring every constructible manager would make a correct run unfalsifiable | NOT_RUN |
+| E2 | all **four** filters off: `--mlir-print-ir-after-change`, `--mlir-print-ir-after-failure`, `--mlir-print-ir-before=<pass-arg>`, `--mlir-print-ir-after=<pass-arg>` | NOT_RUN |
 | E3 | complete logs archived via `--mlir-print-ir-tree-dir`; nothing truncated | NOT_RUN |
 | E4 | sentinels present: `--annotation-lowering` (first) and `--convert-hivm-to-llvm` (last) | NOT_RUN |
 | E5 | resolved Mix/Aiv mode recorded for the run | NOT_RUN |
