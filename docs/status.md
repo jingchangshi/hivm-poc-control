@@ -3204,3 +3204,48 @@ P2-B 未开始；除 P2-A 验收子集外**每一行执行证据仍是 NOT_RUN**
 跑测器**不按目录 glob** —— 每一行都显式点名自己的 fixture（`_expect_catch(work, log, "B1", "b01_cache0.mlir", …)`）——
 所以 `negatives` 只是**标签**而非**分类**，该放置不会把正例误判为"应当被捕获"。
 **无需处理，也不得移动或改名**（fixture 冻结在 sha `d1023ac1fdfd22c8d7f2aed5c71241fdd83039744b383e43b19255d10a31f36b`）。
+
+### 17. 事件：复验运行**就地覆盖**了第一次运行的行级日志（Lead，2026-10-13T16:0xZ；部分是我的指令缺陷）
+
+复验进行中我复查盘面，发现 `verify/logs/suite/` 被**就地覆盖**：`B1.stderr`、`B2.stderr`、`B4.stderr`
+的 mtime 全变成 `23:55`，且 `B2.stderr` 第 2 行现在**已经是修复后的** V7 诊断
+（"the entry's single store carries no l2_cache_mode attribute"）。
+**而 D034 引用的正是该路径** —— 于是 D034 的那条引注现在指向一个**读起来像 B2 通过了**的文件。
+
+**责任划分（我不推给 Verifier）**：跑测器把日志目录写死为 `run_p2_suite.py:1725 log = VERIFY / "logs" / "suite"`，
+再跑一次必然就地覆盖；而我在指令里只说了"日志写到 `p2a-acceptance-r1/`"，
+**没有**考虑到**行级**日志走的是这条写死路径 —— 这是我的指令缺陷，与 §13 那次同源（都是我只想了结果目录、没想清写死路径）。
+
+**损失边界（已核）**：第一次运行的**汇总**存活 —— `verify/work/p2a-acceptance/suite-summary.json`（`23:37`，24 行、`counts={PASS:23,FAIL:1,BLOCKED:0,NOT_RUN:0}`）在案；
+**行级 stderr 未归档**，全树只有一份 `B2.stderr`，即覆盖后的那一份。
+但**判定的内容并未丢失**：D034、§0.6/§0.7 与本文档均**逐字引录**了修复前的形态（无校验器行、只有 `:544` 桩），
+且修复前的 golden 判别器证据另存于 `verify/work/p2a-acceptance/discriminator/`（`23:33`）。
+
+**恢复方案（已派发，且正是"保留被取代身份"这条规则的用处）**：`impl/stage-p2a/bin/bishengir-compile`
+**仍逐字节停在 `2bf961bf…`**，故请 Verifier 在 r1 运行**结束之后**（不得并发），
+用**被取代的**编译器重跑 `b01`/`b02`，输出到 `verify/work/p2a-acceptance/pre-repair-reconstruction/`，
+并在文件与报告中写明这是"**由保留的被取代二进制重建**"、**不是**第一次运行的原始文件。
+这既修复了引注，又顺带**再次独立证明**被取代身份仍能复现该 FAIL。
+程序性改正：**此后行级日志一律留在该次运行自己的目录**（运行结束把 `logs/suite/` 另存，或改为按次传日志目录），
+使"后一次运行覆盖前一次证据"不再可能。
+
+### 18. 修复新增的诊断文本会**扩大旧键的匹配面** —— 已派发去同因审计（Lead，2026-10-13T16:0xZ）
+
+同一次复查还发现一件**由修复本身引入**的东西：`A9.stderr` 现在含**两条**校验器行 ——
+V2（"the module has no hacc.target attribute"）**与** V7（"…carries no l2_cache_mode attribute"）。
+即 `a03`–`a09` 这一组 fixture **本身就不带载体**（`l2_cache_mode` 缺失），修复前 V7 对它们保持沉默，修复后开始发声。
+
+- **这一现象本身不是缺陷**：A9 仍 PASS，因为 `hacc.target` 仍命中；而 `_expect_catch`（`:955`）**只要求命中任一键、并不要求排他**，
+  故多出来的 V7 行不影响 A 组判定。但**必须由 r1 汇总确认**，不能由我的推理代替。
+
+- **真正的风险是同因（wrong-reason）通过**：`_expect_catch` 恒以 `blob = err + "\n" + out` 匹配，
+  且**永远带 `--mlir-print-ir-after-all`**（`:968` 的固定 argv），所以 dump 文本始终在 blob 里。
+  修复新引入的 token 有 `l2_cache_mode`、`carrier`、`cache-4`、`i32`；
+  于是任何键表含 `cache`/`l2_cache`/`cache_mode`/`carrier` 的行，都可能被一条**它本来不该被**命中的 V7 行满足。
+  落在风险面上的行是 **B1、B2、B3**，已要求 Verifier **逐行报告命中的是哪一条**而不仅报 PASS：
+  - **B3**（`b03_cache_bad7.mlir`，值 7）最关键：它本意是考 **D012 `StoreOp` 校验器的解析期取值闸**。
+    若其拒绝现在来自 V7，则 B3 **已悄悄不再考它该考的东西**。预期不受影响（解析期先失败，第一次运行记为 `Failed to parse input file`），但须由运行确认。
+  - **B1** 必须由 V7 的**取值**诊断命中，而不是被形状失败的尾串命中 —— 尾串本身含 `l2_cache_mode`，这是个陷阱。
+  - **B2** 必须由**缺失载体**诊断命中。
+
+**裁定口径不变**：某一行若因"它本不该捕获的那行"而转绿，那是**同因通过**，按 D034 **不构成验收**。
