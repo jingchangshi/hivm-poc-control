@@ -73,7 +73,7 @@ Rules that apply to every row:
 | A2 | `inferLayoutOptimization` / `inferMixedCV` were **not called at all** | **absence** of the boundary log line at each function's top (`regbase/Utility.cpp:100`, `:61`). The claim is zero *calls*, not "ran and set no consumed flag": the Late branch returns as the first statement of `runRegBaseCompile`, before `Driver.cpp:68`/`:73`. The pass trace cannot substitute — both are plain `module.walk`s that add no passes | NOT_RUN |
 | A2b | no ordinary regbase pipeline line | **absence** of the `runRegBasePipeline` boundary log, placed at the **function entry** (`regbase/BiShengIRCompileMain.cpp:345`) so that both callers (`Driver.cpp:81`, `PassPipeline.cpp:564`) are covered | NOT_RUN |
 | A3 | retry loop executed **zero** iterations in Late mode | per-iteration boundary log count = 0 | NOT_RUN |
-| A4 | `runHIVMCCompileA5` invoked **exactly once**, outside any retry loop | A5 boundary log count = 1, taken at the **function entry** (`hivmc/A5/HIVMCMainA5.cpp:944`) so both callers are covered (`BiShengIRCompileMain.cpp:448`, `hivmc/HIVMCMain.cpp:45`) | NOT_RUN |
+| A4 | `runHIVMCCompileA5` invoked **exactly once**, outside any retry loop | A5 boundary log count = 1, taken at the **function entry** (`hivmc/A5/HIVMCMainA5.cpp:944`) so both callers are covered (`BiShengIRCompileMain.cpp:448`, `hivmc/HIVMCMain.cpp:45`) | **NOT_RUN — and UNATTAINABLE on the Late path until P2-C** (§E.4) |
 | A5 | ordinary request (§4.1(9)) byte-for-byte unaffected | ordinary-input compile with and without the new binary; pass sequence compared | NOT_RUN |
 
 ### A.0 Anchor corrections, measured at HEAD `cfaa59677` (2026-10-14)
@@ -274,6 +274,20 @@ Six sites emit `[P2-BOUNDARY] …` on **stderr** (deliberately stderr, so the ch
 | `a5-compile entry=runHIVMCCompileA5` | `hivmc/A5/HIVMCMainA5.cpp:952` | function entry, covering both callers |
 
 **Measured presence of the literal `P2-BOUNDARY` in each staged binary** (`grep -c -a -F`, 2026-10-14): `stage-p2a` (`2bf961bf…`) **0**; `stage-p2a-r1` (`1a3f20f8…`) **0**; **`stage-p2b` (`47e02604…`) 0 — and that is the artifact the archived P2-B acceptance bound as `p2_compiler`**; `stage-p2b-r1` = `build/bin` (`ea217b8d…`) **6**, matching the six sites. Sweep of `verify/work/p2b-acceptance/logs-suite-p2b/`: neither `P2-BOUNDARY` nor `late-route` appears in **any** file; `A2.stderr` (372 B) and `A2.stdout` (0 B) are both 0. **Consequence for this file's own rows: A1–A3 have no executable evidence in the archived run** — the channel did not exist in the binary that produced it — so an A-row reported PASS from that run would be a PASS over a binary that could not emit the evidence. This is the D048 measurement; it does not by itself flip any row (they are already NOT_RUN), it fixes what "NOT_RUN" is *for*. The frozen suite is independent of this: `run_p2_suite.py` contains **zero** references to the marker strings, so no frozen row claims them, and the routing claim remains uncovered by the oracle.
+
+### E.4 A4 is not an oracle gap: the Late path cannot reach A5 at P2-B (Challenger ruling, 2026-10-14)
+
+Row A4 asserts `runHIVMCCompileA5` is invoked **exactly once**. On the only Late execution that exists at P2-B that
+count is **zero**, and the reason is in the source, not in a missing reader: `regbase/LatePipeline.cpp:565-584` runs the
+tail and then fails closed, and its own comment says steps 4-5 ("`addBitcodeAttrsToModule` with §3.3's hard check,
+then exactly one `runHIVMCCompileA5`") "are separate authorized steps and are **NOT** part of this build". So the marker
+this row would count is emitted only on the **ordinary/HIVMC** path — where our routing-pair run measured it once
+(`lead/scratch/routing-pair/run-20261013T202128Z/ordinary/stderr`) — and never on the Late path. Two distinct facts
+follow, and they must not be merged: (i) the marker has **no reader anywhere** in the project (D075), and (ii) even with
+a reader, no P2-B Late run could satisfy the row. A4 is therefore **P2-C planned**: P2-C must execute a valid Late
+artifact, count the A5 marker exactly once **on the Late path**, and retain the ordinary-path and marker-absence controls
+so the count means something. Reading A4's NOT_RUN as "the oracle is missing" would understate it — the claim is
+false of P2-B, not merely unmeasured.
 
 **Limits of this channel — stated so the rows above are read at their true strength.**
 - **Presence proves entry, never completion.** `late-route` fires before `verifyPinnedOptions` (`LatePipeline.cpp:497`) and before the fail-closed stub, so a run rejected immediately afterwards still prints it. A1 is evidence that the Late branch was **taken**, not that the Late pipeline ran.
