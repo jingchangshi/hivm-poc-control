@@ -1,0 +1,55 @@
+Lead routing-pair PREFLIGHT (before the v3 seal) -- 2026-10-14
+runner: /home/s00653124/workspace/hivm-poc-evidence/p2-20261013-late-pipeline/verify/tests/scripts/run_p2_suite_v3.py
+runner sha256: 904a0d706288b32bdeb39d3949dc9ff2a131c065809bb10d9cd42309285f2df3
+extraction: ast (LATE_MARKER_RE / ORD_MARKER_RES string constants); strings(1) for the
+  binary's own marker lines; archived streams read as bytes. Nothing retyped.
+
+stage-p2b-r1/bin/bishengir-compile  ea217b8d423b2e463e8c9d3953fcf037fbf4446f0a3caa0cb21b107c85a09787
+stage-p2b-r1/bin/bishengir-opt      4c31167bfad5243ed1bcf24efc3ccd4af65fb7cbcf5ff9468f3b2a90fa6fbc38
+
+=== literals under test (AST-extracted) ===
+  LATE_MARKER_RE  = '\\[P2-BOUNDARY\\] late-route stage=late entry=runLateHIVMPipeline'
+  ORD[ordinary-regbase-pipeline] = '\\[P2-BOUNDARY\\] ordinary-regbase-pipeline entry=runRegBasePipeline'
+  ORD[inferMixedCV] = '\\[P2-BOUNDARY\\].*entry=inferMixedCV'
+  ORD[inferLayoutOptimization] = '\\[P2-BOUNDARY\\].*entry=inferLayoutOptimization'
+  ORD[retry-loop] = '\\[P2-BOUNDARY\\].*retry-loop iteration='
+
+=== matrix: does each pattern match each REAL marker line? ===
+  -- stage-p2b-r1/compile: 6 distinct [P2-BOUNDARY] string(s)
+     [P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5
+        <- matched by: NONE
+     [P2-BOUNDARY] inference entry=inferLayoutOptimization
+        <- matched by: ['inferLayoutOptimization']
+     [P2-BOUNDARY] inference entry=inferMixedCV
+        <- matched by: ['inferMixedCV']
+     [P2-BOUNDARY] late-route stage=late entry=runLateHIVMPipeline
+        <- matched by: ['LATE']
+     [P2-BOUNDARY] ordinary-regbase-pipeline entry=runRegBasePipeline
+        <- matched by: ['ordinary-regbase-pipeline']
+     [P2-BOUNDARY] retry-loop iteration=
+        <- matched by: ['retry-loop']
+
+  -- stage-p2b-r1/opt: 3 distinct [P2-BOUNDARY] string(s)
+     [P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5
+        <- matched by: NONE
+     [P2-BOUNDARY] ordinary-regbase-pipeline entry=runRegBasePipeline
+        <- matched by: ['ordinary-regbase-pipeline']
+     [P2-BOUNDARY] retry-loop iteration=
+        <- matched by: ['retry-loop']
+
+  marker strings in the COMPILER matched by NO routing pattern: 1
+     (unmatched, by design? ) [P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5
+
+=== the runner's OWN routing_scan/routing_detail on the archived REAL streams ===
+  streams: /home/s00653124/workspace/hivm-poc-evidence/p2-20261013-late-pipeline/lead/scratch/routing-pair/run-20261013T202128Z
+  [ordinary run] expect='ord' instrumented=True late_hits=0 ord_names=['ordinary-regbase-pipeline', 'inferLayoutOptimization', 'retry-loop']
+      -> status=None  detail=routing ord-half OK on binary=ea217b8d423b2e46… run=None: ordinary-regbase-pipeline at stderr:3, late-route marker absent, other ordinary markers ['ordinary-regbase-pipeline', 'inferLayoutOptimization', 'retry-loop']
+  [late run] expect='late' instrumented=True late_hits=1 ord_names=[]
+      -> status=None  detail=routing late-half OK on binary=ea217b8d423b2e46… run=None: late-route marker at stderr:2, all four ordinary markers absent
+
+=== negative control: the 223 B markerless P2-B stub stream ===
+  A13.env.stderr: 223 B, 2 line(s)
+  instrumented=False late=0 ord=[]
+      -> status='NOT_RUN'  detail=routing pair NOT_RUN-by-instrumentation: binary ea217b8d423b2e46… carries no [P2-BOUNDARY] marker (absence-only is invalid; stage-p2b 47e02604… has zero marker sites)
+
+END preflight

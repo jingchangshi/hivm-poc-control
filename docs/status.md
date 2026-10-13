@@ -4799,3 +4799,20 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 
 **未做**：不构建、不编译、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送。v3 正被 verifier 实时编辑（写本次时 `904a0d70[116694]`），我未触碰。
 
+### §24 追加 39（**封版前的路由预检通过**：零转抄地把 v3 的模式拿去撞 r1 二进制自己的 marker 行、再拿 v3 **自己的**函数去跑真实归档流——两半都是"继续"；**但第六条 `a5-compile` marker 没有任何可执行读者**，2026-10-14）
+
+**动机**：D074 把最终 bundle 定在 r1 之后，D071 的重绑就有了目标。在 verifier 封版前，我想先自己量一次"绑定换成 r1 之后，路由门禁项到底能不能满足"——这正是我的记忆里"**判据字面量必须对着真产物量**"那条规矩。证据：`lead/scratch-routing-preflight-20261014/`（`routing-preflight.py` / `.txt` / `README.txt` + `SHA256SUMS.txt` 3/3 OK；控制仓 `lead/scratch-routing-preflight/` 有工作副本）。
+
+**方法（零转抄）**：模式用 `ast` 从 runner 里抽（`LATE_MARKER_RE`、`ORD_MARKER_RES`）；marker 行用 `strings -a` 取自 `impl/stage-p2b-r1/bin/bishengir-{compile,opt}`；流取归档的 `lead/scratch/routing-pair/run-20261013T202128Z/{ordinary,late}`；判定由 **import 该 runner、调它自己的** `routing_scan`/`routing_detail` 产生。被测 runner sha `904a0d70…`（verifier 当时正在改 v3，sha 也印在输出里）。**全程只读**：不构建、不跑编译器、不动 runner/binding。
+
+**结果**：
+- r1 的 compile 里有 **6** 条不同的 `[P2-BOUNDARY]` 字符串、opt 里有 **3** 条；五条路由模式**各自只命中自己那条行**（`late-route` 单中 late 行，`ordinary-regbase-pipeline`/`inferMixedCV`/`inferLayoutOptimization`/`retry-loop` 各中自己）。
+- 真实 ordinary 流：`instrumented=True, late_hits=0, ord_names=[ordinary-regbase-pipeline, inferLayoutOptimization, retry-loop]` → `status=None`（继续走行内断言），detail 为 "routing ord-half OK … ordinary-regbase-pipeline at stderr:3, late-route marker absent"。
+- 真实 late 流：`late_hits=1, ord_names=[]` → `status=None`，detail 为 "routing late-half OK … late-route marker at stderr:2, all four ordinary markers absent"。
+- **反例**：223 B 无 marker 的 P2-B stub → `instrumented=False` → `NOT_RUN`，文案正是设计要的那句。
+⇒ **只要绑到 r1（D071/D074），D052(c)/D056(b) 路由门禁项在封版件里是"可满足"的**；绑到 `stage-p2b` 则按构造恒为 NOT_RUN-by-instrumentation。
+
+**顺带量到的一处覆盖缺口（已入册 D075）**：六条 marker 里，`a5-compile entry=runHIVMCCompileA5` **被路由对忽略**，而且**整个项目没有任何可执行读者**——`run_p2_suite.py`、`run_p2_suite_v3.py`、`run_p2b_trace_harness.py` 各 **0**，`verify/work/` 下所有脚本也 0（搜索空间已按 instance-14 纪律枚举：evidence 树的 `verify/` 全部 `.py`/`.sh`/`.md`）。它只活在散文里：`docs/p2-pass-trace.md:263`（仪表表，写着它是 trace 行 A4 的载体）、`docs/p2-architecture.md`、`docs/pass-cut.md`、`docs/goal.md`、`docs/decisions.md`、`docs/status.md`。这与 D066（v3 写了路由机制却零调用点）同形。**它是 P2-C 的、不是 P2-B 的**：r1 证据里该 marker 出现在 **ordinary** 路径（D061(a)），Late 路径在 P2-B **没有**它（Late 在 fail-closed stub 就死了，D061(b)），所以它要承载的那句"`runHIVMCCompileA5` 在 Late 路由上恰好一次"在真 Late 编译跑通尾段之前不可能为真。现在记下，是为了让它在 P2-C 的验收框里成为**设计好的行**，而不是事后发现——与 D069/D070 的四条缺失 §6.3 ABI 检查并列。
+
+**未做**：不构建、不跑编译器、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送。
+
