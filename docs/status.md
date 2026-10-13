@@ -3784,3 +3784,36 @@ correctness fix 流程，届时**P2-A 的契约需要重新确认**，这一点�
 - P2-C 未开始（§8 第 6 步）；P2-D 未开始；`build/bin` 已在基线。
 
 **下一步**：等三份回报；未 push；`hivm-poc-evidence/` 本地独占。
+
+### §24 追加（同日）：我自己从轨迹归档里量出来的 D 行 / 零声明 —— 报告里没有的这些，现在有实测了
+
+§24 写完之后我又把 `impl/scratch/p2b-trace/` 自己读了一遍。下面每一条都是**我量的**，不是引用报告的：
+
+- **禁止 pass 全流扫零，我自己扫的**：把套件 `FORBIDDEN_PASSES` 的 18 个拼写（含 v1 超集）
+  逐个对 `inline.out + inline.err` 全文 grep —— **全部 0**。另加 `VectorToHIVMAVE`/`ArithToHIVMAVE`/
+  `AVENormalizeOps` 也 0。**这比套件的检查强**：套件的 dump-body 扫法因为 D-b 根本读不到东西。
+- **`convert-hivm-to-llvm` = 0**，我自己同一份流里数过。**并且我核了它的归属**：
+  全仓只有两处 add —— `hivmc/A3/PassPipelineA3.cpp:64` 与 `hivmc/A5/PassPipelineA5.cpp:52`；
+  本路线（Ascend950PR → A5）**只有 A5 那处可达**。所以"tail 与 A5 的 pass 集不相交、此处 0 是结构性的"
+  这个说法成立，我按仓内源码确认过，不是照抄报告。
+- **D7（cache4 载体）成立，且是从 IR 读出来的**：
+  `tree/builtin_module_no-symbol-name/11_convert-hivm-to-std.mlir:34` 是
+  `call @store_ubuf_to_gm_1d_float(%cast_5, %cast_6, %c0_i32, %c4_i32)`，而 `:4` 是
+  `%c4_i32 = arith.constant 4 : i32`。这就是 goal §6.2 的"第四个 i32 Store libcall 参数"。
+- **D11（入口终止屏障）成立且是 entry-scoped**：最终模块 dump（`27_arith-expand.mlir`）里
+  **整个模块只有一处 `PIPE_ALL`**（`:39`），`main_kernel_simd_vf_0` **一处都没有** —— 所以没有东西能冒充它。
+  这正是 `p2-pass-trace.md` §D 点名"最容易被报成假绿"的那一行。
+- **E5 成立**：58 个归档 dump 文件里，引入 `mix_mode` 的 **0 个**，引入
+  `filter_passes`/`FilterPassesAttr` 的 **0 个**。注意这份证据**恰恰因为 tree 归档是真的才可得**——
+  冻结套件看不见它，因为它的头正则一个都匹配不上（缺陷 D-b）。
+- **产物确实没写**：`p2b-trace/` 里不存在 `kernel.o` / `kernel-inline.o`，报告 §3.3 成立。
+- **最终 IR 保留 9 处 `hivm.hir.*`**（`get_block_idx`×1、`pipe_barrier`×1、`pointer_cast`×3、
+  `set_flag`×2、`wait_flag`×2），与报告 §6 的说明一致；`cf.br|cf.cond_br` 在最终 IR 里出现。
+- **树的结构对上了**：30 个模块作用域 `.mlir`（15 个模块级 pass × before/after，含 validator）
+  + 4 个 func 目录共 28 个文件 = 58，与我 §24.1 里"15 个 module 作用域动作"的对账一致。
+- **顺带一条判据澄清（我自己查的，它关系到 Implementor 正在加的边界日志）**：`t_a2`（`run_p2_suite.py:540`）
+  只比较**产物** `kernel.o` 的 sha 与 pre-P2 ordinary 基线 `01fce255…`，**从不比较 stdout/stderr**。
+  所以"给 ordinary 路径也经过的函数加一行 stderr 日志"对 A2 **不可见**，前提是产物字节不变 ——
+  而这正是该行在测的东西。**A2 是产物级的，不是输出文本级的**，这一点已追告 Implementor。
+
+**下一步**：等三份回报；未 push；`hivm-poc-evidence/` 本地独占。
