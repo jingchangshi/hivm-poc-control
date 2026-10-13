@@ -7,6 +7,28 @@ CodeGen E2E, and a finished compiler or generated ELF does not prove numerical c
 neither (real-NPU numerical correctness is P3), but it does require that each row be **executed** rather
 than inferred. Source-inferred-only items may not be marked PASS.
 
+## 0. Identity inventory (goal §9: 编译器/bitcode/binary 身份清单)
+
+One index over every identity P2 must fix, so a reader (or P3) can see the whole chain in one place.
+The **detail and the executed evidence live in the row cited**; this table deliberately duplicates no
+values, because a second copy of a hash is a second thing that can drift.
+
+| role | fixed by | recorded in | status |
+|---|---|---|---|
+| **compiler** — P1's `bishengir-opt` | D031 / `snapshot/INTEGRITY.json` I5 (`0761c6e6…`) | A1 (historical identity, **not** P2's expected SHA) | recorded |
+| **compiler** — P2's own `bishengir-compile` | the P2 build from `80e29e6f27…` | A2, A3 (staged bundle), A5 (D031's pin unmodified) | NOT_RUN |
+| **compiler** — restore integrity of the P1 pin | guarded restore, `p2-architecture.md` §3.3 G1–G4 | A6 | NOT_RUN |
+| **bitcode** — C310 AIV template actually consumed | rebuilt from the P2 tree; path resolved from the **staged** bundle | B1, B2 (O0/O2), B3 (`/proc/self/exe`), B4 (`../lib`), B7 (no old/fallback template) | NOT_RUN |
+| **bitcode** — the store ABI inside it | the template source `DMAUtils.h` at HEAD | B5 (the 4th i32 libcall argument), B6 (cache4 not cache0) | NOT_RUN |
+| **bitcode** — hard failure when it is missing or wrong | the P2 entry, on the resolved path | B8 (N1–N4) | NOT_RUN |
+| **binary** — the produced artifact | this P2 compile | D1–D6 (new binary, verbatim command, exit code, SHA-256, symbols, target info) | NOT_RUN |
+| **binary** — hand-over to P3 | the P3 ACL harness inputs | D7 (binary, kernel symbol, HostArgs ABI, grid, dynamic UB, target info) | NOT_RUN |
+| **linkage** — compiler ↔ bitcode ↔ binary | the identity sidecar the entry writes | A2/B1/D2 — one conversation: the sidecar must name the template the **staged** compiler actually resolved, not a build-tree path (see B8's binding note and `p2-verification.md` §0.1a) | NOT_RUN |
+
+Two rules hold for every row: **the value is recorded for a file the run actually consumed**, and
+**a hash copied from a document is not evidence** — it is re-measured at acceptance and the mismatch is
+reported, never smoothed over.
+
 ## A. Build identity (goal §6.1)
 
 | # | field | value | status |

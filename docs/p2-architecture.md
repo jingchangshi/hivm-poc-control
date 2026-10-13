@@ -285,7 +285,7 @@ recorded binary identity.
 
 The two conversion-options rows are a **new finding from reading the tail's own source**, not from the
 option list: `buildLowerToLLVMPipeline` builds `ConvertHIVMToStandardOptions` from the config before
-adding the pass (`regbase/PassPipeline.cpp:253-259`):
+adding the pass (`regbase/PassPipeline.cpp:253-260`):
 
 ```cpp
 ConvertHIVMToStandardOptions hivmToStdOptions;
