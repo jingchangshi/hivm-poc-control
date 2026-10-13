@@ -2610,3 +2610,37 @@ Implementor 已在生产树上动工（`80e29e6f2`，仅 4 个 P2-A 文件脏：
 `build/bin/bishengir-compile` 将同时改变（二者链接同一 `BiShengIRRegBaseCompileLib`），届时
 `snapshot/run_p1v2.sh` 的 I5 会因**构建树移动**而非 P1 漂移而失败 —— 这不是缺陷，是预期，且
 **不得**为迁就它去改快照或摘要（§3.3 已写明）。
+
+### P2-A 动工中的 Lead 独立复核：新选项的**生成面是一条，不是两条**（已更正）
+
+Implementor 在 `Options.td` 新增 `def InputIRStage`（`--input-ir-stage`，默认 `hir`）。我**不采信其注释**，
+从生成器源码独立复算，结论两分：
+
+**（a）三个身份复算一致 —— 正确**：`lowerLeadingAcronym("InputIRStage")`→`inputIRStage`（`result[1]='n'`
+非大写，走早退分支）；`convertToSnakeFromCamelCase` 逐步推得 `input_ir_stage` → **`--input-ir-stage`**；
+配置字段 `inputIRStageFlag`（`cppName + "Flag"`）；访问器 `setInputIRStage`/`getInputIRStage`。
+且**顶层注册确实会生成**：`Option` 默认 `externalStorage=1`、`emitOptionRegistration=1`、`emitGetterSetter=1`
+（`ConfigOptions/Options.td:63/119/122`），故 `emitCompileOptions` 不会跳过它 ⇒ Challenger 要求的
+`--help` 证明**可达成**。
+
+**（b）"没有 pipeline-options plumbing"—— 错，且错在把一个生成器当成了全部**：
+- `ConfigsToOptionsConversionGen.cpp:80-82` 空组 `continue` —— 属实，但只管 **`ConfigUtils.cpp.inc`**。
+- `PassOptionsGen.cpp:96-103` 是**另一个**生成器，**先无条件** `passGroup2Options["ALL"].emplace_back(R);`
+  **再**判空组 `continue`；而 `GEN_ALL_OPTION_REGISTRATION` 在
+  `PassPipeline.cpp:241` 与 `regbase/PassPipeline.cpp:570` **两处**都已 `#define` 并 `#include
+  PassOptions.cpp.inc`。∴ 该选项**会**被生成为 `Pass::Option<std::string> inputIRStage`，且**两份**
+  （`BiShengIRCompilePass` 与 `regbase::BiShengIRCompilePass`）。
+
+**路由决策不变**：Late 分支在 driver 读 `config.getInputIRStage()`，不需要 pass-options 成员 ⇒
+**不加 `passGroup`** 的决策**维持**。变的是**生成面的描述**，以及 §2.3.1 义务 2 的一个前提。
+
+**为何这不是学究式纠正**：义务 2 要求"每个 pin 选项**恰好一次** canonical occurrence 同时到达 parse 与
+下游 echo"。对该选项而言，这一主张现在依赖于"两处声明是不同 registry 中不同的 `cl::Option`，故顶层
+`getNumOccurrences()` 不会被 pass 级声明翻倍"—— 这是**读源码的论证，不是测量**（`PassOptions : protected
+llvm::cl::SubCommand`，`mlir/include/mlir/Pass/PassOptions.h:92`）。本项目恰有因"读源码当测量"而被迫撤回
+主张的前例，故**记为待检义务，不记为事实**：写入 `docs/p2-architecture.md` §2.1、§2.3.1 义务 2，
+以及 `docs/p2-verification.md` §A **覆盖缺口 4**（封存套件的 A13 只管 §2.3.1 的 pin/reject 行，既未断言
+pass 命名空间无法取值，也未承载两个命名空间的 `--help` 证据）。**未改封存套件**。提交 `3349809`。
+
+已通知 Implementor：只需**更正注释**（生成面含两份 `Pass::Option`），**不要**加 `passGroup`；测试是
+Verifier 的，不需要它写。
