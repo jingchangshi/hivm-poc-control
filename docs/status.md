@@ -4633,3 +4633,41 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **结论二（这条是实测出来的新事实，Pyright 没报）**：同一个测量说明，**超时分支会把部分输出整体丢掉**——`stdout` 与 `stderr` 都是 `None`，于是 600 s 超时后写进 `<tag>.stdout/.stderr` 的只有空串与一行 `TIMEOUT`。对一个**把 IR dump 打到 stderr** 的编译器来说，这恰好丢掉了唯一能解释超时的证据。严重度**低**（本阶段单 tile F32 VADD 实测编译约 1 s，600 s 超时实际不会触发；且 `rc=124` + 空流会**响亮地 FAIL**，不会造成假绿），所以**不立 D 行**，只作为一条有界的观察记录在案；若 Verifier 顺手修，正确方向是超时时把已产生的部分输出取出，而不是改 `text=` 参数（那会把 Pyright 的告警变成真缺陷）。
 
 **未做**：没有构建、没有动 `build/bin`、没有动绑定文件、没有改权限、没有推送。
+
+### §24 追加 33（P2-C 参照文件的可核查性审计：`p2-binary-abi.md` §B/§C **每一条实质引用与行号都对**，但**三处路径拼写无法解析**且全文未声明基准目录——已改路径、未动任何断言的，2026-10-14）
+
+**为什么做**：`docs/p2-binary-abi.md` 是 P2-C 的参照物（B1–B8 = 目标 §6.2 七项、C1–C11 = §6.3 十一项）。它的价值全在于"别人能独立查证"，所以引用必须能在盘上落地。这也是我上一轮（实例 14）刚学到的纪律的正确用法：**先读、再量、再判断**——上一轮我因为没读这份文件而误判了覆盖缺口，这一轮我把它读到底并且逐条量。
+
+**实测：实质部分全部命中（行号逐一对上）**
+
+| 引用 | 实测 |
+|---|---|
+| `BiShengIRCompileMain.cpp:104` `resolveTemplateBitcodeOptLevel` | 命中 `:104` |
+| `HIVMCMainA5.cpp:110` `getExtraDeviceBCPaths` | 命中 `:110` |
+| `HIVMCMainA5.cpp:186` `-cce-link-aicore-ll-module` | 命中 `:186`（文档写 `:185-188`） |
+| `HIVMCMainA5.cpp:97` / `:227` `override-module` | 两处都命中；`:227` 确实在 `shouldSaveLinkedIR()` 的命令回显块内（`:221` 起） |
+| `DMAUtils.h:268`（C310 臂起）/ `:295`（`#else`） | 命中；`:278-279` 的 "Narrowed to the descriptor field width only here; the policy is 32-bit…" 在 `:278` |
+| `copy_ubuf_to_gm_align_v2` / 无 `_v2` 的 `copy_ubuf_to_gm_align` | `:284`/`:288` 与 `:308`/`:312`，与文档一致 |
+| `NPUTargetSpec.td:224` `let UbSize = 2031616;` | 命中 `:224`，含注释 `// bits = 248KB, reserve 8KB for compiler` |
+| 数字陷阱 `HACCAttrs.td:309` `UB_SIZE, 196608 : i32` | 命中 `:309` |
+| `RegBase/plan-memory-vf.mlir:453` ub overflow 诊断 | 命中 `:453`（**只有 RegBase 那一份**有 2031616；非 RegBase 的那份没有） |
+| `DiagnosticFrontendKinds.td:47-48` `DiagGroup<"override-module">` | 命中 `:48` |
+
+**实测：路径拼写有三处解析不了，且全文没有声明基准目录**
+
+| 原拼写 | 真实路径 | 处置 |
+|---|---|---|
+| `clang/Basic/DiagnosticFrontendKinds.td` | `third-party/llvm-project/clang/include/clang/Basic/…`（**基准是仓库根**，与其他引用不同） | 改为全路径 |
+| `bishengir/test/regbase/Dialect/HIVM/RegBase/plan-memory-vf.mlir` | `bishengir/test/Dialect/HIVM/RegBase/plan-memory-vf.mlir`（多了一段 `regbase/`） | 改正 |
+| `HACCAttrs.td`（**大小写本来就对**） | 需补目录：`bishengir/include/bishengir/Dialect/HACC/IR/HACCAttrs.td` | 补全 |
+| — | 编译器树引用隐含基准 `bishengir/`，但全文从未声明 | 新增"引用基准"段，逐条写明 |
+
+（顺带记一条我自己的差错：我在上一轮把文件名读成了 `HACCATTRS.td` 并据此怀疑拼写错——**是我读错了**。文档写的是正确的 `HACCAttrs.td`。又一次"转写即替换"。）
+
+**故意没有"顺手收紧"的一处**：文档说 `bitcodePathList.empty()` 是 "the only hard failure"，实测它有**三处**（`:180`、`:209`、`:767`）。我**只加注、不改断言**——因为该论断支撑的论证（多给的 bitcode 会让列表非空，于是 `empty()` 不可能触发）不受影响；悄悄改成"其中一处"会让读者以为发现了缺陷。
+
+**另一条边界（写进文档了）**：这些行号是 **P2 工作树**的行号（`HIVMCMainA5.cpp` 带着未提交的 +7 行 P2 改动），对 P2 提交成立，对 P2 之前的树不成立。
+
+**改动范围**：只改路径拼写、只新增"基准 + 审计结果"一段；**没有改任何断言、数值或期望值**；7 条引用现已全部在盘上可解析（逐条 `test -f` 通过）。
+
+**未做**：没有构建、没有动 `build/bin`、没有动绑定文件、没有改权限、没有推送。

@@ -123,7 +123,7 @@ standalone template has the right dataflow.
 An earlier draft of `p2-architecture.md` §3.3 claimed the flag let a user-supplied bitcode define the
 same symbols as the required template. Measured, the flag is `DiagGroup<"override-module">` whose only
 diagnostic is *"overriding the module target triple with %0"*
-(`clang/Basic/DiagnosticFrontendKinds.td:47-48`) — and its two sites sit in the ccec **frontend**
+(`third-party/llvm-project/clang/include/clang/Basic/DiagnosticFrontendKinds.td:47-48`) — and its two sites sit in the ccec **frontend**
 argument list (`HIVMCMainA5.cpp:97`, next to `-cce-bitcode-is-aicore`) and in the `--save-linked-ir`
 command echo (`:227`). The substitution vector is fully explained without it, by the list-based link
 path (`getExtraDeviceBCPaths()` seeds the list at `:110`; the meta-op path is appended only when the
@@ -166,6 +166,30 @@ argument. Two cautions, both to be settled on the **emitted LLVM IR**, not on th
   attribute* (see `p2-architecture.md` §2.4). In the **template** it is the legitimate narrowed local
   variable. The names collide; the meanings do not.
 
+**Citation base, declared 2026-10-14 after the Lead audited every path in §B and §C against the tree.**
+The compiler-tree citations in this file are written relative to `bishengir/` — so
+`include/bishengir/Dialect/HACC/Targets/NPUTargetSpec.td:224` is
+`<tree>/bishengir/include/bishengir/Dialect/HACC/Targets/NPUTargetSpec.td:224` and
+`lib/Template/lib/RegBase/Vector/include/RegBase/DMAUtils.h` is
+`<tree>/bishengir/lib/Template/lib/RegBase/Vector/include/RegBase/DMAUtils.h`. The `clang/…`
+citation is the exception and is now written in full, because it resolves from the repo root
+through `third-party/llvm-project/clang/include/`. **Audit result:** every substantive claim and
+line number in §B and §C re-verified on 2026-10-14 — `resolveTemplateBitcodeOptLevel` at
+`BiShengIRCompileMain.cpp:104`; `getExtraDeviceBCPaths` at `HIVMCMainA5.cpp:110`;
+`-cce-link-aicore-ll-module` at `:186`; `override-module` at `:97` and `:227`, the latter inside
+the `shouldSaveLinkedIR()` command echo; the C310/m300 arms of `DMAUtils.h` at `:268`/`:295` with
+the `:278-279` narrowing comment, `copy_ubuf_to_gm_align_v2` at `:284`/`:288` and
+`copy_ubuf_to_gm_align` (no `_v2`) at `:308`/`:312`; `let UbSize = 2031616; // bits = 248KB` at
+`NPUTargetSpec.td:224`; the numeral trap `#dlti.dl_entry<"UB_SIZE", 196608 : i32>` at
+`HACCAttrs.td:309`; and the ub-overflow diagnostic at `RegBase/plan-memory-vf.mlir:453`. Three
+path spellings were wrong as written and are corrected above; **no claim, value or assertion was
+changed.** One imprecision left standing deliberately rather than silently tightened:
+`bitcodePathList.empty()` occurs at `HIVMCMainA5.cpp:180`, **`:209` and `:767`**, so "the only hard
+failure" in the paragraph above is precise only for the A5 link path; the argument it supports (an
+extra bitcode makes the list non-empty, so `empty()` cannot trigger) is unaffected. Also note the
+line numbers are those of the **P2 working tree** (`HIVMCMainA5.cpp` carries the uncommitted +7-line
+P2 cut), so they are valid for the P2 commit and not for the pre-P2 tree.
+
 **C4's expected value, same source:** the non-C310 arm keeps the **8-parameter** core and the
 **non-`_v2`** intrinsic with no cache argument — that is what "非 C310 路径保留旧 ABI" means
 concretely, and it must be shown on a real non-C310 compile, not inferred from this table.
@@ -184,7 +208,7 @@ Each is checked **from the real compile output**, not from the source that produ
 | C6 | pb32 lowering result **stays b32** | NOT_RUN |
 | C7 | DMA load/store addresses and ranges as expected | NOT_RUN |
 | C8 | `set_flag`/`wait_flag` and the **terminal barrier** are neither wrongly deleted nor reordered | NOT_RUN |
-| C9 | dynamic UB = 196608 kept as the **launch contract**, not mis-written as the device capacity (`UB_SIZE` = 2031616 **bits** is a different quantity). Units confirmed in-tree: `include/bishengir/Dialect/HACC/Targets/NPUTargetSpec.td:224` `let UbSize = 2031616; // bits = 248KB, reserve 8KB for compiler`, and PlanMemory's own diagnostic states bits — `bishengir/test/regbase/Dialect/HIVM/RegBase/plan-memory-vf.mlir:453` `expected-error … {{ub overflow, requires 2097152 bits while 2031616 bits available!}}`. So 2031616 bits = 253952 B = 248 KB capacity, versus the kernel's 196608 **bytes** arena. **Numeral trap:** `HACCAttrs.td:309`'s doc example writes `#dlti.dl_entry<"UB_SIZE", 196608 : i32>` — the very numeral this kernel uses for its arena — so a check that matches numerals instead of quantities would "confirm" C9 while being wrong | NOT_RUN |
+| C9 | dynamic UB = 196608 kept as the **launch contract**, not mis-written as the device capacity (`UB_SIZE` = 2031616 **bits** is a different quantity). Units confirmed in-tree: `include/bishengir/Dialect/HACC/Targets/NPUTargetSpec.td:224` `let UbSize = 2031616; // bits = 248KB, reserve 8KB for compiler`, and PlanMemory's own diagnostic states bits — `bishengir/test/Dialect/HIVM/RegBase/plan-memory-vf.mlir:453` `expected-error … {{ub overflow, requires 2097152 bits while 2031616 bits available!}}`. So 2031616 bits = 253952 B = 248 KB capacity, versus the kernel's 196608 **bytes** arena. **Numeral trap:** `bishengir/include/bishengir/Dialect/HACC/IR/HACCAttrs.td:309`'s doc example writes `#dlti.dl_entry<"UB_SIZE", 196608 : i32>` — the very numeral this kernel uses for its arena — so a check that matches numerals instead of quantities would "confirm" C9 while being wrong | NOT_RUN |
 | C10 | no unlegalized HIVM/HIVMAVE ops and no unrealized casts remain | NOT_RUN |
 | C11 | the real `ConvertHIVMToLLVM` ran **exactly once** (cross-ref `docs/p2-pass-trace.md` C2) | NOT_RUN |
 
