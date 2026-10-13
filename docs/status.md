@@ -4566,3 +4566,21 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **期望值现在就能定**（这正是"实现前定义"的关键）：冻结的 Golden 输入 `verify/tests/negatives/vadd_late_p1v2.mlir`（`d1023ac1fdfd22c8d7f2aed5c71241fdd83039744b383e43b19255d10a31f36b`，本轮复测）自带 `func.func @main_kernel`（符号名）、`hacc.block_dim = 64 : i64`（grid）、`dyn_shared_memory_buf = 196608 : i64`（arena）、`hivm.module_core_type<AIV>` 与 `hacc.target<"Ascend950PR_9579">`（core/target）、以及三个 GM `memref` 操作数（入口元数）。
 
 **处置（D069）**：记下这张图；把四条**无行**检查作为**P2-C 前置测试定义**派给 Verifier，期望值只许取自冻结输入；凡引用第 3/5 项及 §5/trace 各行，一律标注"无自动 oracle"；**新增行的载体**（进 suite 还是独立 P2-C 产物）**等 review-2 的再封版裁定**——本条不给任何封版 runner 加行。
+
+### §24 追加 29（**更正 §24 追加 28 / D069**：目标 §6.3 的十一条**早就**被映射了——是 `p2-binary-abi.md` 自己的 C1–C11；我上次的文档搜索漏了这一份，"完全没有行"的措辞是**错的**，2026-10-14）
+
+**我错在哪**：追加 28 里我 grep 了 `docs/p2-verification.md` 和两个 runner，就下了"§6.3 十一条中四条**没有任何行**"的结论。**我没有 grep `docs/p2-binary-abi.md`**——那份文件自 2026-10-14 00:42 起就带着 `## C. LLVM and Kernel ABI — the 11 enumerated checks (goal §6.3)`（`:173`），十一条逐条对应，全部 NOT_RUN。而且它写得**比我以为的更细**：
+
+| 该文件已有的证据 | 内容 |
+|---|---|
+| C9 的单位陷阱 | `NPUTargetSpec.td:224` `let UbSize = 2031616; // bits = 248KB…`；PlanMemory 自己的诊断 `ub overflow, requires 2097152 bits while 2031616 bits available!`（`plan-memory-vf.mlir:453`）；**并且**点出 `HACCATTRS.td:309` 的文档示例里写的是 `UB_SIZE, 196608 : i32` ——**恰好是本 kernel 用作 arena 的那个数字**，于是"按数字匹配而非按量匹配"的检查会把 C9 判成通过而其实是错的 |
+| C9 的边界 | 实测 `dyn_shared_memory_buf` 在 AscendNPU-IR 全树**零消费者**；因此启动契约的消费属于 P3/TileLang 运行时，"去找编译器侧读者"找不到**不算失败** |
+| C8 | 入口作用域（artifact 里有第二个函数 `@main_kernel_simd_vf_0`，屏障移进去不算满足），负例 `b07_pipe_all_moved_into_vf.mlir` |
+
+**D069 里站得住的部分（我复测保留）**：两个 runner **都没有**执行这十一条所需的词汇——`FunctionInfo` / `symbol` / `num_inputs` / `blockIdx` / `unrealized` / `HIVMAVE` / `readelf` / `objdump` / `nm` 在 v2 与 v3 里**都是 0 命中**；`t_a1`（v3 `:861`）只断言 `rc==0` / `is_elf` / `machine == 0x1029` / identity sidecar。所以真实状态不是"没有行"，而是**"有一组已成文的行，但在任何地方都没有实现、也没有自动 oracle"**——与 trace D1–D11 同属较弱证据类；P2-C 的义务是**把这些检查建起来**，而不是"跑一下"。
+
+**第四个命名空间（与 D068 同一族）**：ABI 文档编号 **C1–C11**，suite 编号**另外的** C1–C6，trace 又编号 C1–C4。"C9 通过"现在有**四种**读法，引用必须写明是哪份文档。
+
+**方法规则（本条的真正价值）**：**否证式的覆盖结论**（"没有行断言 X"）本身就是一个检查，而"搜索空间 = 我恰好打开的那几份文档"就是**打不响的守卫**。记这种结论之前，必须 grep 记录里的**每一份** `docs/*.md`。我上次只查了两份。
+
+**不动任何封版字节、不弱化任何断言**；D069 唯一实质性的派发（四条**待构建**的检查，期望值取自冻结 Golden 输入 `vadd_late_p1v2.mlir`，`d1023ac1…`）**保留**，改按 ABI 文档的 C 编号表述。
