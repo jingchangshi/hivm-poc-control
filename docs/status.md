@@ -4355,3 +4355,18 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 路由对的 Late 正例用任一 Late 行（A13 的 plain-Late 子运行，或 A1），两半各自带交叉缺席子句。
 
 **必须一并记下的限制，免得读者过度主张 A2**：`t_a2` 的第一句是 `need_late("A2")`（`:541`），而 `need_late`（`:175-190`）只检查**绑定**——配置已载入、`p2_compiler` 非空/在盘/sha 等于声明值、`late_flag` 非空、`in-container.sh` 在盘；它对这次调用是否真的走 Late 一无所查。于是一个 ordinary 行可能因**Late 路由**的理由被记 NOT_RUN（`late_stage_flag binding is null`、`p2_compiler sha mismatch … (BLOCKED)`）。所以 A2 并非独立于 Late 绑定可执行，且它的 `tid` 形参未被使用、任何 reason 串都不会点出行号。这本身不算缺陷（ordinary 与 Late 共用同一个二进制，绑定它是合理的），但**在 Late 绑定未就位时不得把 A2 当作独立对照引用**。
+
+### §24 追加 18（Lead 对 v3 检查点的审计，绑定 sha；四项发现，2026-10-14）
+
+被审对象：`verify/tests/scripts/run_p2_suite_v3.py`，**100 020 B / mtime 04:02:13 / sha256 `6a981e93479b4835f0b62286906b6f804bf281ded8cb063ad9c4a228a4368c03`**。这是一个"3 分钟未变动"的**检查点**，不是 verifier 声明的封版，所以结论按"可在编辑途中处理"的口径给，不是终审。
+
+| # | 项 | 结论 |
+|---|---|---|
+| 1 | **路由对（D052c 门禁项）** | **完全缺失**——`P2-BOUNDARY`／`late-route`／`ordinary-regbase-pipeline`／`inferMixedCV`／`inferLayoutOptimization`／`retry-loop`／`routing` 在 v3 中**出现 0 次**。挑战者把它定为**门禁项**而非披露项，理由是互斥路由是架构的中心主张、pass ID 无法证明它。落点见 D055：`t_a2` 就是 ordinary 正例，Late 正例用 A13 的 plain-Late 子运行。 |
+| 2 | **D046（新鲜度）** | **修了一半，并对自己重现了同一个缺陷**。`:2163-2166` 把日志改到 `VERIFY/logs/suite-v3`，不再破坏冻结那次运行的日志——但 `suite-v3` 仍是**固定路径**，第二次 v3 运行会就地覆盖第一次 v3 的逐行证据，且没有任何一行的记录写明当前路径上的字节是**哪一次**运行写的。D051b 要的三件（run 专属 workdir／或预跑归档+清空日志目录、run ID/manifest、逐行新鲜度检查）只落地了最弱的一件。 |
+| 3 | **金丝雀（D051a 两段式）** | **第 1 段实现正确，第 2 个保留项没实现**。`stub_terminal()`（`:399-403`）判的是 stub 的 `[ERROR]` 是否为**末尾** `[ERROR]`，与 D051a 第 1 段一致，且 `:415/:1103/:1156/:1187/:1305` 的落点正确；第 2 段（只对非 stub 流做原因特异匹配）由 `checks` 回调承担，也在。缺的是 D051a 明确要求**同时保留**的精确字节哈希：223 B / `1eb04fd1…` 目前只活在 `:321-327` 的注释里，**没有任何活检查在用**。它应作为 artifact/run 绑定与 `STUB-BARE` 标签存在（绑定就该随绑定的 bundle 变化而失败）。 |
+| 4 | **D054（免费关键词）** | **B12c 已被修**——`:1621` 收窄为 `["link-aicore-bitcode","rejects the option"]`，三个免费词全去；B6 也把 `entry` 换成 `sync`（`:1367`）。**仍有两处**：B4 `:1327` 的 `layout`（在 `inferLayoutOptimization` 内）、B7 `:1387` 的 `entry`（在六条 marker 的 `entry=` 内）。两者现在都有结构化 `checks`，所以**判决**不再单靠关键词——但 `_expect_catch` 的返回串是 `names {named[0]!r}`，于是**引用**仍会点名从 stderr 第 1 行匹配到的 `layout`／`entry`，正是 D040(4) 首个命中行测试要抓的形状。 |
+
+**已确认良好、无需重做**：逐子运行上报在（`:1052` 的 `A13.{tag}` 子运行 + 头部第 9 条）；入口作用域 terminal-barrier 检查 `_entry_terminal_state`（`:1341-1356`）在，B6/B7/B8 都在用；负对照族 N1–N4 已列（头部第 5 条）。
+
+**封版时要再查的**：N1–N4 四条是否**各自真的失败**其原因检查；逐子运行的记录是否由证据导出而非手写字符串；路由对（一旦存在）是否在**缺少** marker 时拒绝，而不只是在 marker 出现时接受。
