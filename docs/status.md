@@ -4136,3 +4136,25 @@ D 行在 P2-B 的 `--only` 之外。A2/C5（`:540-568`、`:1476-1487`）跑的�
 不是两条**；`baseline_pre_p2_compiler` 到 **P2-D**（D4 的判别检查）才用得上。
 还原裁定不变，只是我把代价说大了。教训同 `check-literals-must-be-measured-against-the-artifact`：
 **"被 path+SHA 钉住"不等于"每个提到 baseline 的行都在消费它"—— 定价之前先看读的人**（`need_baseline` 的 `which=`）。
+
+### §24 追加 6 —— P2-B 门禁裁定（D043）：切点 APPROVE，验收 BLOCK；并更正我自己此前的两处裁定
+
+Challenger（`review-2`）的 P2-B 门禁书面裁定已落地，记为 **D043**。要点与随之而来的更正：
+
+**1. 裁定。** 生产切点（直取的保守 legalization tail、step3-only）**APPROVE**；`B1–B7` 在 E4 下 **NOT_RUN 成立**；两位 manager **APPROVE**。但**验收经现有 oracle 一律 BLOCK**：冻结 oracle 本身有缺陷，须走 `verify/ERRATUM-v2-freeze-time.md` §5 的**具名 correctness-fix 修正案**（新 runner + 新 seal；v2 字节、哈希、历史判定与已披露局限**原样保留**），修正后重新验证。**P2-B 因此未获接受。**
+
+**2. 推翻我自己的第一处裁定（D042 的 `B12a`/`B12b` 定性）。** 我判它是**生产侧措辞缺陷、改代码即修**；Challenger 判反了：它是**冻结 oracle 的全流子串判别缺陷（D040）的一次已执行见证**，不是那条说真话的 fail-closed 消息的语义缺陷。因此**我下的"改写八条 P2 新增字面量"指令全部撤回**——真正耐久的修法在 **oracle 的诊断匹配侧**；生产日志措辞**不得**被 oracle 的词表塑形，改写至多是可选的混淆削减，**永远不是修复、更不是验收证据**。Challenger 的隔离实验（未改 oracle、未跑编译器）：`A3` 仅凭通用 P2-B stub 即 PASS（命中 `late`）、`A4` 同、`B7` 仅凭 routing 行 + 无关的输出文件错误即 PASS（命中 `entry`）、`B7` 仅凭输出文件错误 + 仅出现在注释里的 `PIPE_ALL` 即 PASS。
+
+**3. 推翻我自己的第二处裁定（`A15` 诊断）。** 我此前说"五项被静默接受 ⇒ 机制没接线 ⇒ 补五项表项（值须从普通 A5 路线实测）"。**实测源码推翻之**：`LatePipeline.cpp` 的 `kPinnedTrue`（`:114-120`）把这五项 **pin 为 true**；`applyPin`（`:413-450`）的规则是 0 次出现⇒注入规范拼写、>1⇒按重复拒绝、**请求值≠pin⇒具名拒绝**、**请求值==pin⇒接受且不再注入**。A15 的五条子运行发的是**裸开关**，bool `cl::opt` 把裸开关读作 **true**，正好等于 pin ⇒ **设计上就该被接受**，随后才撞上 fail-closed stub（rc≠0、不点名任何选项）。所以那五条 FAIL 是**与 A10–A12/C2 同类的 scope 假红**，到 P2-C 自然满足；"补五项表项"指令撤回。真正在考 pin 的是那条不对称的 `--enable-static-bare-ptr=false`，它 PASS。
+
+**4. 第五个缺陷——我自己在归档字节上复测确认。** 两个 header 正则**全部失效**：`DUMP_RE`（`:247`）与 `DUMP_WITH_BODY_RE`（`:277`）对 `logs-suite-p2b/A10.stderr` 的 **58** 条真实 header 各命中 **0**——真实分隔符是 `) //----- //`（**先斜杠后横线**），正则要的是 `\)\s*-+//`；把分隔符改正后命中 **58/58**。而且**只**改分隔符后，`parse_dump_bodies` 返回的是 58 个 **dict**（`{"phase","name","arg","body"}`），于是 `t_a10:707` 的 `rec[3] if len(rec) > 3 else ""` 抛 **`KeyError: 3`**——那个 `len(rec) > 3` 守的是**元素个数**，不是**类型**。结论：A10 的 E5 per-manager 模式扫描**双重失效**（先无记录、后有记录也不可索引），AMENDMENT v2 的 positive-control 配对同理从未触发。**自我披露：** 我第一次靠"读正则"判断 `DUMP_RE` 能匹配真实 header，被实测推翻（顺序看反了）——又一次印证 `check-literals-must-be-measured-against-the-artifact`：**字面量必须对着产物量，不能对着脑子里的字符串量**。
+
+**5. 第三个假绿：`C3`。** `t_c3:1450-1453` 的拒绝分支在整条流上判 `"Ascend310B3" in blob or "target" in blob.lower()`，而 **`target` 在任何回显了 `--target` 的流里都是自由词**；更关键的是该分支自己的消息承认它行的既定主张（old-ABI 形状）**被推迟给 `$OPT` 校准**——于是它在一个 **零 ABI lowering** 的 build 里为一条自己并未执行的覆盖主张盖了 PASS。另外 `C6` 只是 fixture 自检（`t_c6:1485-1515`：用 P1 `$OPT` 跑一张标定表），量的是 fixture 漂移，不是 P2 编译器。
+
+**6. 计数规则（更正 D042）。** **不得**用减法得出"26 条站得住"。假绿集合至少是 {`B12a`, `B12b`, `C3`}；"站得住"的数量不是减法结果；且 `B12a`/`B12b` 的 P2-C 门禁要求在 P2-B 是 **NOT_RUN**，不是 PASS。`C1` 保留为已执行 FAIL 与 D-d 的活见证——为满足 C1 而接受无载体 store 会违反 V7，契约更正同样走 §5 流程。
+
+**7. 更正两条我自己写下的旧论断。**（a）**证据强度**：33 条 PassID / 58 个 dump 证明的是**调度与所选 IR 效果**，**不是**全部 pass body 的执行、也**不是**完整 P2 覆盖。`PassStatistics.cpp:107-137` 递归打印 `pm.getPasses()` 的**每一个**条目而**无论其是否执行**（含统计为空的 pass），`Pass.cpp:883-892` 在 `runPasses` **失败后仍** dump，`:592-594` 在首个失败处停止执行而**后续条目仍可打印**，`:516-530` 把 Before 插桩放在 action 回调**之外**，所以 filter 可以压制 body 而名称/header 照样出现。故 D039 与 §24 中"四个确实跑了 / 执行级确认"的表述更正为：**那是 Finalize 阶段被构造出来的结构**。（b）D037/D039 里"tail 与 A5 的 pass 集合不相交"**字面为假**：实测 `bishengir/lib/Tools/bishengir-compile/regbase/PassPipeline.cpp:293` 与 `bishengir/lib/Tools/hivmc/A5/PassPipelineA5.cpp:53` **都** `addPass(createLowerAffinePass())`。真正承重、也是"避免重复 lowering"实际依赖的那句话是：**`ConvertHIVMToLLVM` 的归属不相交**（`PassPipelineA5.cpp:52`）。
+
+**8. 其余更正。** E5 记录要按 **per-manager 模式重解析** 与 **per-action `FilterPassesAttr`** 两个粒度分别记（把两者都只挂在后续 manager 边界上的文档是错的）；58 个归档 tree 文件确实两者皆无，支撑本次运行是**推断的** Mix，但首个 action 边界的模式记录仍须补。DMA：描述符 extent **8192 f32 = 32768 B** 现在就能在 tail 上断言（三条描述符链），只有**发射出的模板事务**推迟到 P2-C。D041 数字更正：快照差量是 **153 个 object + 3 个 archive = 156 条路径**（不是"156 个 object"）；窗口 ≈ **0.636 s**；**删掉**"size 变化与 cache hit 相矛盾"——host 与容器因预处理/头文件集合不同而合法地选中不同结果（`ccache MANUAL.md:2101`）；240 条 Ninja object 边（64–725 ms，起止 426–1388 ms）证明的是**该次 host 调用中的边执行，不是 240 次全新编译**，缓存命中**可信但未被证明**（缺 cache 事件证据）；`touched='./...'` 只证明**普查范围**，不证明 build 目录之外没有写入（ccache 自身可能写外部）；修复中重链接的生成式 tblgen 可执行文件应计入依赖闭包。8b：在当前绑定下做**受守卫的还原** APPROVE，但现存 baseline 是**扁平后缀名**，直接改指会破坏可执行文件相对路径的模板发现——不可变 baseline bundle 形态推迟；还原放在本阶段**最后一次构建之后**，并在任何 baseline 使用前重新校验。8c：**只许经 wrapper** 执行/配置/运行的规则 APPROVE，D041 的收口改写为"**执行来源强制**"。
+
+**9. 下一步。**（i）Verifier 起草 §5 修正案（新 runner + 新 seal，保留 v2），必须带四组反向对照——通用 stub、无关 I/O 错误、仅边界行、仅 dump/注释——四者**都必须**在"原因"检查上 FAIL，并保留已接受的 Golden 正对照；（ii）Implementor 提交**未经改写**的已批准切点、经 `scripts/in-container.sh` **构建一次**、stage 最终 bundle、**然后**还原 `build/bin`；（iii）Verifier 在最终 bundle 上重绑 `p2_compiler` 并重跑验收、还原后重跑 `C6`；（iv）Challenger 复审。全程未 push，未动 build tree。
