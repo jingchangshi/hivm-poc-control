@@ -4426,3 +4426,19 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **三点结论。** (1) **双向判别成立**：Late 有/ordinary 无、ordinary 有/Late 无，两个方向都测到，而不是"只测存在"。 (2) **D055 由推变测**：r1 上无旗标的 ordinary 产物 sha 与冻结行 A2 断言的 pre-P2 基线 **逐字节相同**——这是**产物级**证据，说明插桩没有扰动 ordinary 路由的**输出**，比"marker 打出来了"强得多。 (3) 第 3 行是个有用的负例仪器：r1 上 fail-closed stub **只有合法 Late 输入才会到达**，非法输入更早被 Late 输入校验器拦下——这解释了为什么 A13.env（223 B 裸 stub，env 被 docker 边界丢掉后走的是合法 Late 输入路径）与本次第 2 行同族。另外 285 − 223 = 62 = 一行 marker + 换行，与 stub 两种形态的属性式规则互相印证。
 
 **边界**：这**不**关闭 D052/D056 的门禁项——门禁要求该对**作为一行存在于封版修正件内**并在最终 bundle 上跑；D060(d) 已测出封版 v3 里 **0** 条路由行。本次是**临时**证据，不得升格为最终 artifact-of-record。
+
+### §24 追加 22（逐条核对 `p2-bindings.json`：**两条 build-tree 基线绑定已声明但不再成立**——D048 的项目现在有了数字，2026-10-14）
+
+做法：把 `verify/tests/config/p2-bindings.json` 里**每个** path 当场 sha256，与其**自己声明的** sha256 比对（整份文件，不只两行）。
+
+| 绑定 | 声明 | 磁盘 | 判定 | 路径 |
+|---|---|---|---|---|
+| `p2_compiler` | `47e02604…` | `47e02604…` | **OK** | `impl/stage-p2b/bin/`（当前 late 路由 bundle） |
+| `baseline_pre_p2_compiler` | `c6838fc0…` | `ea217b8d…` | **MISMATCH** | `<build>/build/bin/bishengir-compile` |
+| `bishengir_opt` | `0761c6e6…` | `4c31167b…` | **MISMATCH** | `<build>/build/bin/bishengir-opt` |
+| `bitcode.p1_historical` | `5e7ccae2…` | `5e7ccae2…` | OK | `<build>/build/lib/meta_op.aiv.c310.O2.bc` |
+| `superseded_p2_compiler` / `_r1` | `2bf961bf…` / `1a3f20f8…` | 同 | OK | `impl/stage-p2a*` |
+
+两条 MISMATCH 恰好就是"非 staged bundle、也非 P1 bitcode"的那两条，且都指向 implementor 之后会重建/恢复的同一棵可变 build 树。后果是**正确的 fail-closed**：`need_baseline` 的行（含 C6）会被 sha 门禁判 BLOCKED，不会拿错基线跑；但也意味着在改绑之前，验收运行**产不出**这些行。**补救即 D046/D048 已点名的做法**：绑定到**不可变的保留副本** `lead/preserved-p1-compiler/bishengir-compile.pre-p2.c6838fc0` 与 `…/bishengir-opt.0761c6e6`（文件名自带期望 sha 前缀，绑定自描述），不要再指 `<build>/build/bin/`；顺带解掉"验收运行必须先等 implementor 恢复 build/bin"这一顺序依赖。
+
+同时复核：`lead/preserved-p1-compiler/` 在**该目录内**跑 `sha256sum -c` = **3/3 OK** —— 这也把 verifier 提的"清单条目是 3 条还是 4 条"的分歧settle 掉：三个载荷文件，`SHA256SUMS.txt` 是清单本身，不是第四项。
