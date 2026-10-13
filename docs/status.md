@@ -1,7 +1,31 @@
 # POC status
 
+> **记录约定（用户指令，2026-10-13）— 本文件与 `docs/decisions.md` 是唯一的权威状态记录。**
+> 此后一切阶段状态、决策、验收结果与交付物都记录在 **`hivm-poc-control`**。`hivm-poc-evidence/`
+> 保留为**仅本地**的原始证据存放处：**不发布、不推送到任何外部托管**（GitHub 等），用户已明确
+> 表示不再管理它。该树内含一个**已放弃的本地 `git` 仓库**残留（2026-10-13 20:05–20:08 由本会话
+> 之外的操作创建：分支 `master`、**零 commit、零 ref、从未推送或拉取**，远端指向一个外部
+> `hivm-poc-evidence` 仓库——其 URL 含凭据段，因此**刻意不复制进本记录**）。**保持原样，不要清理、
+> 不要重置、不要推送、不要据它推断已发布任何内容。** 需要"不依赖证据树即可读懂"的状态时，以本
+> 文件为准。
+
 - Date: 2026-10-13
-- Current stage: **P0 gate CLOSED by user adjudication (D021); P1 AUTHORIZED.** The user decided every
+- **现状（最新，2026-10-13 晚）— 以此条为准；其下为历史记录，不改写。** 新版 P1（D025 版本化重固定，
+  登记为 **D031**）**已正式 CLOSED**：Verifier 权威入口 **rc=0**，**32 PASS / 0 FAIL / 0 BLOCKED /
+  0 NOT_RUN**（完整性闸门 I1–I7 → 契约闸门 18/18 → 冻结 checker 三步全过）；D012 fixtures
+  **11 GREEN**；D012 oracle **C1–C8 8 PASS**。**D012 修复已落地并独立验证**——改动集 11 文件 /
+  288+32 行（全部在 `bishengir/`），已提交为 **`80e29e6f2`**（`AscendNPU-IR-1` 分支
+  `feat/tilelang-hivm-late-pipeline`，父 `e878f3492`，**未 push**）。**Challenger 裁决 APPROVE**，
+  D025 §7(1)–(7) 全部确认，全文逐字存于
+  `p1v2-20261013-d025/review/challenger-d025-final-verdict.md`。**原始 P1 记录逐字节未变**
+  （31 PASS / 1 FAIL 作为历史保留）。**P2 = AUTHORIZED（登记为 D032，2026-10-13）**——用户以
+  `docs/p2-goal-1013.md` 第 7 行给出明确授权，补足准入条件 **C8**；范围 **P2-A…P2-D**，完成后
+  停在 P3 门禁，**P3–P6 仍未授权**。P1 自带的尚余风险（未被任何准入
+  条件关闭）：冻结 checker 单独不足、摘要共享可写信任域与验证—执行 TOCTOU 窗口、契约闸门非通用
+  CFG 证明、硬件数值/ELF/CodeGen E2E/A5 ABI/TVM-FFI/运行时 UB 全部 NOT_RUN、P2 的 Late 阶段边界
+  与重复 lowering 问题未解。详见本文件 "D025 versioned P1 re-pin"、"D012 改动已提交为规范 commit"
+  两节与 `docs/decisions.md` D031 行。
+- Current stage (historical): **P0 gate CLOSED by user adjudication (D021); P1 AUTHORIZED.** The user decided every
   open gate on 2026-10-13: D012 → option (a) narrow store-side cache carrier extension; D013 → option
   2, a discriminating experiment BEFORE P1 production work; pipeline cut → option (b) dedicated
   mutually exclusive Late entry; D004 and `AppendDeviceSpec` → implement per the Lead recommendation;
@@ -1502,3 +1526,547 @@ Challenger's §7(7) line "Current source HEAD remains `e878f34927fb5b77fd8c7257f
 describes the **parent** commit, i.e. the state as reviewed. The verdict file is verbatim and stays
 untouched; this note is where the correction lives. **Nothing was pushed** — CLAUDE.md requires
 explicit consent for that, and none was given; the branch has no upstream in any case.
+
+## P2 启动（2026-10-13 晚）— 用户授权与准入复核
+
+**授权来源。** 用户指令 `docs/p2-goal-1013.md`（15 222 B，2026-10-13 20:16 创建）。其第 7 行即为
+**P2-ADMISSION 条件 C8 所要求的明确用户授权**：*"我已审阅 P1 v2 的 D031 验收记录，现在正式授权
+P2-A 至 P2-D 的生产代码实施。本提示词即为 P2-ADMISSION 中 C8 所要求的用户授权。"* 登记为
+**D032**（`docs/decisions.md`）。范围：P2-A…P2-D；**P3–P6 仍未授权**；完成后停在 P3 门禁并向用户
+提交结果（goal §9）。
+
+**§8 第 1 步：准入复核（Lead，仅做必要核对，不重跑 E0/P1 全量验收）。** 全部证据与准入记录见
+`hivm-poc-evidence/p2-20261013-late-pipeline/lead/p2-admission-check.md`。结论：
+
+- 本地齐全：snapshot（含 `INTEGRITY.json`、`run_p1v2.sh`、冻结 checker）、Verifier
+  `verify/TASK-C-report.md`、Challenger `review/challenger-d025-final-verdict.md`、`P2-ADMISSION.md`。
+- **带外 47 条摘要 `sha256sum -c` → 47 OK / 0 NOTOK**（含任何树内检查都无法提供的那一条：
+  `INTEGRITY.json` 自身 `7f9b92bf…`；以及编译器 `0761c6e6…`、bitcode `5e7ccae2…`、5 个 Golden、
+  整个冻结 v1 树）。
+- 权威结论取自**本地实际日志**，不以文档叙述代替缺失证据。本地证据与登记状态**无冲突**，因此
+  **没有重建、放宽或重新生成任何历史 Oracle / Golden**。
+- Git：`AscendNPU-IR-1` 工作区 **clean**，`80e29e6f2`（父 `e878f3492`），分支
+  `feat/tilelang-hivm-late-pipeline`，**未 push**；`tilelang` 工作区 **clean**，`cc56643d`，
+  分支 `feat/hivm-backend-poc`。单一 worktree，增量构建目录完好，未新建 worktree。
+
+**模型路由实测（架构评审前必须报告，goal §3）。** 网关回显的 `model` 字段：Lead/implementor 槽
+`group/auto-deepseek-v4-1-flash` → **`deepseek-v4.1-flash`**；verifier 槽
+`opencode-go/mimo-v2.6-flash` → **`mimo-v2.6-flash`**；challenger 槽 `codex/gpt-6.1-sol` →
+**`gpt-6.1-sol`**。**与用户要求的分工不一致**：启动脚本
+`~/SoftwareProfiles/claude/run_claude_using_magpie.sh` 中用户期望的
+`codex/gpt-6.1-sol` / `opencode-go/claude-haiku-5-5` / `claude/claude-opus-5-5` 三行是**被注释掉的**，
+生效的是上面三行。**本项目没有任何 agent 由 Claude 模型服务**；`implementor-sonnet` /
+`verifier-haiku` / `challenger-opus` 只是 **agent-type 路由标签**。**任何裁决不得记作 "Opus 5.5
+审查"，任何验证不得记作 "Haiku 5.5" 运行。** Lead 不擅自改动启动脚本（属环境改动，超出本任务授权）。
+
+**本轮交付文档（goal §9）。** 已建 `docs/p2-architecture.md`（入口设计，待 Challenger 评审）；
+待建 `docs/p2-pass-trace.md`、`docs/p2-binary-abi.md`、`docs/p2-verification.md`。证据树本轮为
+`hivm-poc-evidence/p2-20261013-late-pipeline/{lead,impl,verify,review}/`。
+
+**下一动作。** §8 第 2、3 步：Verifier 冻结 P2 独立验收测试（agent `verify`，已启动）；
+Challenger 评审入口设计与 Pass 切入点（agent `review-2`，已启动）。二者完成后再启动 Implementor。
+
+### P2 构建身份预规划（2026-10-13，Lead，实测）
+
+**实测事实。** `bishengir-opt` 链接全局属性 `BISHENGIR_LIBS`
+（`bishengir/tools/bishengir-opt/CMakeLists.txt:24`），而 `add_bishengir_library`
+（`bishengir/cmake/modules/AddBiShengIR.cmake:28-38`）把 `BiShengIRRegBaseCompileLib` 也追加进同一属性。
+执行确认：`bishengir-opt --help` 列出 `--bishengir-compile-regbase`。推论：**regbase 库的任何改动都会
+重链 `bishengir-opt`**。
+
+**后果。** P1 带外摘要把 `build/bin/bishengir-opt`（`0761c6e6…`）与
+`build/lib/meta_op.aiv.c310.O2.bc`（`5e7ccae2…`）**按绝对路径** pin 住，`run_p1v2.sh` 第 1 步
+（不变量 I5）每次都复核。因此 P2 只要构建任何目标，`bishengir-opt` 字节就会变，P1 入口会在编译器
+那一行 BLOCK。**不得为迁就 P2 构建而修改快照或其摘要**（D031 与 goal §6.1 均禁止）。
+
+**已执行与计划。** (1) **已保全**（任何 P2 编译之前）：`p2-20261013-late-pipeline/lead/
+preserved-p1-compiler/` 存有 `bishengir-opt`（`0761c6e6…`）、`meta_op.aiv.c310.O2.bc`
+（`5e7ccae2…`）与 **P2 之前**的 `bishengir-compile`（`c6838fc0…`，用于把行为变化归因于 P2 而非臆测）
+的字节副本及 `SHA256SUMS.txt`；前两个哈希在复制后已与 P1 摘要**逐一核对一致**。(2) 在既有增量目录
+构建（goal.md §6：不新建 worktree、不复制 3 GB 构建树）。(3) 构建后**立即**把新 `bishengir-compile`
+/ `bishengir-opt` 复制到构建树之外的稳定位置并记录 SHA，**所有 P2 测试一律使用该绝对路径**，以免
+测到被重链过的二进制。(4) 从保全副本**恢复** pin 住的 `bishengir-opt` 到 `build/bin/`，重跑
+`sha256sum -c` 期望重新 **47/47 OK**；诚实记录后果：此后 `build/bin/bishengir-opt` 与源码树**不
+一致**，直到下一次构建。此计划的第 4 步已提交 Challenger 反查（是否应改用独立构建目录）。
+
+### P2 前端侦察（2026-10-13，Lead，只读实测；未写任何生产代码）
+
+在步骤 2/3（Verifier 冻结测试、Challenger 审查入口设计）进行期间，Lead 就**尚未决定的两处拼写**
+做了只读实测，工具均为 P1/D031 pin 住的 `build/bin/bishengir-opt`（`0761c6e6…`），**未构建、未改动
+任何仓库**。证据：`p2-20261013-late-pipeline/lead/pass-names-and-instrumentation.md`。
+
+1. **保守 legalization 尾部的真实 Pass 参数名（20 项）**已由 `bishengir-opt --help` 实测确定并写入
+   `docs/p2-architecture.md` §3.1 表格。其中 **3 个不是朴素推导**：`--hivm-memref-alloc-to-alloca`
+   （非 `--alloc-to-alloca`）、`--hivm-mark-disable-load`、`--convert-ascend-dpx-to-hivmregbaseintrins`
+   （`hivmregbaseintrins` 连写、无连字符）。SyncBlockLock finalize 家族是**五个**独立 Pass
+   （`--hivm-insert-infer-sync-block-lock-num-and-init-func`、`--hivm-mark-sync-block-lock-with-subblock`、
+   `--hivm-bind-sync-block-lock-arg`、`--hivm-lower-create-sync-block-lock`、
+   `--hivm-insert-free-lock-var-before-return`），**全部保留**。注意存在一套 **simt** 同名 Pass
+   （如 `--simt-insert-init-and-finish-for-debug`），其出现在 `--help` 中**不构成**它在 Late 模式运行
+   的证据。此前两次源码 grep 均失败，故以二进制为准。
+
+2. **`--input-ir-stage` 选项机制在生成器层面核实**，并**修正了** §2.1 的草稿错误：`Options.td` 中
+   `"string"` **零命中**，字符串选项一律用字面量 **`"std::string"`**（`InjectIRFromFile`、`SaveTemps`，
+   `Options.td:330-348`），空默认写作 `"\"\""`；`ConfigOption::getType()`（`ConfigOptions/Options.cpp:144-146`）
+   原样使用 TableGen `type` 字段，故 `"string"` 属**未经验证的生成器路径**。已改为
+   `"std::string"` / `"\"hir\""`。派生身份由**已生成的 `.inc`** 核对：字段 `inputIRStageFlag`、链式
+   `setInputIRStage(const std::string&)` / `getInputIRStage()`（访问器去掉 `Flag` 后缀，见
+   `CompileConfigs.cpp.inc:1542-1552` 的 `SaveTemps` 范例）、生成的
+   `cl::opt<std::string,true>("input-ir-stage", …, cl::location(inputIRStageFlag))`
+   （`CompileOptions.cpp.inc:977-980`）、以及 `options.<member> = config.getInputIRStage();`
+   （`ConfigUtils.cpp.inc:103,241`）。结论：`def InputIRStage` 一经声明即自动重生成以上四处，
+   **手写部分只有 pipeline-options 结构体成员与分支本身**。
+
+3. **Pass instrumentation 机制实测可用**（goal §5 要求"真实 MLIR Pass instrumentation，而非源码 grep"）：
+   pin 住的二进制暴露 `--mlir-print-ir-before-all`、`--mlir-print-ir-after-all`、
+   `--mlir-print-ir-before/after=<pass-arg>`、`--mlir-print-ir-after-change`、
+   `--mlir-print-ir-tree-dir=<dir>`、`--mlir-pass-statistics`、`--mlir-pass-statistics-display=<value>`、
+   `--mlir-disable-threading`、`--mlir-print-ir-module-scope`。∴ 该要求**无需新构建即可满足**；
+   `--mlir-disable-threading` 为**必需**（否则 after-all 顺序不确定、排序断言不可复现）。
+   §3.2 的"零执行"negatives 以 `--mlir-pass-statistics` 的逐 Pass 计数为证物。
+
+以上三条已同步给 `verify`（作为事实输入，不断言其判据）与 `review-2`（供其反查 §2.1/§3.1）。
+
+**状态**：本控制仓库 `hivm-poc-control` 非 git 仓库，记录不随版本化。两生产仓库仍干净且停在 D031 head
+（`AscendNPU-IR-1` `80e29e6f2`、`tilelang` `cc56643d`）。**P2 生产代码 0 行**；`verify`、`review-2`
+仍在运行（步骤 2/3）。下一步：待两者结论落地后进入步骤 4（Implementor 实施 P2-A）。
+
+### P2 架构评审往返（2026-10-13，Challenger ↔ Lead；步骤 3 进行中）
+
+Challenger（`review-2`，challenger-opus 槽位，实测 served model 为 `gpt-6.1-sol`）对入口设计给出
+**REVISE**，两轮共 11 项。**全部经 Lead 独立复核源码后采纳**（Challenger 是只读评审者，其结论不
+可凭信任记录）。逐字记录与复核表：
+`p2-20261013-late-pipeline/review/challenger-entry-design-verdict-PARTIAL.md`。
+
+> 文件名的 `PARTIAL` 是**有意的**：第一轮 verdict 经团队通道**截断**于第 5 项
+> （"Test unsupported c…"），完整文本已向 `review-2` 索取，未到之前该文件不得被当作 Challenger 的
+> 完整结论引用。
+
+**第一轮五项**（均已落入 `docs/p2-architecture.md`）：
+
+1. **TableGen 字符串类型**：`"string"` → `"std::string"`（Lead 在收到该条之前已独立改正）。
+2. **Late 探测必须独立于 target 分流**——**这是 Lead 文档的真实缺陷**。`hasRegBaseTarget` 在
+   `bishengir-compile.cpp` 被求值三次（`:114`、`:147`、`:184-186`），其余落到 `:188` 的
+   `runBiShengIRPipeline`。∴ **不带 `--target=` 的 `--input-ir-stage=late-hivm` 会静默走普通
+   membase 流水线**，可能产出看似合理的产物。§2.2 现要求无条件从 `argv` 探测一次并在 `:114` 前
+   硬失败。
+3. **ABI/bitcode/sync/output 选项策略**——Lead 复核**发现更尖锐的事实**：`EnableStaticBarePtr`
+   带 `emitGetterSetter = 0`（`Options.td:153-160`、`CompileConfigs.cpp.inc:981`），
+   ∴ 转移助手 `HIVMCFromBiShengIRConfig` **结构上无法**转移它，A5 消费者读取
+   `HIVMCMainConfig` 默认值 `true`（`hivmc/Config.h:830`）。**在 regbase 路径上
+   `--enable-static-bare-ptr=false` 静默无效**——这是 ABI 相关的真实发现。§2.3.1 新增：逐字调用
+   转移助手 + 逐选项裁定表。
+4. **C310 bitcode 硬失败有两个静默点，不是一个**——挂载期 `addIfExists`
+   （`BiShengIRCompileMain.cpp:79`）；链接期 `HIVMCMainA5.cpp:110-117` 仅告警后继续，唯一硬失败是
+   `bitcodePathList.empty()`（`:180`），而用户提供额外 bitcode 时它**永远不会触发**；另有
+   `-Wno-override-module`（`:97`、`:227`）压掉重复符号诊断，使替代 bitcode 可冒充必需模板。
+   §3.3 改为在入口对**解析后的路径**硬失败，并在 Late 模式**拒绝 `--link-aicore-bitcode`**。
+5. **校验器必须是真正的预检**——D012 谓词 `verifyStoreCacheMode`
+   （`HIVMToStandard.cpp:1131-1160`）由**转换 pattern** 调用，即运行在尾部第 10 项**之后**已运行
+   1–9 项之时，无法满足 goal §4.2 的"破坏性变换之前"；`AppendDeviceSpec.cpp:145-148` 仅告警后
+   **无条件覆写**（早退在 `:129-130`）。V1–V7 改为对未修改输入的独立预检。
+
+**第二轮六项**（同样已采纳）：
+
+- `../lib` 相对**真实可执行路径**解析，且 `real_path` **会解析符号链接**
+  （`regbase/BiShengIRCompileMain.cpp:63-76`；路径来自 `lib/Tools/Utils/Utils.cpp:360-375` 的
+  `getMainExecutable`(`/proc/self/exe`) + `real_path`）∴ 暂存必须是**真实 `bin/` + `lib/` 捆绑**，
+  符号链接会静默指回构建树。
+- 恢复 pin 住的 `bishengir-opt` 会使其 mtime 新于构建边，**Ninja 会认为该陈旧输出是最新的而不重链**；
+  已记录，处置待 Challenger 的反例。
+- "任何 ninja 目标都会重链 opt" **过宽，是 Lead 文档的错误**：两个二进制是**独立的链接边**，
+  共享库只是共同输入；已改为**显式构建两者**。
+- 追踪覆盖的四个前提（所有 PassManager 安装选项 / 关闭 `--mlir-print-ir-after-change` /
+  完整日志经 `--mlir-print-ir-tree-dir` 归档 / **哨兵 Pass** 证明覆盖面）。已复核：
+  `bishengir-compile.cpp:95,97` 在任何 PassManager 构造前注册选项；`runHIVMCCompileA5` 在
+  `regbase/BiShengIRCompileMain.cpp:448` **进程内**调用（定义于 `hivmc/A5/HIVMCMainA5.cpp:944`），
+  ∴ A5 的 MLIR 流水线（含唯一一次 `ConvertHIVMToLLVM`）**在同一追踪内**；ccec **子进程**不在，
+  改由 P2-C 的二进制/ABI 检查覆盖。
+- **函数不是 Pass 身份**：`inferLayoutOptimization`、`runRegBasePipeline`、`buildLowerAVEPipelines`、
+  `runHIVMCCompileA5` 是 C++ 函数，追踪只显示它们添加的 Pass ∴ 其"未调用"须由**驱动级路由日志**
+  （仿 `bishengir-compile.cpp:118` 的 `[INFO] Using merged native A5 regbase pipeline`）证明。
+- 链接拓扑**不强制**校验器所在库，且**链接 ≠ 注册**：注册是独立显式动作
+  （`include/bishengir/InitAllPasses.h:71` 组合各 dialect 的 `register*Passes()`，
+  由 `GEN_PASS_REGISTRATION` 生成）。§2.4 改写为两部分要求，注册的**可执行证据**定为
+  `bishengir-opt --help` 列出新参数。
+
+**仍开放**：(a) 第一轮第 5 项截断尾部及其后各项 + 最终 APPROVE/REVISE/BLOCK 行；(b) §3.3
+步骤 4 的建议（恢复进 `build/bin` vs 独立构建目录）；(c) 除四前提外是否还需要更强的 §3.2 证据；
+(d) Challenger 第一轮第 1 项声称的**已执行**探针内容与写入位置（以保证"P2 生产代码 0 行"的陈述
+准确）；(e) Challenger 正在构造的 Ninja 陈旧反例。
+
+**状态**：P2 生产代码 **0 行**；两仓库干净、停在 D031 head；`verify`（约 26 分钟）与 `review-2`
+仍在运行。步骤 4 继续等待步骤 2/3 收束。
+
+### P2 架构评审第三轮（2026-10-13，Challenger 完整 verdict；步骤 3 收束中）
+
+第一轮 verdict 的**截断尾部已由 Challenger 后续消息补齐**，完整逐字记录移至
+`p2-20261013-late-pipeline/review/challenger-entry-design-verdict.md`（**取代**先前的
+`…-PARTIAL.md`；后者原样保留，作为"当时收到什么"的诚实记录）。**最终 verdict：REVISE**（非
+APPROVE、非 BLOCK）。**两项已 APPROVE 且不再是未决缺陷**：`"std::string"` 声明改正、以及冻结
+匹配规格下的 case-2 `AppendDeviceSpec` 跳过。**三项是 Lead 自身文档的错误**，已改正。
+
+**三项 Lead 文档错误：**
+
+1. **§2.1 生成管线接线**：`FeatureControlOptions` 只设 `compileOptionCategories`
+   （`Options.td:59-65`），`passGroup` 按选项声明；`ConfigsToOptionsConversionGen.cpp:80-82`
+   对空组 `continue` ∴ **`ConfigUtils.cpp.inc` 不会自动生成该赋值**。§2.1 该行改为 **NOT generated**；
+   驱动侧 `getInputIRStage()` 已足够，仅在确有 Pass 需要该值时才加 `passGroup`。
+2. **§3.2 `inferLayoutOptimization` 的表述**：实为普通 `module.walk`
+   （`regbase/Utility.cpp:100-120`），只在遇到 `linalg.batch_matmul` / `triton_print` /
+   `scope.scope` 时置 `setEnableLayoutOptimization(false)`，**不添加任何 Pass**，且**无条件被调用**。
+   ∴ "该函数零执行"**不是可测命题**；正确命题是"它可能置位的标志没有已调度的消费者"。已改写
+   （`inferMixedCV` 同理，`Utility.cpp:95-97`）。
+3. **§3.3 "任何 ninja 目标都会重链 opt" 过宽**：两者是**独立链接边**，共享库只是共同输入。
+
+**两项 Challenger 的已执行实验（记为**其**证据，非 Verifier 验收证据）：**
+
+- **case-2 跳过**：容器内 pin 住的 `bishengir-opt` `0761c6e6…` + 冻结输入 `d1023ac1…`，parse/print
+  **带与不带** `--hacc-append-device-spec=target=Ascend950PR_9579` 均退出 **0**，规范 IR
+  **逐字节相同**（SHA `884c947d25f491184adf975deeca60fd8afbd3808107e624e1f04a1d39a980e8`）。
+  **完整尾部与二进制比较仍为 NOT_RUN**；附**核心数覆盖**告警（自定义 core-count 会改变 spec 条目，
+  复用前须按预期默认值校验或拒绝该覆盖）。
+- **Ninja 陈旧反例**：容器 scratch 中构建含 P2 字节的输出，用 P1 字节覆盖后 `ninja -n` 报
+  **"no work to do"**——**已复现**。∴ §3.3 步骤 4 改为**带护栏的恢复**，四条护栏缺一不可：
+  **G1** 每次暂存前显式重建 **opt 与 compile 两个**目标；**G2** 使恢复文件**早于其依赖**的 mtime
+  （或另一经证明的失效手段）；**G3** 校验暂存包哈希**且**校验暂存 `bishengir-opt` **已注册新 Pass**；
+  **G4** 冻结完整 `bin/`+`lib/` 暂存包。无法执行 G1–G4 时，回退**独立构建目录**（更干净，但
+  **技术上非必需**）。P2 校验器/负例/D012 测试**必须**用**新建并暂存**的 opt。
+
+**两项 Lead 复核超出 Challenger 结论（已请其反查）：**
+
+- **Mix/Aiv 过滤不作用于 P1 Late 输入**——`PassExecutionPolicy.h:42-46` 仅在函数带
+  `mix_mode = "aiv"` 时解析为 Aiv 模式，否则保持默认 full(Mix)。**实测冻结产物 `vadd_late.mlir`
+  中 `mix_mode` 出现 0 次** ∴ 该 denylist 对本输入从不被查询。不把它留作"恰好成立"的性质，而
+  升级为 **Late 不变量：V1 拒绝携带 `mix_mode` 或 `FilterPassesAttr` 的 Late 输入**。
+- **`Pass.cpp:516-527` 的取舍不对称性**：`runBeforePass` 在 `:516-518`，`runOnOperation` 在
+  `executeAction` 内的 `:521-527` ∴ **缺席**（在覆盖面成立下）证明**未调度**——正是 §3.2 负例所需，
+  可靠；**出现**只证明**已调度**，不证明执行。∴ §3.1 "某 Pass 起了作用"一类断言不能靠追踪，须靠
+  **产物 IR 效果**（如 `--convert-scf-to-cf` 后存在 `cf` 块、转换后无残留 `hivm.hir.*`），或
+  在 `execute`/`runOnOperation` 边界计数器。
+
+**Challenger 探针披露（已接受）**：其第 1 项语法探针测试的是**旧**声明
+`llvm::cl::opt<string,true>` 而非改正后的 `std::string`；仅用 `clang++ -fsyntax-only` 在 `/tmp`
+写入临时源文件，**未产生目标文件/可执行文件，未改动任何生产/测试/Golden 文件**。∴
+**"P2 生产代码 0 行"的陈述依然准确**。
+
+**仍开放**：Challenger 按其自列条件清单的**再评审 verdict**。Lead 已就 §2.2（无条件 Late 探测）、
+§2.3.1（选项裁定表）、§3.3（入口侧 C310 硬失败）主动请其指出仍欠规定之处。`verify` 的测试冻结
+仍在进行（约 33 分钟）。**步骤 4 继续等待**。
+
+### P2 架构评审第三轮 — 收编完成（Lead，2026-10-13）
+
+**阶段**：P2 步骤 3（架构评审）收尾；③ 轮的**全部**修订项已落入 `docs/p2-architecture.md`，
+**仍等 `verify` 的测试冻结与 `review-2` 的再评审 verdict**。
+
+**本轮新落入的六处修订（逐条先本地源码复核，再改写）：**
+
+1. **§3.2 前置条件 4：端点 ≠ 覆盖面。** 两个哨兵 Pass（`--annotation-lowering` 与
+   `--convert-hivm-to-llvm`）只证明追踪**两端**可达；覆盖面须**按 PassManager 逐个**建立 —
+   枚举本次运行创建的每个 manager（regbase 尾部的、`RetriablePassManager` 重试包装的、A5 进程内的），
+   并证明每一个都出现在追踪里。某个 manager 若在**未注册这些选项**的情况下被构造，追踪看起来完整，
+   却**静默漏掉**该 manager 的一切。
+2. **§3.2 新增"边界日志"表 —— 一行 Late 路由日志不够。** 单个 `[INFO] … Late …` 只证明**分支被走**，
+   对"普通流水线 / 两个 infer 函数 / 重试循环此后是否运行"一无所知（不打印的函数在日志里不可见）。
+   要求在**真实边界**放置**小日志**（非新框架）：普通流水线入口（`bishengir-compile.cpp:188`
+   之前一行）、`inferLayoutOptimization`/`inferMixedCV` 顶部各一行（`regbase/Utility.cpp:100/:95`）、
+   重试循环每轮一行（`regbase/BiShengIRCompileMain.cpp:345-465`，`tryTimes = 2` 于 `:376`）、
+   `runHIVMCCompileA5`（`:448`）一行。判据是**缺席与计数**：日志须无普通流水线行、无重试行、
+   且 A5 行**恰好一条**。
+3. **§3.1 新增：步骤 5 必须在任何重试循环之外，而普通路线不是这么写的。** 实测普通路线的
+   `runHIVMCCompileA5` 位于 `regbase/BiShengIRCompileMain.cpp:448`，**在重试循环**
+   （`:345-465`，`:376` `tryTimes = 2`，`:393-455` clone/retry）**之内**。Late 路线**不得继承**
+   该结构：`runLateHIVMPipeline` 在**唯一一次** `buildLowerToLLVMPipeline` 之后**只调一次**
+   `runHIVMCCompileA5`，无重试包裹。§3.2 的 A5 计数正是区分这两种**结构不同**形态的实测手段。
+4. **§3.1 新增：bitcode 经 A5 路径而非本尾部到达链接器。** `HIVMCMainA5.cpp` 以
+   `-cce-link-aicore-ll-module`（`:181-188`）传入已链接模块；步骤 4 写入的 attach 期属性正是该路径
+   读取的对象 —— 这就是 §3.3 硬校验所保护的东西。另补：`HIVMSyncSolverVersion`
+   （`Options.td:210-215`）是 `"std::string"` 的**又一处**先例（§2.1）。
+5. **§3.3 G2 补记反例的精确机制。** 临时 `build.ninja`：`rule copy`（`command = cp input output`）、
+   `build output: copy input`；`input` 含 P2 字节；`ninja output` 构建之；`shutil.copyfile` 以保留的
+   P1 字节覆盖 `output`；`ninja -n output` 报 **"no work to do"** 而 `output` 仍是 P1 字节。
+   宿主机探针另证：使 `output` 的 mtime **比 `input` 早 10 秒**会让 `ninja -n` 重新排期。
+   **两次探针均在隔离临时目录、未改动任何真实构建产物** —— 记为 **Challenger 的已执行证据**，
+   **非**任何验收行。
+6. **Challenger 自撰报告已单独披露。** 同一评审轮中 `review-2` **自行撰写**
+   `review/challenger-p2-entry-design.md`（20,070 B）。这是**评审者自己的产物**，非 Lead 记录；
+   已在 `review/challenger-entry-design-verdict.md` 的"残余项"中**单独披露**，理由：本阶段常设陈述
+   "P2 生产代码 0 行"必须保持准确 —— 该报告是 `evidence/review/` 下的**评审文档**，
+   **不含任何生产/测试/oracle/Golden 文件改动**，不改动证据树之外的任何仓库。内容（verdict REVISE、
+   22 行"已核对的 HEAD 断言"表、E1–E7、NOT_RUN 清单、给 Lead 的决策记录）已在本文档摘要并经
+   Lead 复核后并入架构文档。
+
+**未变**：P2 生产代码仍为 **0 行**；两个仓库仍停在 D031 头（`AscendNPU-IR-1` `80e29e6f2`、
+`tilelang` `cc56643d`）。**步骤 4 仍被 `verify` 与 `review-2` 阻塞。**
+
+### P2 Lead 源码复核新增发现 — 尾部并非无参，且 20-Pass 计数依赖选项拒绝（Lead，2026-10-13）
+
+**阶段**：P2 步骤 3 期间，Lead 直接通读 `regbase/PassPipeline.cpp:213-294`（而非只看 `--help`
+测得的 Pass 名表），得到三处**架构相关**的新事实，已写入 `docs/p2-architecture.md` §2.3.1 与 §3.1。
+
+1. **`buildBiShengHIRAVEToLLVMPipeline`（`:213-229`）有三道门，Late 只依赖其中一道。**
+   `getCompileHost()`（`:215-218`）**提前 return**，会把整条尾部换成 HACC host 降级 —— §2.3 拒绝
+   `--compile-host` 正是 Late 直接调用得以安全的前提；`getEnableHIVMCompile()`（`:220-225`）只
+   门控 Late **要跳过**的 AVE 分支 ∴ 该标志对 Late **无关**，entry **不得**去强制它；
+   `getLowerToLLVM()`（`:226-228`）是 Late 依赖的门控。**实测**：`LowerToLLVM` 是
+   `BiShengIRCompileInternalStateOpt`（`Options.td:1557-1563`，文件内注释 `:1548-1550` 明言
+   "仍是真实的 option/config 条目 …… 目前不作为常规生成的 CLI/pass option 暴露"），默认
+   **`true`**，且**全树无任何 `setLowerToLLVM` 调用点**（对 `*.cpp`/`*.h`/`*.td` grep）。∴ 本构建上
+   尾部总会运行，Late 的直接调用与常规路线**一致**而非特例；但 Late entry 仍**断言**该值而非假设
+   —— 默认值不是契约。
+2. **尾部不是无参的：两个 config 值会改变转换本身，第三个会静默覆盖第二个。**
+   `regbase/PassPipeline.cpp:253-259`：
+   ```cpp
+   ConvertHIVMToStandardOptions hivmToStdOptions;
+   hivmToStdOptions.isOpsAligned      = config.getEnableHIVMAutoStorageAlign();
+   hivmToStdOptions.markLibCallNoInline = config.getEnableLibCallNoInline();
+   if (config.getEnableSanitizer() || config.getEnableDebugInfo())
+     hivmToStdOptions.markLibCallNoInline = false;      // 尾部内静默覆盖
+   ```
+   ∴ `--enable-hivm-auto-storage-align` 与 `--enable-lib-call-no-inline` 进入 §2.3.1 裁定表
+   （**拒绝或钉死**，不得静默继承）；`--enable-sanitizer`/`--enable-debug-info` 的**静默覆盖**是
+   第三重耦合，已在 §2.3 拒绝表中。
+3. **"恰好 20 个 Pass"的断言依赖 §2.3 的选项拒绝，是源码**在 Late 选项集下**的性质。**
+   `buildLowerToLLVMPipeline` 内含一个条件子块（`:269-289`：`AdaptGPUKernel`、
+   `HoistCallScalarToCaller`，以及条件性的 `DPXDivOptimization`、`SIMTInsertInitAndFinishForDebug`），
+   由 `if (config.getPureSimt() && config.getUseDPX())` 守卫。这四个 Pass **不在** §3.1 的 20 行表中，
+   正因为 Late 模式拒绝 `--pure-simt`。P2-B 的追踪正是"该守卫为假"的实测证据。
+
+**已修正**：§2.4 的 V1 行原先把 `cf` 列入白名单，与同节后文"`cf` **刻意排除**（`ConvertSCFToCF`
+在尾部更晚才运行）"**自相矛盾** —— 已改为显式排除。另把 `mix_mode`/`FilterPassesAttr` 的拒绝写进
+V1 行（原仅见于 §3.2）。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头。
+
+### P2 Lead 复核 — §7(C) "D012 用例作为仓库内 MLIR 回归测试" 的落点已确证（Lead，2026-10-13）
+
+**问题**：目标 §7(C) 要求 D012 用例成为**仓库内**的 MLIR 回归测试，而 Verifier 目前写的
+`tests/negatives/*.mlir` 位于**证据树**（`hivm-poc-evidence/`），二者不是一回事；实现者需要知道
+仓库内该放哪里、用什么形式。
+
+**实测结论**（`AscendNPU-IR-1/bishengir/test`，共 **1119** 个 `.mlir`，lit + FileCheck）：
+
+1. **校验器（§2.4 V1–V7）的拒绝诊断** → 走 `bishengir-opt <pass> %s -split-input-file
+   -verify-diagnostics | FileCheck %s`，落在 `test/regbase/`（该目录已存在，含
+   `regbase/Dialect/…`、`regbase/Conversion/…`；现有 RUN 行范式见
+   `regbase/Dialect/HFusion/fold-unit-dims-subview-cast.mlir`、
+   `regbase/Conversion/LinalgToHFusion/linalg-to-hfusion.mlir`）。这正是 §2.4"独立可测的注册 Pass"
+   所换来的可测性 —— 负例用 `-verify-diagnostics` 断言诊断，而不是靠驱动退出码。
+2. **驱动层的选项互斥/路由诊断（§2.2、§2.3、§2.3.1）** → **已有现成归属**：
+   `test/bishengir-compile/commandline.mlir` 的既有范式恰是
+   `not bishengir-compile %s --<opt>=… 2>&1 | FileCheck %s --check-prefix=<NAME>`
+   （已用于 `--multibuffer-mode` 的 `ZERO`/`INCOMPLETE`/`TOO-LARGE`/`DUPLICATE`/`UNKNOWN`/`NEGATIVE`
+   等前后缀）。Late 模式的 `--enable-triton-kernel-compile` / `--pure-simt` / `--compile-host` /
+   `--link-aicore-bitcode` / `--append-bisheng-options` / `--enable-tuning-mode` /
+   `--enable-auto-multibuffer` / `--enable-optimized-metaop` / `BISHENGIR_LEGACY_A5_REGBASE` 拒绝，
+   以及"Late 无 target"与"非 Ascend950 target"两条诊断，**直接加进该文件或同名同级新文件**即可，
+   无需新造测试框架。
+3. **仓库内目前不存在任何使用 `l2_cache_mode` 的测试**（对 `bishengir/test` 全树 grep：0 命中）
+   —— 即 D012 的这些用例**确实尚未落库**，§7(C) 是一项真实待做的实现工作，不是"已有测试的复跑"。
+
+**归属**：这三类仓库内测试是实现者（implementor）的生产代码改动；Verifier 的证据树固件是**独立**
+的验收材料。二者都要有，且不得互相替代 —— 这一点已在 `docs/p2-architecture.md` §5/§7 的口径下
+保持（Verifier 的期望必须独立于生产实现冻结）。
+
+**未变**：P2 生产代码 **0 行**（尚未开始实现）；两仓库仍在 D031 头。
+
+### P2 §9 交付文档建立 + 模型身份证据锚定（Lead，2026-10-13）
+
+**阶段**：P2 步骤 3 等待期。Lead 新建三份 §9 要求的验收记录文档（全部**只含 NOT_RUN 行与判据**，
+不含任何预制结果），并把"模型身份"从断言改为**可追溯证据**。
+
+**新建文档（`docs/`）：**
+
+- **`p2-pass-trace.md`** —— §3.2 各条"零执行"断言的记录表：路由(A1–A5)、禁止项(B1–B7，含新发现的
+  `getPureSimt() && getUseDPX()` 子块四个 Pass)、必需项与顺序/计数(C1–C4)、契约保全(D1–D11，
+  D11 端子屏障**按入口作用域**)、以及追踪覆盖面五条前置条件(E1–E5)。文首明确：**覆盖面不成立的
+  零读数一律 NOT_RUN，不是 PASS**；**出现**只证明已调度、不证明执行，故"某 Pass 起了作用"须另加
+  产物 IR 效果或执行边界计数器。
+- **`p2-binary-abi.md`** —— 构建身份(A1–A6)、C310 bitcode 身份与硬失败(B1–B8)、**目标 §6.3 的
+  11 条 LLVM/Kernel ABI 检查逐条列出(C1–C11)**、最终产物真实性(D1–D7，并列出 P3 ACL harness 需要
+  交接的项)。含 §6.2 的 `l2_cache_mode → zext → shl 60 → descriptor → MOV.UB.TO.OUT.ALIGN.V2.DV`
+  链条，以及"不得只凭独立模板 dataflow 正确就宣称最终 Kernel 正确"。
+- **`p2-verification.md`** —— 独立性(0.1–0.5)、A 入口/Pipeline(A1–A11)、**B 语义反例(B1–B11)**、
+  C 编译器与旧路径回归(C1–C6)、D 二进制真实性(D1–D3)、E Challenger 审查(E1–E5)、F 模型身份。
+  两条铁律写在文首：**测试必须因预期的语义断言失败**（不得因 SHA 不匹配或 MLIR 解析失败而"通过"）；
+  **未执行即 NOT_RUN**。
+
+**模型身份：证据已锚定，"实际服务模型"结论恢复到**有据**状态。** 过程记实：本文件初稿直接断言
+served model（无出处）→ 我一度过度纠正为 NOT_CONFIRMED → 最终在**本会话各 agent 自己的 transcript
+记录**里找到 gateway 回显的 `model` 字段，证据如下（路径
+`~/.claude/projects/-home-s00653124-workspace-hivm-poc-control/ea69c136-c295-41a6-96a9-140265430a03/`）：
+
+| 角色 | agent type 标签 | **实际 served model** | 证据 |
+|---|---|---|---|
+| Lead | team-lead | `deepseek-v4.1-flash` | 主 transcript，4173 条 |
+| implementor | `implementor-sonnet` | `deepseek-v4.1-flash` | `agent-aimplementor-619b17ef9c142eac.jsonl` 381× 等 |
+| verifier | `verifier-haiku` | `mimo-v2.6-flash` | `agent-averify3-c52add0e1050031b.jsonl` 800× 等，**当前** `agent-averify-fd1c402be6c7e059.jsonl` 169× |
+| challenger | `challenger-opus` | `gpt-6.1-sol` | `agent-achallenger-00ae991f5d9687bd.jsonl` 266× 等，**当前** `agent-areview-2-744b9123f07b8871.jsonl` 224× |
+
+**结论**：**本会话没有任何 agent 由 Claude 模型服务**；且目标 §3 所设想的
+**GPT-6.1 Sol / Claude Haiku 5.5 / Claude Opus 5.5 分工在三个槽位上全部不一致** —— 本应由 GPT-6.1 Sol
+承担的 Lead 实际是 `deepseek-v4.1-flash`，而 `gpt-6.1-sol` 是 **challenger** 的模型。按要求在架构评审
+结束前**如实报告**。
+
+**同时否证了一个错误证据源**：`refusal-capture/hivm-p0-20261012T124105Z.E3UJQ9/magpie-requests-at-exit.json`
+是**上一会话**的**网关级**日志，且其 `model` 字段是混合集合（`gpt-6.1-sol` 266、`deepseek-v4.1-flash`
+125、`step-5-preview-free` 87、`claude-haiku-5-5` 15、`claude-opus-5-5` 5、`mimo-v2.6-flash-free` 2），
+与该会话自身配置不符；其自带团队记录写明 `"served_models": "NOT_VERIFIED"`。∴ **不得**用它给某个
+agent 归属模型。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍被 `verify` 与 `review-2` 阻塞。
+
+### P2 Lead 复核 — `runRegBaseCompile` 中间那一步是死存储（Lead，2026-10-13）
+
+**动机**：§2.2 要求 Late 分支在 `runRegBaseCompile` **首句**返回，早于 `inferLayoutOptimization`/
+`inferMixedCV`。但实测 `regbase/Driver.cpp:63-88` 在两次 infer 与 `runRegBasePipeline` **之间**还有一步：
+
+```cpp
+config.setClArgs(filterRegBaseForwardedHIVMCOptions(originalCLArgs));   // Driver.cpp:79
+if (failed(runRegBasePipeline(module, config))) { ... }                  // :81
+```
+
+`filterRegBaseForwardedHIVMCOptions`（`regbase/Utility.cpp:124-149`）把所有以 `-` 开头的 argv 原样转发，
+只剔除 `-o/--output`（连同其值）、`--hivmc-args`、以及任何含 `enable-lir-compile` 的参数 —— 看起来像是
+"CLI 选项到达下游工具链的通道"。**它不是。**
+
+**实测**：`BiShengIRCompileMainConfig::clArgsFlag` 在 `Driver.cpp:79` 被写入，**在全树中无人读取** ——
+树里唯一的两个 `getClArgs()` 是两个**不相关**的访问器（`include/bishengir/Tools/bishengir-compile/
+Config.h:86` 属主配置；`include/bishengir/Tools/hivmc/Config.h:746` 属**另一个类**，其字段由
+`readCLArgs` 自行填充），且 `HIVMCFromBiShengIRConfig` **从不**调用 `hivmcConfig.clArgs(...)`。
+∴ Late 分支在 `:79` 之前返回**不会**丢掉普通路线本来会送达的任何选项。
+
+**为什么仍要写进架构文档**：这个失效模式**天生静默** —— 仅看调用点无法区分死存储与活存储，
+一旦驱动改动就会变成真丢选项。已在 §2.2 记录，并注明"驱动若变动须复核"。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头。
+
+### P2 Lead 已执行探针 — 拒绝策略里每个选项名逐一验证存在性（Lead，2026-10-13）
+
+**阶段**：P2 步骤 3。**动机**：§2.3/§2.3.1 会写成"拒绝 `--xxx`"的守卫；若名字拼错，或该选项根本
+不是 CLI 选项，守卫就是空的，且负例测试会**因错误的原因通过**（未知选项报错冒充"Late 拒绝"）——
+正是目标 §7 B 明令禁止的那种假 PASS。
+
+**方法（容器内，因为该二进制在宿主机跑不起来）**：
+`bash scripts/in-container.sh bash -c '$B --help > /tmp/h.txt; grep -- "--<name>" /tmp/h.txt'`，
+`$B = /home/s00653124/workspace/AscendNPU-IR-1/build/bin/bishengir-compile`（SHA `c6838fc0…`，
+与保留副本一致）。完整输出已存：
+`hivm-poc-evidence/p2-20261013-late-pipeline/lead/option-existence-probe.txt`（`--help` 退出 0，543 行）。
+
+**结果修正了三处（其中一处是真问题）：**
+
+| 我此前的写法 | 实测 |
+|---|---|
+| `--multi-kernel` | **不存在**；真名 **`--enable-multi-kernel`** |
+| `--enable-auto-multibuffer` | **不存在**；真名 **`--enable-auto-multi-buffer`** |
+| `--compile-host` | **不存在，且不是拼写问题**：`$B --compile-host=1` 退出 0 并报 `Unknown command line argument '--compile-host=1'`。`CompileHost` 是 `BiShengIRCompileInternalStateOpt`（`Options.td:1551-1555`），文件内注释明言**不作为常规 CLI/pass option 暴露**；config 字段在（默认 `false`），CLI 旗标**没有** |
+
+**∴ 第 3 项是测试设计陷阱**：写成 `not bishengir-compile --compile-host …` 会"通过"，但通过的原因是
+**未知选项被拒**，而不是 Late 模式拒绝了 host 编译。故 `CompileHost` 守卫必须是**config 状态断言**
+（`config.getCompileHost()` 为假，且 Late 入口永不走到 `buildLowerHACCToLLVMPipeline` 的提前 return），
+其测试须按此写。**同一条谨慎适用于 §2.3.1 的每一行**：拒绝测试必须证明**指名的那条诊断**，
+不得以通用 unknown-option 错误充当。
+
+**其余全部 PRESENT**（17 项，含 `--enable-direct-hivm-lowering` —— 它**存在**为 CLI 选项，只是
+在 regbase 路径上**无效**（D018/D10），这是"无效"而非"不存在"，两者不可混同）；
+`--input-ir-stage` **ABSENT** ✓（确认 D12 无命名冲突，留给我们新增）。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍等 `verify` 与 `review-2`。
+
+### P2 Lead 单位核查 — `UB_SIZE` 2031616 是 **bits**，与 kernel 的 196608 **bytes** 是两个量（Lead，2026-10-13）
+
+目标 §4.2 明令"不得把 `UB_SIZE=2031616 bits` 错当成 Kernel 的 `dyn_shared_memory_buf=196608 bytes`"。
+本项在树内找到**直接证据**，不必依赖目标文档的措辞：
+
+- `include/bishengir/Dialect/HACC/Targets/NPUTargetSpec.td:224`：
+  `let UbSize = 2031616; // bits = 248KB, reserve 8KB for compiler` —— 源码注释直接写 bits。
+- PlanMemory 自己的诊断也以 bits 计：
+  `bishengir/test/regbase/Dialect/HIVM/RegBase/plan-memory-vf.mlir:453`
+  `expected-error@below {{ub overflow, requires 2097152 bits while 2031616 bits available!}}`。
+- 交叉印证：RegBase 模板 `lib/Template/lib/RegBase/Cube/include/ascendc_bisheng/utils/kernel_utils_constants.h:86`
+  `const uint32_t TOTAL_UB_SIZE = 248 * 1024;`（= 253952 **bytes**）—— 恰等于 2031616/8。
+
+**∴ 2031616 bits = 253952 B = 248 KB 容量；196608 **bytes** 是 Golden 的动态 arena。** 另有**数字陷阱**：
+`HACCAttrs.td:309` 的文档示例写作 `#dlti.dl_entry<"UB_SIZE", 196608 : i32>` —— 与本案 arena 的数字**完全相同**。
+∴ 任何"以数字相等来确认"的检查都会在错误的量上"通过"。C9 已按此改写（`docs/p2-binary-abi.md`）。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍等 `verify` 与 `review-2`。
+
+### P2 Lead 预冻结 B5/C4 的期望值 —— 从模板源定义，先于任何实现（Lead，2026-10-13）
+
+**阶段**：P2 步骤 3。**动机**：CLAUDE.md 要求"期望结果独立于生产实现、在实现之前定义"。目标 §6.2 的
+"第四个 i32 Store libcall 参数与模板 ABI 一致"与 §7 C 的"非 C310 路径保留旧 ABI"此前只有措辞、没有
+**数值化的期望**，等到实现后再去读 IR 就有"照着输出写期望"的风险。现从**模板源**（ABI 的定义处）取出：
+
+`lib/Template/lib/RegBase/Vector/include/RegBase/DMAUtils.h`（D012 提交改动的文件之一）：
+
+| | C310 臂（`:268-294`，`#if defined(__DAV_C310__)`） | 非 C310 / m300 臂（`:295-319`） |
+|---|---|---|
+| core 函数 | `store_ubuf_to_gm_intrin_core(ub_ptr, ub_offset, gm_ptr, gm_offset, burst_cnt, burst_len, src_gap, dst_gap, uint32_t l2_cache_mode)` —— **9 参数** | 同上去掉 `l2_cache_mode` —— **8 参数** |
+| 发出的 intrinsic | **`copy_ubuf_to_gm_align_v2`**（`:284`、`:288`）—— 注意 `_v2`，与 P1 的 `MOV.UB.TO.OUT.ALIGN.V2.DV` 对应 | **`copy_ubuf_to_gm_align`**（`:308`、`:312`）—— **无** `_v2` |
+| 位置参数 | `(gm_ptr+off, ub_ptr+off, 0, burst_cnt, burst_len, l2_cache_ctl, dst_stride, src_stride)` | `(gm_ptr+off, ub_ptr+off, 0, burst_cnt, burst_len, src_align_gap, dst_gap)` |
+| 策略 | `uint8_t l2_cache_ctl = static_cast<uint8_t>(l2_cache_mode);`，注释 `:278-279`：策略在**整条 public/forwarding ABI 上都是 32 位**，只在描述符字段宽度处收窄 | 无 |
+
+**∴ 目标 §6.2 的"第四个 i32 参数"落在 `l2_cache_ctl` 上**：在
+`(ptr, ptr, i32=0, i32=burst_cnt, i32=burst_len, i32=l2_cache_ctl, …)` 中它是第 4 个 i32 类型参数。
+**两条告诫**（均须在**真实发出的 LLVM IR** 上裁决，不得以本表代替）：(i) 两臂**不是**"同一次调用多一个
+参数"——第 7/8 个参数的**名字与取值都不同**（`dst_stride, src_stride` vs `src_align_gap, dst_gap`），
+只数参数个数的 diff 会在错误调用上通过；(ii) `l2_cache_ctl` 同时是冻结产物陈旧注释中所说的"可丢弃
+op 属性"的拼写 —— 二者同名不同义（`p2-architecture.md` §2.4）。
+
+**已落文档**：`docs/p2-binary-abi.md` §B（B5 期望值块 + C4 期望值），B5/C4 行加指针。
+
+**附注（记录一致性）**：D031 行（`docs/decisions.md:73`）称"`hivm-poc-control` 与 `hivm-poc-evidence`
+**不是** git 仓库，故 `docs/` 与证据树不受版本管理"。**该句已过时**：`hivm-poc-control` 现为 git 仓库，
+`master` 跟踪 `origin/master`，已有提交 `d8a5d2b feat: p1`；本轮 P2 文档即以新提交记录在此。D031 的
+其余结论不受影响，此处按"不改写既有裁决行、只追加事实"的惯例记录，而不回改 D031 原文。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍等 `verify` 与 `review-2`。
+
+### P2 Lead 溯源核查 — 冻结产物的注释矛盾属既有记录；构建树的两处模板身份风险（Lead，2026-10-13）
+
+**阶段**：P2 步骤 3（`verify` 仍在跑、`review-2` 已被要求给出第 4 轮裁决）。Lead 在等待期间做源级
+溯源核查，全部结论来自本地实测，未改动任何生产/测试/Golden 文件。
+
+**一、`vadd_late.mlir` 的注释与算子矛盾 —— 不是新发现，已属既有记录，不得据此改冻结产物。**
+冻结产物头部（`:25`、`:27`）与行内注（`:184-188`）称该 store "carries NO cache mode"、pre-D012 拼写
+`{l2_cache_ctl = 4 : i64}` "PARSES BUT IS SILENTLY DISCARDED"、"the emitted libcall receives 0, not 4"；
+而 `:189` 的算子实际带着 `{l2_cache_mode = 4 : i32}` —— 即 `StoreOp` **已识别**的属性
+（`HIVMDMAOps.td:181,198`，合法 store 值恰为 {0,1,2,4}；`HIVMDMAOps.cpp:391-413`）。
+该矛盾**早在 D025 轮已记录**：`challenger-d025-zqumt69b/entry-evidence/p1v2/scoped-vf/INTEGRITY.json`
+的 `stale_header_comment` 字段写明"written BEFORE the D012 fix … That prose is STALE. It is deliberately
+NOT edited, because editing it would change the reviewed artifact identity (`d1023ac1…`, APPROVED by the
+independent Challenger)"。∴ 结论是**"读解析后的算子，不读注释"**，产物**保持不可变、不得编辑**。
+同一份记录还写明冻结 P1 检查器的 `B8.TERMINAL`（`p1_check.py:1561-1576`）**没有 FAIL 分支**（只记录、
+不断言，删掉末端 `PIPE_ALL` 零个判定改变）—— 故 P2 的终端屏障行必须是**我们自己的真断言**，不能继承
+P1 oracle 的行为。
+
+**二、HEAD 溯源**：`AscendNPU-IR-1` HEAD `80e29e6f27…` 恰好**只比** `e878f3492`（冻结 P1 产物的
+创作 HEAD）**高一个提交**，而这一个提交**就是 D012 变更集** ——
+`[HIVM] fix: carry the store L2 cache policy through to the DMA descriptor`（2026-10-13 19:47 +0800，
+11 个文件：store 的 `l2_cache_mode`、`verifyStoreCacheMode`(+155)、`StoreOp::verify`、C310 模板源
+`RegBase/Vector/{Copy1D,Copy2D,Copy3D}.cpp` 与 `RegBase/Vector/include/RegBase/DMAUtils.h`、2 个测试）。
+实测：字符串 `invalid store l2_cache_mode` 在 HEAD 存在，在 `e878f3492` **全树不存在**。∴ store 侧
+cache 策略正是 P2 所构建的那一个提交引入的。
+
+**三、树里有两个 C310 模板，其一早于 D012 —— 这是 §6.2/B7"不得用旧 bitcode/回退模板"的现成陷阱。**
+`build/lib/meta_op.aiv.c310.O2.bc` = `5e7ccae2…`（31,206,796 B，13:46）；
+`build/install/lib/meta_op.aiv.c310.O2.bc` = `44e4387b…`（31,179,496 B，**2026-10-09** 15:01）。
+`getLibDirFromExecutable` 按 `<real exe>/../lib` 解析且 `real_path` **会解符号链接**；而
+`build/install/bin/` 自带一份 10-09 的 `bishengir-compile`/`bishengir-opt`/`hivmc`。∴ 若从
+`build/install/{bin,lib}` 暂存，`../lib` 会静默落到 **pre-D012** 模板，而外观完全合法。
+
+**四、被 pin 的那份模板本身早于committed模板源。** `RegBase/Vector/include/RegBase/DMAUtils.h`
+写于 **14:42**，该目录在 ccec 包含路径上（`Copy1D.aiv.c310.O2.bc.ccec.args` 逐字记录
+`-I …/RegBase/Vector/include`），而逐文件模板 bitcode 产于 **13:37:55**、合并件产于 **13:46:45**，
+**14:00 之后没有任何 `RegBase/Vector/*.bc` 被重建**；`DMAUtils.h` 正是 D012 提交改动的文件之一
+（79 行变更）。14:42 那次写入是"改了内容"还是"原样重写"，**文件系统无法判定**；`ninja -n` 也无法判定
+（它停在 "Re-running CMake"，因为 `build.ninja` 本身就过期）。**∴ P2-C 必须从 P2 树重建模板并把自己
+的 SHA-256 记为身份，不得假定 `5e7ccae2…` 对应 committed 模板源** —— 否则目标 §6.2"证明新 kernel 的
+链路消费了正确 bitcode"在模板未验证的前提下不成立。
+
+**已落文档**：`docs/p2-architecture.md` 头部（提交身份与 D012 内容）、§2.4（V7 读解析算子 + 注释矛盾
+已记录 + D11 不得继承 P1 oracle）、§3.3（两个模板 + 重建要求）；`docs/p2-pass-trace.md` D7、D11；
+`docs/p2-binary-abi.md` §B 前置条件。**注意**：以上均为控制仓文档，**不是生产代码**。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍等 `verify` 与 `review-2`。
