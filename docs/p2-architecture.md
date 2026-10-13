@@ -774,13 +774,15 @@ void buildBiShengHIRAVEToLLVMPipeline(OpPassManager &pm, const BiShengIRCompileM
   claimed "Late did not run the tail because the flag was false" would be testing a mechanism that
   cannot exist on this path.
 
-**The tail contains a conditional sub-block that the exact-20-pass claim depends on being dead.** The
+**The tail contains a conditional sub-block that the exact-19-pass claim depends on being dead.** The
 SIMT/DPX block inside `buildLowerToLLVMPipeline` (`:269-289`: `AdaptGPUKernel`,
 `HoistCallScalarToCaller`, and conditionally `DPXDivOptimization` / `SIMTInsertInitAndFinishForDebug`)
 is guarded by `if (config.getPureSimt() && config.getUseDPX())`. Those four passes are **not** in the
 §3.1 table precisely because Late mode rejects `--pure-simt` (§2.3). This is the loop closing: the
-"exactly these 20 passes" claim is not a claim about the source alone, it is a claim about the source
-*under Late mode's option rejections* — and the P2-B trace is what shows the guard was false.
+"exactly these 19 passes" claim is not a claim about the source alone, it is a claim about the source
+*under Late mode's option rejections* — and the P2-B trace is what shows the guard was false. (The
+number was 20 in an earlier version of this section; the correction above removes
+`BindSyncBlockLockArg`, which is a `Prepare`-phase pass and was never in this tail.)
 
 **Step 5 must be outside any retry loop, and that is not how the ordinary route is written.**
 Measured: in the ordinary route `runHIVMCCompileA5` is called at
@@ -812,29 +814,44 @@ These exact spellings are what the P2 implementation and the P2-B instrumentatio
 | 3 | InsertInitAndFinishForDebug (HIVM) | `--hivm-insert-init-and-finish-for-debug` |
 | 4 | MarkDisableLoad (HIVM) | `--hivm-mark-disable-load` |
 | 5 | InferSyncBlockLockNumAndInitFunc | `--hivm-insert-infer-sync-block-lock-num-and-init-func` |
-| 6 | MarkSyncBlockLockWithSubblock | `--hivm-mark-sync-block-lock-with-subblock` |
-| 7 | BindSyncBlockLockArg | `--hivm-bind-sync-block-lock-arg` |
-| 8 | LowerCreateSyncBlockLock | `--hivm-lower-create-sync-block-lock` |
-| 9 | InsertFreeLockVarBeforeReturn | `--hivm-insert-free-lock-var-before-return` |
-| 10 | ConvertHIVMToStandard | `--convert-hivm-to-std` |
-| 11 | ConvertHIVMAVEToStandard | `--convert-hivmave-to-std` |
-| 12 | FixCallUnknownLoc | `--fix-call-unknown-loc` |
-| 13 | ExpandStridedMetadata | `--expand-strided-metadata` |
-| 14 | ConvertHIVMAVEToAVEIntrin | `--convert-hivmave-to-ave-intrin` |
-| 15 | HoistVstas | `--hoist-vstas` |
-| 16 | ConvertAscendDPXToHIVMRegbaseIntrin | `--convert-ascend-dpx-to-hivmregbaseintrins` |
-| 17 | DecomposeFRem | `--decompose-frem` |
-| 18 | ConvertSCFToCF | `--convert-scf-to-cf` |
-| 19 | LowerAffine | `--lower-affine` |
-| 20 | ArithExpandOps | `--arith-expand` |
+| 6 | LowerCreateSyncBlockLock | `--hivm-lower-create-sync-block-lock` |
+| 7 | MarkSyncBlockLockWithSubblock | `--hivm-mark-sync-block-lock-with-subblock` |
+| 8 | InsertFreeLockVarBeforeReturn | `--hivm-insert-free-lock-var-before-return` |
+| 9 | ConvertHIVMToStandard | `--convert-hivm-to-std` |
+| 10 | ConvertHIVMAVEToStandard | `--convert-hivmave-to-std` |
+| 11 | FixCallUnknownLoc | `--fix-call-unknown-loc` |
+| 12 | ExpandStridedMetadata | `--expand-strided-metadata` |
+| 13 | ConvertHIVMAVEToAVEIntrin | `--convert-hivmave-to-ave-intrin` |
+| 14 | HoistVstas | `--hoist-vstas` |
+| 15 | ConvertAscendDPXToHIVMRegbaseIntrin | `--convert-ascend-dpx-to-hivmregbaseintrins` |
+| 16 | DecomposeFRem | `--decompose-frem` |
+| 17 | ConvertSCFToCF | `--convert-scf-to-cf` |
+| 18 | LowerAffine | `--lower-affine` |
+| 19 | ArithExpandOps | `--arith-expand` |
+
+**CORRECTION, measured 2026-10-14 (P2-B trace).** This table is **19 rows, not 20**, and the earlier
+version of it was wrong twice over in rows 5–9. `BindSyncBlockLockArg` is **not in this tail at all**:
+`createBindSyncBlockLockArgPass()` is added only in the `Prepare` branch
+(`regbase/HIVMRegbasePipelines.cpp:547-549`), the `Finalize` branch is exactly **four** passes
+(`:550-556`), and the only regbase caller of `addSyncBlockLockFinalizePasses` is
+`regbase/PassPipeline.cpp:262` — this tail. `Prepare` is reached from
+`hivmPostBufferizationOptimizationPipeline` (`:570`, `:588`), i.e. from the bufferization stage goal §5
+forbids in Late mode. The intra-family order was wrong too: the real scheduling order is
+`InferSyncBlockLockNumAndInitFunc` → `LowerCreateSyncBlockLock` (both `nest<func::FuncOp>`) →
+`MarkSyncBlockLockWithSubblock` → `InsertFreeLockVarBeforeReturn` (both module), which is what the
+measured P2-B `[PassID]` stream shows. The goal requirement itself is met — the required
+SyncBlockLock **finalization** is the four `Finalize` passes, all present. This defect propagated into
+the frozen suite's `SYNC_LOCK_FINALIZE_PASSES` (`run_p2_suite.py:372`), which still lists
+`hivm-bind-sync-block-lock-arg`; that is recorded as finding **D-a** in `docs/status.md` §24 and is
+with the Challenger. The table above is corrected; the sealed suite is not edited.
 | — | ConvertHIVMToLLVM (HIVMC A5-owned, **not** in this tail) | `--convert-hivm-to-llvm` |
 
 Three of these are **not** the obvious derived spelling and were only settled by measuring the
 binary: the alloca pass is `--hivm-memref-alloc-to-alloca` (not `--alloc-to-alloca`), the disable-load
 pass is `--hivm-mark-disable-load`, and the DPX pass is
 `--convert-ascend-dpx-to-hivmregbaseintrins` — one word, no hyphen between `hivm` and `regbase`.
-Items 5–9 are the `SyncBlockLockPipelinePhase::Finalize` family
-(`hivm/Transforms/HIVMRegbasePipelines.cpp` via `addSyncBlockLockFinalizePasses`); item 4 is a
+Items 5–8 are the **four**-pass `SyncBlockLockPipelinePhase::Finalize` family
+(`regbase/HIVMRegbasePipelines.cpp` via `addSyncBlockLockFinalizePasses`); item 4 is a
 `MarkDisableLoad` on the HIVM dialect, not the `simt-` namesake
 (`--simt-insert-init-and-finish-for-debug` exists and must **not** be used in Late mode). This table
 also fixes the D3/D8 ordering question in `pass-cut.md` §3: the listed positions are the real

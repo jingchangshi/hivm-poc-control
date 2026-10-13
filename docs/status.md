@@ -3561,6 +3561,55 @@ P2-B 解锁的是**通行轨迹/契约保持**行，**A1 与全部 D 行在 P2-B
 
 **下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
 
+### 3a. （§23 附；落笔晚于 3b，编号只为排序）**预先登记**：冻结套件 A11 的 IR-effect 半段**按现在的写法不可能 PASS**，而失败原因不是实现的缺陷
+
+我在等 P2-B 的时候把 A10/A11/A12 读了一遍，发现一个**必须在结果出来之前就定好判据**的问题。
+先记录，等 P2-B 的验收数字回来时按这份预先登记的判据判，而不是看到 FAIL 再回头找理由。
+
+**已核实的事实（本机代码 + 冻结夹具，非推测）：**
+
+1. `t_a11`（`run_p2_suite.py:744`）的 IR-effect 断言是
+   `final_dump = out + "\n" + err`，然后 `re.findall(r"hivm\.hir\.\w+", final_dump)` 必须**为空**。
+   `out`/`err` 是 `_instrumented_compile`（`:632`）的输出，而它传了
+   `--mlir-print-ir-before-all` 与 `--mlir-print-ir-after-all`。
+2. 冻结输入 `vadd_late_p1v2.mlir`（`d1023ac1…`，已重测）**本身含 15 处 `hivm.hir.*`**
+   （`pointer_cast`×4、`wait_flag`×2、`store`×2、`set_flag`×2、`load`×2、`get_block_idx`×2、`pipe_barrier`×1）。
+   第一个 `before-all` dump 就是**输入本身**。
+3. 所以：**只要 dump 被捕获，A11 就必然在"输入自己的 IR"上失败**（报告成 "HIVM primitives not legalized"）；
+   **若 dump 没被捕获**，则 `has_cf` 为假，A11 改为以 "scheduled-but-skipped" 失败。**两条路都不可能 PASS**，
+   且**两条都不是实现的缺陷**。同一缺陷形状还有一处：A10（`:703`）/B1 的 E5 扫描读的也是 dump body。
+
+**A11 的两半要分开说，否则会把能测的部分一起丢掉：**
+- **顺序与 sync-lock 家族**那半段只用 PassID 流（`parse_pass_streams`），**是可测的**——
+  Implementor 自己的 `diag.txt` 已给出 33 条 PassID、`missing=[] order_ok=True`、
+  sync-lock 家族计数（`…infer-sync-block-lock-num-and-init-func` 2、`…mark-sync-block-lock-with-subblock` 1、
+  `…lower-create-sync-block-lock` 2、`…insert-free-lock-var-before-return` 1、`…bind-sync-block-lock-arg` **0**）。
+- **IR-effect** 那半段按现写法**不可测**。
+
+**我预先定下的处置（不是现在动手改）：** 这属于**测试作用域缺陷**，**不是**放松断言的许可。
+CLAUDE.md 写着"不得在失败后改 oracle 或放松断言"，所以**正确做法是让断言去测它自称在测的东西**——
+即断言落在**最终** IR（最后一个 after-all dump / tail 的输出模块）上，而不是所有 dump 的拼接。
+那是**把检查变准**，不是变弱；在改之前它会一直是一个"必然假红"的检查。
+按 §8 第 8 步交给 Challenger 一并裁决，与既有覆盖缺口 (2)(3) 同批。
+
+**一并查清的机制事实**（因为"trace 只有在覆盖被证明时才算证据"，§3.2 前置 1）：
+- `bishengir::applyPassManagerCLOptions`（`lib/Pass/PassManagerOptions.cpp:84-115`）**只**用
+  bishengir 自己的 `--bishengir-print-ir-before/after` 逐 pass 选择器来开启 IR 打印，
+  **从不**读 `--mlir-print-ir-*-all`；两个选择器都没给时直接 `return`，什么都不开。
+- 它的白名单 `kAllowedPassList = {hivm-inject-sync, hivm-inject-block-sync, hivm-graph-sync-solver}`
+  （`:37`）**恰好就是 FORBIDDEN_PASSES 里的那三个** —— 那套机制是给这三个 pass 排障用的，
+  **不是**取得覆盖 trace 的途径。
+- Late 路线经 `bishengir::runPipeline`（`Utils.cpp:75`）→ `RetriablePassManager::runOnce`，
+  后者同时施加 `mlir::applyPassManagerCLOptions` 与 `bishengir::applyPassManagerCLOptions`
+  （`RetriablePassManager.cpp:106-107`）。所以 `--mlir-print-ir-after-all` 到底出不出的来，
+  取决于**上游 MLIR** 在这份 LLVM/MLIR 版本里的 `applyPassManagerCLOptions` 行为 ——
+  Implementor 正在量这一点（它自己的 `compile.err` 只有 33 条 PassID + pass-statistics + 收尾的 P2-B stub
+  `[ERROR] Late mode: the bitcode identity gate and the HIVMC A5 lowering are not implemented in this build
+  (P2-B tail only). Refusing to emit an artifact.`，**0 个 `IR Dump` header**）。
+  **我不在它量完之前下结论。**
+
+**下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
+
 ### 3b. （§23 附）我派发时引的锚点里有一个路径是错的、几个行号已经漂了 —— 已改文档并追补更正
 
 派发之后我复量了锚点，发现两处会**真的导致错放日志**的问题，都已就地改正并追告 implementor（msg `ae6b29f2`）：
@@ -3597,3 +3646,141 @@ P2-B 解锁的是**通行轨迹/契约保持**行，**A1 与全部 D 行在 P2-B
 **A1 不属于 P2-B，不得为让 A1 好看而造二进制**。
 
 **下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
+
+## 2026-10-14 第 22 轮（§24）：P2-B 落地 —— 我逐项从盘上复核；**四个冻结 oracle 缺陷已实测确认**（其中两个源头是我自己的文档），裁定 P2-B = 仅 step 3，并已派发 Verifier + Challenger
+
+Implementor 报了 P2-B 包（`impl/P2B-REPORT.md` 23,768 B，00:45；`impl/p2b-step3.diff` 61 行；
+新增 `impl/stage-p2b/`；轨迹 `impl/scratch/p2b-trace/`）。**我没有采信报告的任何一行**，下面是我自己量的。
+
+### 1. 我独立复核通过的（这些成立）
+
+- **改动面**：一文件、+36/−7。`git diff` 与 `impl/p2b-step3.diff` **逐字节相同**（我已 diff 过）。
+  只改了 `regbase/LatePipeline.cpp`：`#include …/regbase/PassPipeline.h`，把 P2-A 的 fail-closed 块
+  换成 `buildTail = [&](PassManager &pm){ buildLowerToLLVMPipeline(pm, config); }` +
+  `bishengir::runPipeline(module, buildTail, config, "late-tail")`，其后是**新的、更窄的** fail-closed 块。
+  **没有加任何 instrumentation 代码** —— goal §5 要的是真实 MLIR 机制，`runPipeline` →
+  `RetriablePassManager::runOnce` 已经装好了（`[PassID]`、`applyPassManagerCLOptions`×2、per-pass verifier）。
+- **阶段切口正确**：`buildBiShengHIRAVEToLLVMPipeline`（`regbase/PassPipeline.cpp:213-229`）我先读了 ——
+  `getCompileHost()` 提前 return → `getEnableHIVMCompile()` 进 `hivmave::buildLowerAVEPipelines`
+  → 最后才是 `getLowerToLLVM()` → `buildLowerToLLVMPipeline`。**直接调 tail builder 到不了
+  `buildLowerAVEPipelines`**，这就是结构性保证，不是风格选择。
+- **33 条 `[PassID]` 与源码对账无缺口**：19 个注册 tail pass + 4 条 `OpToOpPassAdaptor` + 1 个 validator
+  = 33，其中 15 个 module 作用域动作、14 个 func 作用域动作。**注意：tail 是 19 个 pass 不是 20 个**
+  （见 §24.4，那是我文档的缺陷）。SIMT/DPX 四连**确实没被调度**，因为 `--pure-simt` 被 §2.3 拒。
+- **流与树**：`compile.out` 33 行、`compile.err` 34 行、`inline.out` 33 行、`inline.err` 2488 行；
+  `compile.err` 里 `IR Dump` 头 **0 个**，`inline.err` 里 **58 个**，`tree/` 下 **58 个文件** ——
+  这组不对称正是 `--mlir-print-ir-tree-dir` 把 dump 写进文件而非流里，两者互证。
+- **产物真的没写**：两次运行都带 `-o …/kernel.o`，之后 `kernel.o`/`kernel-inline.o` **都不存在**，
+  rc=1，终行是 `Late mode: the bitcode identity gate and the HIVMC A5 lowering are not implemented in
+  this build (P2-B tail only). Refusing to emit an artifact. No output was written.`
+- **`stage-p2b/`**：`cd impl/stage-p2b && sha256sum -c SHA256SUMS.txt` → **4/4 OK**，manifest 头部写明
+  `BASE DIRECTORY = this file's own directory` 并列出被取代的旧身份（`stage-p2a-r1/` 的 `1a3f20f8…`、
+  `stage-p2a/` 的 `2bf961bf…`）。两个模板 bitcode 与 P1 钉住的**逐字节相同**（O2 `5e7ccae2…`、
+  O0 `0a34be87…`）—— 也就是说 **P2-B 没有满足 §3.3 的"从 P2 树重建模板并以新 SHA 作为 P2 自己的身份"**，
+  那是 P2-C 的事，报告自己也这么写，是**负结论不是漂白**。
+- **`build/bin` 已回到 D031 基线**：我实测 `bishengir-compile` = `c6838fc0a175ec6bb05214780a2a3e99ab478285620996dd5bea4c69f26aabe9`
+  （205,293,424 B，mtime `10-13 13:46`）、`bishengir-opt` = `0761c6e662ee015e30425ee29e0c2314753aa356b21eb4119ff99747327a1977`
+  （mtime `10-13 14:46`），`build/lib` 模板仍是 `5e7ccae2…`/`0a34be87…`，`build/install/lib` 仍是 D012 前的
+  `44e4387b…`/`55ba44b9…`。报告 §9.2 说这条 restore "queued, next action" —— 报的时候它还没做，
+  我读到的时候已经做完了。**已要它确认 restore 是它做的、并说明 mtime 是怎么保住的**，然后重跑 G1–G4 + I1–I7。
+
+### 2. 我的裁定：**P2-B = 仅 step 3**；两位 manager 批准
+
+Implementor 把 §3.1 的 step 4–5 边界提上来当阻塞问题问（§9.1），这是对的问法。裁定：
+
+- **P2-B 只做 step 3（conservative tail）**。step 4–5（`addBitcodeAttrsToModule` + §3.3 的硬检查，
+  然后恰好一次 `runHIVMCCompileA5`）**归 P2-C**，连同 §6.2/§6.3。理由三条：goal §5 把 P2-B 定为
+  "保守的 Legalization 尾部"；§6.2/§6.3 本就是 P2-C 的交付物；它的替代方案（走
+  `shouldOnlyRunHIVMPipeline()` 的 lower-then-stop）会把 `--only-run-hivm-pipeline` 这条
+  **当前既不被拒也没被钉**的选项拖进 §2.3.1 的选项策略，为了一行把 P2-B 的接口面撑大 —— 而那一行
+  P2-C 会正面地、带身份门地满足。**`convert-hivm-to-llvm = 1` 与 A12/C2 在 P2-B 保持 NOT_RUN**，
+  这是诚实状态：tail 与 A5 的 pass 集**不相交**，此处的 0 是结构性的，造一个 1 就是让 A5 无门运行。
+- **两个 manager（`late-preflight` / `late-tail`）批准**：与 ordinary 路线的形状一致，且让 P2-A 引用的
+  证据保持逐字节稳定；E5 的"每个进入的 manager 边界"要求由"恰好两个"的枚举满足。
+
+### 3. **四个冻结 oracle 缺陷** —— 我逐条实测确认（不是采信报告）
+
+Implementor 报的 §7 四条我全部自己复量了。**这是验收工具自身的缺陷，不是 P2-B 的实现缺陷。**
+
+- **(D-a) `SYNC_LOCK_FINALIZE_PASSES` 里混进了一个 `Prepare` 阶段的 pass。** 实测：
+  `createBindSyncBlockLockArgPass()` 只在 `SyncBlockLockPipelinePhase::Prepare` 分支
+  （`bishengir/lib/Dialect/HIVM/Pipelines/regbase/HIVMRegbasePipelines.cpp:547-549`），`Finalize` 分支
+  恰好四个（`:550-556`）；整个 regbase 侧 `addSyncBlockLockFinalizePasses` 的唯一调用点是
+  `regbase/PassPipeline.cpp:262`，**就是 P2-B 跑的那个 tail**。所以
+  `hivm-bind-sync-block-lock-arg` 在忠实的 Late 运行里必然测到 0，A11 的 `missing_lock` 非空。
+  **goal §5 的要求本身是满足的**：必需的 SyncBlockLock **finalization** 就是那四个 Finalize pass，4/4 在场。
+- **(D-b) dump 头正则**一个都匹配不上。实测真实格式是
+  `// -----// IR Dump After <name> (<arg>) //----- //`，而 `run_p2_suite.py:247` 的 `DUMP_RE` 要求
+  `\)\s*-+//` —— **`//` 在破折号之前**，所以匹配 0。我在**两个独立二进制**上验了：P2-B 的 compile
+  （58 个头 → 解析出 **0** 条）和 P1 钉住的 `bishengir-opt` `0761c6e6…`（1 个头 → **0** 条）。
+  后果：**凡是靠 dump 解析的断言全部失效**，包括 A10 里 amendment v2 item 8 专门加进去的
+  "逐 dump body 扫 `mix_mode`/`FilterPassesAttr` 首次引入"那条（0 条记录，永远不会触发）。
+  顺带：`positive_control_filter_off` 在 0 条记录时给出的**理由**是
+  "every paired pass changed the IR" —— 那是对空集合的**无根据因果断言**，不只是措辞问题。
+  **这一条在我 admission 冻结 v2 时就已经存在，我没查出来。**
+- **(D-c) A11 的 leftover 扫描把输入自己数进去了。** `t_a11`（`:744`）对 `out + "\n" + err` 扫
+  `hivm\.hir\.\w+` 并要求为空，而**金样本 `vadd_late_p1v2.mlir`（`d1023ac1…`，我已重测）本身含 15 处**
+  （`get_block_idx`×2、`load`×2、`pipe_barrier`×1、`pointer_cast`×4、`set_flag`×2、`store`×2、`wait_flag`×2）。
+  于是：打印 dump 的运行必然在"输入自己的 IR"上红，不打印 dump 的运行则在 `has_cf` 上红。**两条路都不可能 PASS。**
+  这条我已在 §23 item 3a **先于**报告的落地预先登记过，两边独立得到同一结论。
+- **(D-d) C1 与 B1/B2 不能同真。** `t_c1`（`:1379`）要求 `b01_cache0.mlir` 与
+  `b02_cache_carrier_deleted.mlir` **rc=0**；而 `_expect_catch`（`:955`）用 **rc≠0 + 具名诊断**
+  就满足 B1/B2；D035 已确认的 V7 对两者都拒（rc=1）。所以 C1 与 B1/B2 **不可能同时 PASS**。
+  C1 编码的是 **D035 之前**的期望 —— 这是"验收设计在先、契约后来被加固"造成的漂移，不是谁放松了断言。
+
+### 4. 我自己的记录缺陷：`p2-architecture.md` §3.1 的表**错了两处**，并传播进了 sealed oracle
+
+D-a 的源头是**我**：`docs/p2-architecture.md` §3.1 的 tail 表把 `BindSyncBlockLockArg` 列成第 7 行，
+并写着 "Items 5–9 are the `SyncBlockLockPipelinePhase::Finalize` family"，`5–9` 的行内顺序
+（Infer, Mark, **Bind**, Lower, Free）也是错的 —— 实测的调度顺序是
+**Infer → Lower（均 `nest<func::FuncOp>`）→ Mark → Free（均 module）**。冻结套件的
+`SYNC_LOCK_FINALIZE_PASSES` 正是从这张表抄的，于是缺陷被"密封"进了 oracle。
+
+已做的更正（**是更正，不是事后改判据**）：
+- 表**就地改正**为真实的 19 行、真实顺序（删 Bind、`lower-create-sync-block-lock` 提到 Infer 之后、
+  Mark/Free 顺延），并加 dated **CORRECTION** 段说明改了什么、为什么、以及对 sealed oracle 的影响。
+- `docs/p2-pass-trace.md` C1 的 "the 20 tail passes" 就地改为 "the 19 registered tail passes"，注明改动日期与原因。
+- 同文件那段的路径注错（`hivm/Transforms/HIVMRegbasePipelines.cpp`）改为
+  `regbase/HIVMRegbasePipelines.cpp`（真实路径含 `Dialect/HIVM/Pipelines/`）。
+- `docs/status.md:1829`/`:1832` 那两处"恰好 20 个 Pass"是**历史条目**，不追改历史，由本节作更正记录。
+- **sealed oracle 一个字节都没动**：`run_p2_suite.py` 现在仍是
+  `0677be1a7ba217d7587c9c65436d93966ec5d40c03f5b8cc28c61989beea5621`，与 freeze of record 一致（我实测）。
+
+**顺带两条校准事实**：`verify/logs/suite/` 里现存的那次运行（`2026-10-13T15:55:28Z`，PASS=24/FAIL=0/NOT_RUN=0）
+是用 `--only` 跑的**子集** —— 结果里**根本没有 A1、A10–A12、C1–C5**，也就是说 **A11/C1 从未被执行过**，
+所以"失败后不许改 oracle"这条规则**尚未被触发**，这是运行前的缺陷。另一条：Implementor 的
+`diag_p2b_trace.py` 导入套件时在冻结目录里生成了 `verify/tests/scripts/__pycache__/`；sealed 文件字节未变
+（我实测 sha 一致），**no seal was disturbed**，但已要求它以后用 `PYTHONDONTWRITEBYTECODE=1` 或把 runner 拷到 scratch。
+
+### 5. 处置与派发（都不改 oracle）
+
+1. **Implementor**（msg `342cef7d`）：裁定 P2-B=仅 step 3、两 manager 批准；**立即提交**（`cfaa59677`
+   的**后续提交，绝不 amend**），消息描述 tail-only 状态；重跑 G1–G4 + I1–I7 并报数；确认 `build/bin`
+   的 restore 是它做的、mtime 怎么保的。**不许碰 `verify/`，不许开 P2-C。**
+2. **Verifier**（msg `7446a572`）：**先把 `verify/logs/suite/` 归档**（`run_p2_suite.py:1725` 硬编码该目录，
+   再跑一次就会毁掉 15:55 那次），再绑定 `stage-p2b` 跑**未修改的**套件，A10–A12/C1–C5 全跑，
+   逐行记 rc/stdout/stderr 并**原样引用**套件自己的 detail 串；**独立复现或推翻** D-a~D-d 四条
+   （推翻和证实一样有价值）；独立复核报告 §0 的"rc=1 且 `-o` 无文件"；**自己读** `tree/` 给出 D1–D11
+   的自测值（D11 必须 entry-scoped）；不得按名字判断 sync-lock finalize 可删。
+3. **Challenger**（`review-2`，msg `f7870b42`，已唤醒）：五个问题 —— ①pass cut 是否正确/充分
+   （直接调 tail builder 是否能触达 §5 禁止物）、②四条 oracle 缺陷**各自该怎么处置**（在冻结记录
+   §5 的"correctness fix 且要声明会作废 implementor 契约并需复验"规则下）、③P2-B 的 pass 证据是否是
+   真 instrumentation（含 `compile.err` 0 头 vs `inline.err` 58 头这个不对称能不能藏东西、
+   以及"全流扫零"是否真的**强于**套件的 dump-body 扫零）、④两 manager 下 E5 的证据该是什么、
+   ⑤`p2-binary-abi.md` D5 的 32768 B 推到 P2-C 是合法 NOT_RUN 还是把 goal 划给 P2 的行往后挪。
+   要求逐问给 APPROVE/REVISE/BLOCK，并明确"要改什么才会批"；**它若发现第五个缺陷要直说**。
+
+**为什么同时唤醒三个**：CLAUDE.md 的"最多两个**执行中**teammate"是针对实现工作负载的；此处
+verifier 与 implementor 各自在跑，challenger 是**只读评审**且 §8 第 3/8 步都要求它 —— 这属于
+"架构门禁"，不是把并行度放宽。若 Challenger 的裁决要求改 oracle，那会走冻结记录 §5 的声明式
+correctness fix 流程，届时**P2-A 的契约需要重新确认**，这一点我会先问用户再动。
+
+### 6. 未决 / 下一步
+
+- 等 Implementor 的提交 + G/I 复测；等 Verifier 的 P2-B 验收与四条复现；等 Challenger 的五问裁决。
+- 等 Challenger 回来后再决定：D-a~D-d 是走"correctness fix"（并因此重开 P2-A 契约）还是
+  "另建一份**追加式**的补充检查、把冻结套件原样留着并把这几行记为**已披露的红**"。
+  **在裁决之前，一个字节都不改。**
+- P2-C 未开始（§8 第 6 步）；P2-D 未开始；`build/bin` 已在基线。
+
+**下一步**：等三份回报；未 push；`hivm-poc-evidence/` 本地独占。
