@@ -4764,3 +4764,19 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **已落为 D072**：disposition 是把交叉矩阵当作**逐行负控制**（D043 补救的可操作化）——接受外来 stream 的行就是"key 不提供鉴别力"的行；然后要么用**它自己的**归档 diag 体量出一个对全部外来 diag 面都不出现的 token 补进该行 key-list，要么在**该行自己的 detail 里**声明它 reason-weak；并修普查仪的语料与谓词。**范围与不过度断言**：`"absent from every foreign diag surface"` 这个**否定**断言本身也是一个 check，其搜索空间是**本套件归档的 60 个 stream**（对该目录是一次**完整枚举**，但不是对所有可能运行的枚举），所以它是这个**冻结语料**的性质，语料增长必须重推（instance-14 的规矩）。
 
 **未做**：不构建、不编译、不编辑 verifier 或生产文件、不动 `build/bin`、不改权限、不推送。v3 **未封存**，故上述修补都是文本改动；frozen v2 suite 未动一字。
+
+### §24 追加 37（归档的 P2-B 全套运行只覆盖 40 个 id 里的 35 个：`A1` 与 `D1`–`D4` **没被记录**，既不是 NOT_RUN 也不是 BLOCKED；并据此**修正我自己的 D071**，2026-10-14）
+
+**实测**：`verify/logs/suite/suite-summary.json`（utc `2026-10-13T17:11:50Z`）列出 `A2…C6` 共 **35** 行，计数 `PASS 28 / FAIL 6 / NOT_RUN 1`；v2 的 `REGISTRY` 有 **40** 个 id；缺的五个正是 **`A1`, `D1`, `D2`, `D3`, `D4`**（用集合差直接量出，不是目测）。
+
+**机制（用时间戳证明，不靠推断）**：`run_p2_suite.py` 的 mtime 是 **2026-10-13 22:10:23 +0800**，**早于**运行时刻 **17:11:50Z = 01:11:50 +0800**——所以运行时 registry 里**确实**有这五个；而循环里**唯一**会静默省略 id 的路径是 `if only and tid not in only: continue`（`:1739`），因为 harness 异常会被记成 BLOCKED（`:1742-1744`）。故这一次是 **`--only` 选择运行**。而 summary 的 schema 只有 `config, utc, counts, results`，**没有 selection 字段**——于是 `PASS=28` 读起来像"本套件的结果"，实际上只覆盖 35/40。
+
+**为什么这五个不是无关紧要的**：`A1` 是 **Late 正例行**，正是 D052c/D056b 那条 routing 门禁项所挂的行；`D1`–`D4` 是 **identity manifest / determinism / recompile / masquerade**，即目标 §6.2 与 §7 D 的**产物真实性**家族。所以 17:11:50Z 这次运行**不能**支撑任何引用 `A1` 或 `D1`–`D4` 的验收声明。v3 **原样继承**了这个 guard（`:2435`），且同样不写 selection。
+
+**修正我自己的 D071（其后果从句错了）**：我原先写"当前绑定下 A1 与 A2 都会走 NOT_RUN-by-instrumentation"。实测源码结构：`t_a1` 在 `:881-882` 先查 `rc != 0`，**之后**才在 `:914` 调 `routing_detail`。而 P2-B 的构建对真实 Late 输入**fail-closed**（它自己的话："the bitcode identity gate and the HIVMC A5 lowering are not implemented in this build"），所以 `rc=1`，**两种绑定下都是**——A1 在 routing 断言被求值**之前**就返回 FAIL。因此：
+- **routing 对的 Late 半场无法由 `A1` 在 P2-B 交付**；目前它唯一的载体是 Lead 的机制运行（ordinary fixture + late flag，rc=1，late-route marker 在、ordinary marker 不在）。
+- D071 的**修补仍然必要**（`A2` 的 ordinary 半场需要它，bindings 里也要有 P2-B 的记录身份），但它的**理由**要按上面重述。D071 的 Evidence 单元格已加 `CORRECTED BY D073` 指针，行文保留不改。
+
+**结论与补救**（已落为 D073）：(1) v3 封存前，把**未被选中的 id 记为 NOT_RUN**，或把 selection 写进 summary，让部分运行**自我描述**；(2) 引用套件 summary 时必须引 **row list**，不能只引 counts——这正是"**不得用减法得到计数**"那条既有规矩。(3) **明确不是**把 `A1` 的 FAIL 改写成 NOT_RUN 去把套件弄绿——那是标准控制明文禁止的削弱 oracle；这个 FAIL 是对 P2-B 范围的**真话**，应按"归因于尚未实现的 P2-C 尾段"记录。
+
+**未做**：不构建、不编译、不编辑 runner、不动 `build/bin`、不改权限、不推送。
