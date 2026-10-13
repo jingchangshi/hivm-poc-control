@@ -3561,6 +3561,25 @@ P2-B 解锁的是**通行轨迹/契约保持**行，**A1 与全部 D 行在 P2-B
 
 **下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
 
+### 3b. （§23 附）我派发时引的锚点里有一个路径是错的、几个行号已经漂了 —— 已改文档并追补更正
+
+派发之后我复量了锚点，发现两处会**真的导致错放日志**的问题，都已就地改正并追告 implementor（msg `ae6b29f2`）：
+
+- **路径错**：我写 `hivmc/A5/HIVMCMainA5.cpp:944`；真路径是
+  **`bishengir/lib/Tools/hivmc/A5/HIVMCMainA5.cpp`**（没有 `Tools/bishengir-compile/` 这一段）。行号 944 是对的。
+- **行号漂移**：`p2-pass-trace.md` §A 的锚点是在 `80e29e6f2` 读的，而 P2-A 的 `ddc212e29` 往
+  `regbase/Driver.cpp` 插了 Late 分支，于是 `inferLayoutOptimization` **68→79**、`inferMixedCV` **73→84**、
+  `runRegBasePipeline` 调用点 **81→92**。`Utility.cpp:100`/`:61`、`BiShengIRCompileMain.cpp:344-346`、
+  `PassPipeline.cpp:564` **未变**。
+- 已在 `docs/p2-pass-trace.md` 增 **§A.0**，两栏并列（`80e29e6f2` 的值 vs HEAD `cfaa59677` 的实测值），
+  并把规则写成 **按函数名锚定、不按行号** —— 一个被本阶段自己编辑的文件里的行号不是稳定标识符。
+  把日志放在已过期的 `Driver.cpp:81` 上会放在空处，那一行就会以**错误的理由**测出"缺席"。
+- 顺带把 `docs/p2-binary-abi.md` §0 里那行**已经过期**的表述改掉：它仍写 r1 包
+  "ACCEPT contingent on the Challenger's design confirmation, so not yet closed"，
+  而那条设计条件已由 D035 关闭、D036 已把它定为**被接受的 P2-A 记录产物**。留着一句"未关闭"是记录缺陷。
+
+**下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
+
 ### 4. （§23 附）P2-B 范围补充：通行轨迹 A1–A4 需要的**入口边界日志在 HEAD 上根本不存在**
 
 我在派发后量了 `HEAD`（`cfaa59677`）：`bishengir/lib/Tools/bishengir-compile` 下
