@@ -3292,3 +3292,54 @@ entry only). Refusing to emit an artifact. No output was written." 并 **`return
 
 **门禁：P2-A 的接受仍以 Challenger 的设计确认为条件，不先宣告通过。** 证据面已经齐备且经我独立复核；
 待设计确认回来后一并裁定。P2-B 未开始；未 push；`hivm-poc-evidence/` 仍为本地独占。
+
+---
+
+## 2026-10-14 第 19 轮追加（§20）：B4 的 "与首次运行逐字节相同" 这一分项，**实测无独立证据** —— 我先把结论写进记录，再回头测量，这是错的
+
+**触发**：§19 未结清项 1 我原本写成"来源不能从盘上推定，内容正确性我不怀疑"。这是**把"大概为真"当成"已经核实"**。
+我按要求去盘上实测来源，结论比原来的措辞严重：不是"来源不明"，而是**该断言目前没有可用的独立证据**。
+
+**实测（全部取自盘上，`verify/work/p2a-acceptance-r1/b4-compare/` 与 `verify/logs/suite/`）**：
+
+| 观测 | 值 |
+|---|---|
+| `b4-compare/` 四个文件的 mtime | **全部 `2026-10-13 23:59:48`**（同一次写入） |
+| `first-V6.txt` vs `r1-V6.txt` | `cmp` **完全相同**（487 B，sha `3b6a835360c9f1d8…`） |
+| `first-V7.txt` vs `r1-V7.txt` | `cmp` **完全相同**（496 B，sha `32666117e3afb75e…`） |
+| `verify/logs/suite/B4.stderr` mtime | **`23:55:16`** = r1 那次就地覆盖的时刻（§17） |
+| 首次运行的 B4 文本有无别处留存 | **无**。`verify/work/p2a-acceptance/` 下只有 `completion-utc.txt`/`suite-summary.json`/`three-greps.txt`/`discriminator/`/`help/`/`occ/`，**没有 b4-compare**；`verify/work/run/B4/` 是**空目录** |
+| 全库含 V7 shape 行的文件（穷举 `grep -rl 'unsupported DMA layout'`） | `impl/p2a-commit.diff`(23:19，是源码 diff 本身)、`impl/scratch/r1-probes/b04_*.{dump,nodump}.err`(23:46，**implementor 用 r1 二进制**跑的)、`verify/logs/suite/B4.stderr`(23:55，r1)、两个 `b4-compare/*-V7`(23:59)。**没有一件早于 23:55 的首次运行产物** |
+| `occ/ord-err`(23:36，首次运行期) 是否含 `first-V7.txt` 的字节 | 否，`grep -F` **不是子串**（该文件里的 `unsupported DMA layout` 不构成 V7 行） |
+
+**结论**：`first-V6/V7.txt` 不可能是"从首次运行取出/提前另存"。23:55:16 之后盘上已无首次运行的 B4 文本，
+而这两个文件是 23:59:48 写下的、与 r1 逐字节相同。它们只可能是二者之一：
+(a) 从**已被覆盖**的 `logs/suite/B4.stderr` 抓的（即：把 r1 的字节标成了 "first"），或
+(b) 用**被取代的** `2bf961bf…` 重跑得到后写在这里（那它其实是"重建"，且本该落在已委派的 `pre-repair-reconstruction/`，而该目录**尚不存在**）。
+(a) 与 (b) 只能由 Verifier 说明，盘上无法区分。**但无论哪种，`ACCEPTANCE-r1.txt:18` 的
+"B4 V6/V7 wording: byte-identical to first run" **都不是**一个由"独立的修复前见证"支撑的断言**——
+(a) 是与自身比较（循环），(b) 是被取代二进制的重跑（可接受，但必须作为**重建**标注并给出该二进制身份）。
+
+**两处细节更正**：
+- 报告写 "486/495 chars"，盘上是 **487/496 B**（与换行计数口径有关）。数字本身无害，但它是**报告里一个未复核的数字**，按同一标准记下。
+- **不作为**的诱惑：因为"repair 是加法的、B4 走的是 shape 连词、措辞本该不变"，所以"大概就是一样"。**这正是我在 §19 犯过的同型错误**——由代码/设计推出结论，而不先测量。
+
+**这不改变 B2 的裁定**（承载裁定的那一行）：B2 的证据是 `23:55:16` 的 r1 日志里**具名**的 presence 连词诊断，
+两个探针按构造就是 r1 期的产物。受影响的只是**报告的一个分项断言**，而正确处理是**把它标为无据**，
+不是因为它"很可能为真"就让它留着。
+
+**我自己的失误（第二批）**：我把这个未测量的分项**先写进了 §0.9 和 `docs/p2-verification.md`**，
+再去测量。顺序错了。§0.9 现已按实测改写：该分项标为**无独立证据、暂不成立**，
+待修复前重建给出真实的前侧后再判定。
+
+**处置**：
+1. 已委派的修复前重建（§17）**扩展为同时覆盖 B4**：用保留在 `impl/stage-p2a/bin/bishengir-compile` 的
+   `2bf961bf…` 重跑 `b04_unaligned_store_cache4.mlir`，产出真实的前侧 V6/V7 措辞，落到
+   `verify/work/p2a-acceptance/pre-repair-reconstruction/`，并**标注为重建**（含被取代二进制的绝对路径与 SHA-256）。
+2. 已请 Verifier **明确说明** `first-V6/V7.txt` 走的是 (a) 还是 (b)；若是 (a)，该文件应改名或加标注，
+   避免后续读者把它当作修复前见证。
+3. 在 (2)(3) 结清前，**任何文档不得再引用**"B4 措辞与首次运行逐字节相同"。
+4. 三处承载裁定的证据（B2 具名诊断、两个 dump-suppressed 探针、discriminator）**均不受影响**，P2-A 的
+   裁定基础不变；**门禁仍然只挂在 Challenger 的设计确认上**。
+
+未 push；未动 build 树；`hivm-poc-evidence/` 仍为本地独占。
