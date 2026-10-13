@@ -4390,3 +4390,23 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 链条还解释了一个原本费解的细节：**同一路径**上的前一次是 rec 2224 @ 16:54:15Z 的 `cd …/build && (time ninja -j 96 …)`——**没有走 wrapper**，4702 边时 rc=1 失败，正是 **D041 宿主构建事故**——而 wrapper 那次用 `>` **截断了**它的日志，所以现存的日志头是 `[1/4278]`（清理后的边数）而不是宿主那次的 `[1/4702]`。
 
 **明确写下的限度**：transcript 是**见证**不是**背书**——它记录的是**发出过的命令**，对 transcript 或日志有写权限的人可以伪造其中任何一个；W2/W3/W4 互相印证但共用同一个文件系统。W3 里的 `ninja` 输出行本身与宿主运行的行**肉眼不可区分**，所以这条 provenance 立在 **W1 的命令**加 **W2 的退出码**上，而不是立在日志内容上。此链条提交挑战者判断是否满足 D056(b)；若判不足，退路就是一次新的容器内构建——**两种走法的产物 SHA 相同，routing 对绑定的是那个 SHA**，所以不影响结论。
+
+### §24 追加 20（挑战者对 D058 的裁决入账：provenance **APPROVE（有界）**；Lead 用**封版后的 v3 自己的函数**在真实流上测清了 B4/B7 的补救条件；**routing 门禁项在封版件里仍然缺失**，2026-10-14）
+
+**1. 挑战者裁决（`review-2`，~20:13Z）→ `docs/decisions.md` D059。** D058 的四证人链被接受为本阶段的 artifact-of-record provenance，**不因 provenance 单独要求重建**；W1 是承重证人，W2/W3/W4 佐证发布与完成；被覆盖的 host-run 前身解释了日志里的 4278 条边，**必须继续披露**。裁决同时给出这句话的上限：足以认定 r1 构建**经 wrapper 调用并完成**，但**不是**对每条边的进程环境都独立取证的密码学证明。裁决要求：routing 证据必须绑定到**确切的 staged compiler SHA 与 4/4 staged bundle 哈希**，W1–W4 与 host 前身披露一并保留。裁决要我确认的两条后果，**已确认**并与既有记录一致：(i) D045 保持**二维**、不得把语料压平——`A10/A11/A12/C2` 是**正例门禁 FAIL**，`A13.env/B12a/B12b` 是**理由特定的假绿**，`C3` 是**独立的假 ABI 覆盖/免费词问题**；(ii) D057 的预跑 census 是**标准必备但不充分**的常设义务。裁决固定的处置：B7 在**缺少** entry 级 terminal-barrier 结构化绑定时记 NOT_RUN；B4 需要 V6 校验器/类别**加上真实的越界对齐/操作证据**；marker 措辞**不改**；机器可读的 routing 接口留作**验收后的单独插桩项**；**P2-B 的补救仍在匹配器一侧**。
+
+**2. Lead 当场测清 B4/B7 的补救条件——测的是**封版后 v3 自己的函数**，不是重打的字面量 → D060。** 做法：以 `importlib` 把**封版**的 `run_p2_suite_v3.py`（sha256 `426ec057…`）作为模块加载（`__name__ != "__main__"`，CLI main 不执行），再用**它自己的** `reason_check`/`primary_diagnostic`/`classify_lines`/`stub_terminal`/`_is_dump_header` 去跑 `verify/work/p2b-acceptance/logs-suite-p2b/` 里的真实流。
+
+| 测点 | 结果（真实字节） |
+|---|---|
+| B4 `reason_check(rc=1, keys=[align,unsupported,layout,cache])` | `ok=True`，主诊断 **stderr:3**，命中键 **`align`**，行 = **V7 store-cache/DMA 校验器**，带真实越界证据 *"the cache-carrying store's UB base 131076 is not 32-byte aligned"* |
+| B4 stderr:2（真正的根因） | **V6 geometry/sync**：*UB pointer_cast address bases are {0, 65536, 131076}, expected the BYTE bases {0, 65536, 131072}* —— 其 body **不含** B4 四个键中的任何一个 |
+| B7 `reason_check(rc=1, keys=[PIPE_ALL,barrier,entry,terminal])` | `ok=True`，主诊断 **stderr:2**，命中键 **`PIPE_ALL`**，行 = **V6 entry 级 terminal-barrier 校验器**：*"the entry @main_kernel must contain exactly ONE hivm.hir.pipe_barrier[<PIPE_ALL>] and it must be the entry's terminal operation before return; found 0 PIPE_ALL barrier(s) in the entry"* |
+| A10（282 601 B 的带 dump stub） | `_is_dump_header` 在真实尾部形态上命中 → **58** 个 dump 头 / 2487 行 dump / **0** 行 diag；`stub_terminal=True` |
+| A13.env（223 B 裸 stub） | `stub_terminal=True` —— 同一属性覆盖 stub 的**两种形态**，不是字节模式也不是共享前言 |
+
+结论：D054 的 marker 撞键与"键只骑在 `loc(...)` 路径上"这两个隐患**都被结构性排除**（搜索前剥掉 `loc("…")` 前缀，dump/边界/pass-note 行不作候选），B7 拿到 D057 所要求的 **entry 级 terminal-barrier 结构化绑定**。因此 B4/B7 的补救**在机制上成立**，但仍须在最终 bundle 上**重新赢得**（本次用的是 01:11:33–01:11:50 那次运行的新鲜流；同一目录里的 `C6.*` 按 D046 仍是 23:55 的陈旧文件）。
+
+**3. routing 门禁项在封版件里仍然缺失（阻塞）。** 九个 token（`P2-BOUNDARY`、`late-route`、`ordinary-regbase-pipeline`、`inferMixedCV`、`inferLayoutOptimization`、`retry-loop`、`routing`、`stage-p2b-r1`、`ea217b8d`）在 `run_p2_suite_v3.py`（`426ec057…`）与 `run_p2b_trace_harness.py`（`b286e4f6…`）中**全部为 0**；`CFG.p2_compiler` 仍绑 `impl/stage-p2b/bin/bishengir-compile`（`47e02604…`，marker **0/6**），而非 `stage-p2b-r1`（`ea217b8d…`，marker **6/6**）。D052/D056 把路由对提为**门禁项**（"not disclosure only"），因此**按现状封版的 v3 不能承担 P2-B 验收运行**：必须补上路由对（Late 有 marker/ordinary 无、ordinary 有 marker/Late 无，各自绑定确切 SHA 与 run id）并把绑定重指到 r1，否则这次运行不是验收运行。
+
+**4. 阻塞链未变。** implementor 仍停在只读权限提示（其四项交付未做：未重写提交、只经 `scripts/in-container.sh` 构建一次、暂存最终 bundle、从 `lead/preserved-p1-compiler/` 恢复 `build/bin` 并留 guard 日志）。**standing 建议：拒绝**——其待批命令是普通路径正例控制，已被冻结行 A2 + 路由对取代。P2-B 仍未接受；`build/bin` 未动（`ea217b8d`/`4c31167b`，01:00:24）；无构建、无推送。
