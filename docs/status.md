@@ -4442,3 +4442,16 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 两条 MISMATCH 恰好就是"非 staged bundle、也非 P1 bitcode"的那两条，且都指向 implementor 之后会重建/恢复的同一棵可变 build 树。后果是**正确的 fail-closed**：`need_baseline` 的行（含 C6）会被 sha 门禁判 BLOCKED，不会拿错基线跑；但也意味着在改绑之前，验收运行**产不出**这些行。**补救即 D046/D048 已点名的做法**：绑定到**不可变的保留副本** `lead/preserved-p1-compiler/bishengir-compile.pre-p2.c6838fc0` 与 `…/bishengir-opt.0761c6e6`（文件名自带期望 sha 前缀，绑定自描述），不要再指 `<build>/build/bin/`；顺带解掉"验收运行必须先等 implementor 恢复 build/bin"这一顺序依赖。
 
 同时复核：`lead/preserved-p1-compiler/` 在**该目录内**跑 `sha256sum -c` = **3/3 OK** —— 这也把 verifier 提的"清单条目是 3 条还是 4 条"的分歧settle 掉：三个载荷文件，`SHA256SUMS.txt` 是清单本身，不是第四项。
+
+### §24 追加 23（把"r1 相对 stage-p2b 只多了插桩"从**清单里的说法**变成**已执行的对拍**：两条路由上都只多出 marker 行，产物逐字节相同，2026-10-14）
+
+同一 wrapper、同一组 fixture，两个已暂存二进制并排跑：
+
+| 路由 | stage-p2b `47e02604…`（marker 0） | r1 `ea217b8d…`（marker 6） | 差 |
+|---|---|---|---|
+| gold Late `vadd_late_p1v2.mlir` + late 旗标 | rc=1，stderr **223 B**，无产物 | rc=1，stderr **285 B**，无产物 | `diff` = **恰好一行插入** `[P2-BOUNDARY] late-route stage=late entry=runLateHIVMPipeline`（62 B；223+62=285） |
+| ordinary（无旗标） | rc=0，stderr 372 B，产物 3992 B `01fce255…` | rc=0，stderr 582 B，产物 3992 B `01fce255…` | `diff` = **恰好四行插入**（53+64+41+48+4 换行 = **210** = 582−372），其余行（含两条 `--enable-preload` 警告与 bisheng 弃用警告）**逐字节相同** |
+
+**最强的一条**：两侧的 `kernel.o` `cmp` **rc=0 —— 产物逐字节相同**。这就是清单那句"No control flow, config, pass construction or emitted IR changed"里"emitted IR"那一半的**直接测量**，而不是从源码 diff 推断；也顺带把 D054 的前提（marker 是**加在**每次运行的 stderr 上）测实了。
+
+**边界**：只证了这两条路由上的可观测等价；未证未跑到的路由（其他 fixture、P2-C 的 tail、opt 工具），也**不是**对未提交源码 diff 的陈述——那份 diff 里同时含 step 3 的 tail 工作，两者不可混为一谈（D048）。证据：`lead/scratch/routing-pair/run-20261013T202128Z/stage-p2b-contrast/`，独立复现归 verifier。
