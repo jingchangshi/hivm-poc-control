@@ -4853,3 +4853,23 @@ TIMEOUT
 - 给 Challenger `review-2`（第六批，其自上一批后 idle）：请其**独立裁决我自己的两行** D074/D075（含上文第 2 项的 ccache/共享 build dir 反例、`stage-p2b` 的"按范围而非按缺陷被取代"是否成立、**源 cut 未提交时该产物能否用于 P2-B 验收**、以及提交动作是否会反过来使 mtime 论证失效），并**追问其此前提出而我未追问的封版范围问题**（seal 究竟钉住什么才算可被第三方核验）。
 
 **未做**：不构建、不跑编译器、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送；**未对 implementor 挂起的权限提示做任何处置**。
+
+### §24 追加 42（**Challenger `review-2` 四条裁决入册 D078：源 cut 论证被 REVISE、未提交的 cut 凭快照清单即可、`A4` 在 Late 路径上不可达、封版对象必须是"清单+运行日志观测"**，2026-10-14）
+
+**阶段**：P2-B 门禁裁决的入账与随之而来的记录更正。**不构建、不跑编译器、不动 `build/bin`。**
+
+**一、Challenger `review-2` 的四条裁决已成 D078**（`docs/decisions.md`，逐条按原文引用，未经改述）：(1a) **REVISE** 我的"源 cut"论证——"源文件 mtime 早于链接 + 二进制里六个新字面量"只证明**一致性**与 wrapper W1–W4 的**完成调用**，**不足以**证明四个 TU 各自被重编，也**无法排除** ccache 命中/陈旧对象/增量重链；原话 *"do not state mtime alone pins source cut"*。(1b) `impl/stage-p2b` 是**按范围**被取代（归档验收产物早于 marker cut），**不是**缺陷见证，保留为历史证据且 *"do not mix results"*。(1c) 未提交的源 cut **可以**接受，**条件是**显式源快照清单；*"Commit is not required"*，*"content/snapshot identity is the pin"*。(2) D075 的 marker 是无害但**验收惰性**的仪器；docs A4 **不能**是 P2-B 可执行的 exactly-once 断言，因为 `LatePipeline.cpp:572–584` **故意停在 A5 之前**；该行标为 P2-C planned，P2-C 必须在真实 Late 产物上计数且保留 ordinary/marker-absence 对照。(3) 封版对象——runner SHA **不够**，须为 *"runner exact SHA + bindings exact SHA + explicit registry/selection snapshot hash and enumerated IDs (post S1-S4 rename), wrapper SHA/config schema, fixture/golden hashes, census artifact hash, and amendment manifest tying them"*，且**运行日志必须独立记录实际观测到的 compiler SHA 与 staged 组件哈希**——清单/binding 是**期望**，日志是**观测**；*"No mutable log directory is part of seal identity"*。(4) `C3` **REVISE/BLOCK** 聚合 PASS：目标半与旧 ABI 半必须分开，只能报 partial（target PASS + ABI NOT_RUN）或 NOT_RUN，**永不**聚合 PASS。
+
+**二、`1(a)` 不是靠论证而是靠测量满足的，且顺带闭合了 D041 的宿主事故**。`impl/scratch/p2b-r1-build.log`（sha256 `42ac33eb…`，2479 行，尾行 `NINJA_RC=0`）逐条给出四个 TU 及其归档/链接的**边号**：`Utility.cpp.o [1326/1334]`、`LatePipeline.cpp.o [1327/1334]`、`BiShengIRCompileMain.cpp.o [1328/1334]`、regbase 归档重链 `[1329/1334]`、`HIVMCMainA5.cpp.o [1330/1334]`、A5 归档 `[1331/1334]`、`bin/bishengir-compile [1332/1334]`。这以**测量**回应了 1(a) 的"陈旧对象"一条；**ccache 一条在 ninja 日志里本就不可观测**，故如实记为不可观测，并说明它对**内容同一性**无关（ccache 以预处理后源为键）——允许的断言因此是**精确字节 + 来源**，绝不是"证明是新编译的"。同一次测量把 D041 的宿主事故**从另一方向**闭合：该构建把 240 个被宿主触碰的 `.o` **全部**重建或重链，删除清单 **243/243 有归属，0 例外**，故链接里不存在宿主编译的遗留对象。
+
+**三、我自己的记录里有一处论证缺陷，是裁决 1(a) 时发现的，已随 D078 更正**。D041 以"ccache 命中会返回缓存字节，而 156 个尺寸变化与此矛盾"为由**排除** ccache 解释 0.63 s 突发；**该论证不成立**——它只有在缓存里必然是**容器**字节时才有效，而缓存里完全可能是更早那次 22:58 宿主 cmake 事故留下的**宿主风味**字节（容器 glibc 2.39 vs 宿主 2.31），此时 156 个尺寸变化**恰恰是命中会产生的现象**。两种解释都符合现有测量，故尺寸差异**无判别力**；**D041 的 Q8 仍然真正开放**，不得用该论证关闭。缺的证据仍是 D041 自己点名的那一项（`ccache -s` 与宿主那次的命令行）。
+
+**四、记录更正两处**。`docs/p2-binary-abi.md` A2-B（commit `b4c7327`）把"四个源 mtime 均早于链接，故 staged 二进制即该 cut"整句替换为上述逐边证据 + 243/243 归属 + 快照清单引用，并**明确写出不主张什么**，状态改为"recorded（P2-B 范围）——**按裁决**未提交，由快照清单钉住"。`docs/p2-pass-trace.md`（commit `2ad4602`）把 A4 状态改为 `**NOT_RUN — and UNATTAINABLE on the Late path until P2-C**` 并新增 **§E.4**，把"无人读取该 marker"与"P2-B 的 Late 跑法不可能满足该行"**分成两句**记录，避免 "NOT_RUN" 被读成单纯缺 oracle。**无任何一行状态被改判**。
+
+**五、`1(c)` 的条件已由一个独立产物满足，并因此取消了 implementor 的提交作为 P2-B 验收阻塞项**。`lead/scratch-p2b-source-snapshot-20261014/`（`p2b-source-snapshot.py` 运行期测量、不转录任何数字；`P2B-SOURCE-SNAPSHOT.txt` 94 行；`README.txt`；`SHA256SUMS.txt` 在**其自身基目录**下 `4/4 OK`）记录：base HEAD `cfaa5967…`；四个文件哈希；**diff 按字节**的 `diff_sha256 89d64743…`；编译器精确 SHA；W1–W4 来源见证**连同其限度**；逐边构建证据；以及"构建后无改动"谓词 `exactly-four-modified-nothing-else`。两个谓词的分母都在真实性上被**跑过**才敢写：`4/4` 是数 `^[0-9a-f]{64}  ` 行（曾误把 41 个清单行当分母，得到假的 `4/41`）——与"检查的字面量必须在真实产物上跑过"同族。
+
+**六、第七批派发（verifier）**：按裁决 (3) 的**封版对象规格**执行封版前整改——`S1`–`S4` 改名须**先于**封版落地（D068；`N1`–`N4` 在 v3 里是四个**无需编译器**的匹配器自测控件，若带着 `N*` 进 `suite-summary.json`，P2-C 时四个 `N*` PASS 会变成四个 C310 否定项的**貌似正向证据**）；summary 须**自描述**（自身二进制路径 + sha256 + binding sha256，D077/D076 第 2 项）；封版清单须把 runner/binding/registry 快照/枚举 ID/wrapper/fixture 金标/census 产物与修订清单**互相钉住**，且封版身份**不含可变日志目录**；并重申：`C3` 只能 partial 或 NOT_RUN。
+
+**七、登记表的一处格式事实（测得，未改动）**：`docs/decisions.md` 表头声明四列，但有 **11 行**（D030、D041 一带、D049、D053–D055、D071、D074、D075、D076、D078）实际写了**五个单元格**——多出的末格是形如 ``` `docs/decisions.md` Dxxx; `docs/status.md` … ``` 的指引串。GFM 对超出表头的单元格**静默丢弃**，故这些行在**渲染视图**中该指引不可见、在**文本视图**中可见。两种视图里的行内容因此不完全一致。**本次刻意不做规范化**：门禁期间纯排版改动会与实质性改动混在同一 diff 里，且这些指引仅指向该行自身的记录位置。此处记录，供下一位编辑者知情后再决定是否统一。
+
+**未做**：不构建、不跑编译器、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送；**未对 implementor 挂起的权限提示做任何处置**（依裁决 1(c)，其提交已**不再是** P2-B 验收阻塞项）。
