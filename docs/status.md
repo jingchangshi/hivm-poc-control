@@ -4018,3 +4018,67 @@ stage 最终 bundle；两次提交。② Verifier —— 用自己的命令独�
 日志路径：`impl/scratch/{p2b-r1-host-incident.txt,p2b-r1-host-delete-list.txt,p2b-r1-host-touched.txt,`
 `p2b-r1-build.log,p2b-r1-cmake-reconfig.log,p2b-guard-restore.txt}`、`lead/preserved-p1-compiler/`、
 `impl/stage-p2b-r1/SHA256SUMS.txt`。
+
+### §24 追加 4（同日）：P2-B 验收跑出 `PASS=28`，**其中两条是假 PASS** —— 我复现 D040 第 (4) 项时量到的（D042）
+
+**被量的对象**：`verify/work/p2b-acceptance/logs-suite-p2b/suite-summary.json`（utc `2026-10-13T17:11:50Z`，
+绑定 `p2_compiler` = `stage-p2b` `47e02604…`，也就是 D041 判定为**被取代**的那个 bundle），
+计数 `PASS=28 / FAIL=6 / BLOCKED=0 / NOT_RUN=1`。
+
+**方法**：D040 第 (4) 项要求"对每条 `rc != 0` 的行记录**第一个命中的 `diag_key`**、它的 stderr 行号、以及那行的原文"。
+我写了 `lead/scratch/d040-first-match-scan.py`，把**密封 runner 的 key 列表逐条抄出来**（A3/A4 `:598-605`、
+A5–A9 `:608-630`、B1/B2 `:1005-1022`、B4–B11 `:1054-1199`、B3 `:1025-1045`、B12a–d `:1240-1375`），
+再对归档日志逐行算第一个命中。**不是源码 grep 计数，是拿真日志算的。**
+
+**结果（两类）**：
+- 17 行（A3–A9、B1–B11、B3、B12c）第一个命中行都是 `stderr:2` 的**真诊断行**，
+  形如 `loc("<fixture>"): error: Late input validation V7 (store … FAILED`／`'hivm.hir.store' op invalid store l2_cache_mode 7`。
+  这些行**有区分度**（D040 已披露 `late` 在验证器信件头里是自由 token，那是**已披露的**弱区分，不是假绿）。
+- **`B12a`、`B12b` 的第一命中行是 P2-B 自己写的 fail-closed 样板行**：
+  `[ERROR] Late mode: the bitcode identity gate and the HIVMC A5 lowering are not implemented in this build (P2-B tail only). …`
+
+**为什么这是假 PASS（字节级）**：`B12a.stderr` **恰好 223 B、2 行**（`[INFO] Using merged native A5 regbase pipeline`
++ 上面那行），`B12a.stdout` **0 B**；`B12b` 形状字节级相同。两行 stream 里**没有** `lib` / `empty` / `missing` /
+`no such` / `not found`，**没有任何路径**（grep 验过）。也就是说，**这两条行根本没有观测到"lib/ 空"或"pre-D012 模板"**，
+它们命中的是 `bitcode`（B12a）与 `bitcode`+`identity`（B12b）——这两串正是**新版 P2-B 拒绝消息**里的词。
+那条行在**任何**走到 fail-closed 的 Late 调用上都会打印，而本 build 的**每次**正向编译都走到那里 ⇒ **区分度 = 0**。
+`B12a` 的缺陷是**环境性**的（staged `lib/` 为空），不是 IR 缺陷，所以验证器**理应**接受 golden 输入；
+本 build 里**再没有别的东西**能诊断它——能诊断它的那道门是 §3.3 的，D037 已判给 **P2-C**。与 D039 的 B 行**同一条理由**。
+
+**裁决**：① 这是**假 PASS**，`B12a`/`B12b` 在 P2-B **不成立**；验收记录**不得**把这两条计入通过。
+② **不改 oracle**，`verify/` 一字节未动（`run_p2_suite.py` = `0677be1a…`），也不给任何行改标签。
+③ Implementor 把**八条**新增字面量全部改写到"不含任何冻结 key 子串"，并交出**全表**（今天量到的碰撞：
+routing 行 → `late`/`stage`/`entry`；`inferLayoutOptimization` 行 → `entry`/`layout`；`inferMixedCV`、
+`a5-compile`、`ordinary-regbase-pipeline` 行 → `entry`（这三条在 ordinary 路径上，Late 行里到不了，但表仍须为空）；
+**fail-closed 行 → `late`/`bitcode`/`identity`**；tail-failure 行 → `late`）。
+**改写的预期效果就是 `B12a`/`B12b` 从 PASS 变 FAIL** —— 那是**揭盖子**，不是回归。
+④ 由此给出**修正后的计账**：报出的 28 PASS = **26 条站得住 + 2 条假（`B12a`/`B12b`）**；FAIL = 6
+（`A10`/`A11`/`A12`/`C1`/`C2`/`A15`）；NOT_RUN = 1（`C6`）。
+⑤ `B12d` **披露为在 P2-B 不具区分度**：它只断言 `rc != 0` 且无产物，而本 build 的**每次**调用都满足这两条；
+但它**不宣称理由**，所以是"无信息"，不是"假宣称"，单列。
+
+**这次扫描顺带量到的两件事**：
+- `A10`/`A11`/`A12`/`C2` 的 `rc=1` 是**tail 跑完之后**的 fail-closed 块 —— 同一份 stderr 里 pass-statistics 块
+  以 `ArithExpandOpsPass` 收尾。这是 D039 那张 **19 趟表**和 **D-a**（无 `BindSyncBlockLockArg`）的
+  **第二个独立见证，而且来自密封套件本身**（不是我自己那次运行）。它们的 FAIL 是 D037"只做第 3 步"的
+  **预先声明后果**；但 D037 原文预测 `A12`/`C2` 停留在 **NOT_RUN** —— 这一句**在此更正**：它们**执行了**，
+  按冻结口径就是 FAIL，报 NOT_RUN 等于谎称没跑。
+- `C1` 的 FAIL 是 **D038(d) 的执行级见证**：`C1.absent` 的 stderr 是 `b02_cache_carrier_deleted.mlir`
+  被 `late-preflight` 拒（`[ERROR] Late mode: input validation failed.`），而 `B1`/`B2` 正是**靠这同一次拒绝** PASS。
+  两行**测出来**不可能同时通过。
+- `C6` 的 NOT_RUN 是 D041 第二条身份后果的**首次实测**（`build/bin/bishengir-opt` = `4c31167b…` ≠ `0761c6e6…`）。
+
+**P2-B 唯一"真问题"是 `A15`**：五个选项既未被拒也未被钉 —— `--enable-optimized-metaop`、
+`--enable-hivm-auto-storage-align`、`--enable-lib-call-no-inline`、`--enable-hivm-unit-flag-sync`、`--enable-preload`，
+五个子跑（各 2 行 223 B）都是**默默放行**后走到 fail-closed；而 `A15.flag0` 证明**机制本身是好的**
+（`--enable-static-bare-ptr=false` 被**点名**拒绝："pinned to true in Late mode … it is not silently overridden"）。
+所以修法是**加表项**，不是新造机制；且每个钉住的值必须**从 ordinary A5 路径量出来**，不许猜。
+
+**自曝**：我这套扫描的第一版把验证器自己那行 `loc(...): error: Late input validation V# (…) FAILED`
+当成了样板行，于是 17 行全被标成"无区分度"。**那个标记字面量是错的**，在记录任何东西之前就改了
+（教训同 `check-literals-must-be-measured-against-the-artifact` 第 5 例：**一个会在"正确理由"那行上命中的标记，
+本身就是它要找的那个缺陷**）。
+
+**证据路径**：`lead/scratch/d040-first-match-scan.py`、`lead/scratch/d040-first-match-logs-suite-p2b.txt`、
+`lead/scratch/p2-instrumentation.diff`（八条字面量取自**脏工作树**，不是取自任何报告）、
+`verify/work/p2b-acceptance/logs-suite-p2b/`。
