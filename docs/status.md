@@ -3448,3 +3448,60 @@ fixture 重新哈希到冻结前缀），按套件调用原样复现，结果写
 
 **门禁**：**scoped P2-A 接受的裁定 pending 上面那条独立 validator 探针**（challenger 的设计条件已关闭，
 这是我为"先测后判"自加的一道小门）。**P2-B 未开始**；未 push；未动 build 树；`hivm-poc-evidence/` 本地独占。
+
+---
+
+## 2026-10-14 第 20 轮（§22）：独立 validator 探针已跑 —— 逐项从盘上复核后**裁定 P2-A scoped ACCEPTED（D036）**，并已派发 P2-B
+
+### 探针：我自己的复测（不采信报告）
+
+目录 `verify/work/p2a-acceptance-r1/standalone-validator/`。**我实测的**：
+
+| 项 | 我测到的 |
+|---|---|
+| 被消费的仪器 | `impl/stage-p2a-r1/bin/bishengir-opt`，**我重新哈希** = `81bc93d43f37db34f33ae44f3b67ba71e9efd6bfb8a979da3715439a2d9c8b03` —— 是 **staged opt**，不是 compile |
+| rc | golden **0**；b01 **1**；b02 **1** |
+| `--mlir-print-*` | 三个 cmd 文件里**一个都没有**（`grep -l` 无命中） |
+| golden | `stderr` **0 字节**；`Late input validation` 计数 **0**；`note: see current operation` 计数 **0** |
+| b01 | `stderr:1` = 具名 V7 **值**诊断（`l2_cache_mode = 0 but the Late contract requires exactly 4`） |
+| b02 | `stderr:1` = 具名 V7 **载体缺失**诊断（`carries no l2_cache_mode attribute`） |
+| 调用方式 | 走 `scripts/in-container.sh`（host 二进制不可执行，这点没被绕过） |
+
+### 唯一可能把它变成"又一次 dump 文本假绿"的东西，我专门查了 —— 它是**失败诱发的**
+
+b01/b02 的 stderr 里确实带 MLIR 的 `note: see current operation` 操作转储。关键在于它是**因果下游**：
+它在 b01 里位于**第 4 行**、**紧跟第 1 行的 error 诊断之后**（是错误诊断的附注，不是 `--mlir-print-*` 请求的 dump）；
+而**通过的 golden 的 stderr 是 0 字节，一条 note 都没有**。即 **note 只在 validator 失败时出现** ——
+它既不可能把"实际通过"的输入伪装成拒绝，也不可能独立于失败存在。
+所以这条探针是干净的：**正例的 rc=0 是构造性的**，工具里根本没有 `:544` stub 挡路。
+原先"validator 接受了 golden"是从 `PassID` + After-not-`Failed` **推断**的，现在是**直测**。
+
+### 裁定：**P2-A scoped ACCEPTED**（D036；完整裁决在 `docs/decisions.md`）
+
+- **§0.4 的严格形式就此兑现**（"跑在新建并 staged 的 `bishengir-opt` 上，而非 P1 钉死的二进制"）：
+  自冻结起一直 NOT_RUN，现在有了一次**真实执行**。**边界照旧**：A10–A12 仍 **NOT_RUN**，
+  它们需要一个**能编译的正例**，这次探针不提供。
+- 承载裁定的仍是 **B2**（具名 V7 诊断）+ 两个 dump-suppressed 探针 + discriminator + 修复前重建 ——
+  后者把"翻转归因于修复"从论证变成**证明**：旧二进制仍 B2 失败、仍以错理由通过 B1。
+- **B4 分项恢复**：不是我"补"的，而是**我先撤错了** —— 见证在 agent transcript 里（我搜了证据树就以为搜完了，
+  同日我自己重测确认：record 870，`15:30:49.675Z`，`first-V6/V7.txt` 逐字命中）。
+- **未被豁免的既有局限随裁定一起记**：**B1 的冻结判定不承载任何接受结论**（oracle 分不清"设计值行"与
+  "dump 体行"，是**生产层修复 + dump-suppressed 探针**让 B1 重新有意义）；`_expect_catch` 对将来任何
+  "键与 dump 文本撞车"的负例仍可能假绿。
+- **明确没有声称的东西**：**没有二进制**（A1 在 P2-A 设计上 NOT_RUN，P2-C/P2-D **必须**且**预期** PASS）；
+  A10–A12 与全部 C/D 行仍 NOT_RUN 并保留各自范围理由；**P2 不要求真实 NPU 数值正确性**（那是 P3 的 ACL Harness）。
+
+### 下一步已执行：**P2-B 已派发**（goal §8 步骤 5）
+
+派发要点（均引自本地 `docs/p2-goal-1013.md` §5，不凭记忆）：保守合法化尾；必须保留的 pass；
+**禁止零次**清单（HFusion 调度/向量化、Bufferization/PlanMemory、GraphSyncSolver/InjectSync、自动 MultiBuffer、
+自动 layout/schedule 重规划、broad AVE 优化、`buildLowerAVEPipelines`、重复 LLVM lowering）；
+`ConvertHIVMToLLVM` **恰好一次**且唯一所有者是 HIVMC A5（§6.3 第 11 项 = C11）；
+**用真实 MLIR instrumentation 而不是源码 grep 计数**；保护不变量清单；**终止 PIPE_ALL 必须入口作用域**；
+"不要凭名字判断 SyncBlockLock finalization 可删"。另加两条我要求**明确回答**的：
+(1) P2-B 结束时入口**到底产出什么**（IR？产物？仍在哪一行停住？）—— A1 不属于 P2-B，不得为凑 A1 造二进制；
+(2) 若实际 IR 要求保留偏好清单之外的 pass，报出是哪一个、IR 的哪一点要求它。
+暂存纪律照 P2-A：新目录、**follow-up 不 amend**、G1–G4 重做（含回写 mtime）、`build/bin` 复原到
+`c6838fc0…`/`0761c6e6…` 并重跑 I1–I7（A2 的回归就比对这个值，所以复原是承重的）。
+
+**下一步**：Implementor 实施 P2-B → Verifier 验收（步骤 5）。未 push；`hivm-poc-evidence/` 本地独占。
