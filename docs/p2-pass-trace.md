@@ -1,5 +1,28 @@
 # P2 pass-trace acceptance record
 
+> **Row IDs in this file are this file's own, and they COLLIDE with the frozen suite's.**
+> `verify/tests/scripts/run_p2_suite.py` (the freeze of record, `0677be1a…`) numbers its rows
+> `A1–A15 / B1–B12d / C1–C6 / D1–D4` with **different meanings for the same letters**
+> (`docs/p2-verification.md:48` states that those IDs are the suite's, re-derived from the runner).
+> Concrete collisions: suite **A1** = positive Late compile to an ELF, machine `0x1029`; here **A1** =
+> the routing line is present and the ordinary-pipeline line absent. Suite **A2** = ordinary-path
+> byte-identity regression; here **A2** = the two inference functions were not called. Suite **B1/B2** =
+> the cache-0 and carrier-deleted fixtures; here **B1/B2** = forbidden-pipeline zeros. Suite **C1** =
+> "absent ≡ explicit-0" on those two fixtures; here **C1** = the nineteen tail passes ran in order.
+> Suite **D1–D4** = identity manifest / determinism / recompile / masquerade; here **D1–D11** = the
+> contract invariants. **So a bare row ID in any document, including `docs/decisions.md` and
+> `docs/status.md`, is ambiguous and must name which document it belongs to.** Two live instances are
+> already in the record: D038(d) cites "`_expect_catch` satisfies B1/B2" (suite), while D039 rules on
+> "B1–B7 are NOT_RUN" (this file).
+>
+> **Second, related hazard: the frozen suite carries no routing row at all.** Its runner contains
+> **zero** occurrences of `preflight`, `late-tail`, `retry`, `only-run-hivm` or any boundary-log key
+> (measured 2026-10-14 by grep over the sealed file), and the `[P2-BOUNDARY]` instrumentation the
+> P2-B work adds is therefore read by **nothing** in the suite. Rows A1–A4 below are **Lead-read rows
+> with no automated oracle** — a real but weaker class of evidence than the suite's, and it must be
+> reported as such (`docs/p2-verification.md` coverage-delta 2 already records the gap and points at
+> A1/A2b).
+
 **Status: NOT_RUN — no P2 compiler exists yet.** This file is the *record* for §3.2's
 "measured at zero" claims. Every row below is **NOT_RUN** until the row carries a real command, a real
 log path under `/home/s00653124/workspace/hivm-poc-evidence/p2-20261013-late-pipeline/`, exit codes,
@@ -134,6 +157,19 @@ that behaviour cannot fail and is therefore NOT_RUN by construction.
 negative for this row is an input with the terminal barrier moved into the VF helper
 (`verify/tests/negatives/b07_pipe_all_moved_into_vf.mlir`), and it must fail.
 
+**Measured note (2026-10-14): the D11 negative does have an independent instrument at P2, unlike the
+P1 oracle's.** The frozen suite carries three fail-capable rows for this construct — `t_b6`
+(`b06_terminal_pipe_all_deleted`, "entry-terminal PIPE_ALL missing"), `t_b7`
+(`b07_pipe_all_moved_into_vf`, "PIPE_ALL present only in helper(s)") and `t_b8`
+(`b08_pipe_all_before_store`, "barrier precedes the store in the entry (wrong position)") — each of
+which returns a real FAIL string from an output-side `out_checks` callable, so the P1 defect recorded
+above (a checker whose branch had no FAIL path) does **not** carry over. Two caveats: those checks are
+reached only on the `rc == 0` branch of `_expect_catch` (`run_p2_suite.py:955-981`); on the `rc != 0`
+branch the row reduces to the shared wrong-reason test (the rejection must name one of its
+`diag_keys`), which is also where the known vacuous-PASS mechanism lives (a key matched inside an
+IR-dump body that merely echoes the input). And D11 **here** remains a Lead-read row on the archived
+IR; the suite rows are a separate instrument with separate IDs — see the namespace note at the top.
+
 ## E. Coverage preconditions for the trace that fills this file
 
 | # | precondition | status |
@@ -146,3 +182,46 @@ negative for this row is an input with the terminal barrier moved into the VF he
 
 If E1–E5 are not all satisfied, every zero in section B is **NOT_RUN**, regardless of what the trace
 shows.
+
+### E.1 Measured at P2-B (2026-10-14): E4 is only half-satisfied, so section B stays NOT_RUN
+
+The step-3-only run (`impl/scratch/p2b-trace/`) satisfies **E1** (the instrumentation options come from
+the shared `bishengir::runPipeline` entry, and the two managers the run enters are enumerated — see
+E5/E.2), **E2** (the command line passes none of the four biasing filters), **E3** (`58` files
+archived under `--mlir-print-ir-tree-dir`, nothing truncated) and **E5** (0 of the 58 archived dumps
+introduce `mix_mode`, `filter_passes` or `FilterPassesAttr`; the mode is therefore still `Mix` at
+every boundary).
+
+**E4 is half-satisfied and cannot be otherwise at this step.** The first sentinel is present
+(`inline.err` header #2 is `LateInputVerifierPass` / `hivm-verify-late-input`, immediately followed by
+`AnnotationLowering`). The closing sentinel `--convert-hivm-to-llvm` is **structurally** absent: the
+Late driver makes exactly two `runPipeline` calls — `late-preflight` and `late-tail`
+(`regbase/LatePipeline.cpp:528-570`) — and that pass belongs to the **A5** lowering, goal §3.1
+**step 5**, which D037 assigned to P2-C. The tail's pass set is disjoint from A5's (the only two
+`addPass(createConvertHIVMToLLVMPass…)` sites in the tree are `hivmc/A3/PassPipelineA3.cpp:64` and
+`hivmc/A5/PassPipelineA5.cpp:52`, and only the A5 one is reachable here).
+
+**Consequence, applied to this file's own author:** by the rule above, **B1–B7 are NOT_RUN at P2-B**.
+The zeros measured over the whole raw stream are real measurements of a real stream — all 18
+`FORBIDDEN_PASSES` spellings plus `VectorToHIVMAVE`/`ArithToHIVMAVE`/`AVENormalizeOps` are 0 across
+`inline.out + inline.err`, re-swept by the Lead — but a run with no closing sentinel cannot show the
+sweep reached the end of the chain, so they are **not yet a coverage proof**. They convert at P2-C.
+**Prohibited:** satisfying E4 by injecting an artificial sentinel or empty-running A5 in a step-3-only
+build; that manufactures evidence and would bypass §6.2's bitcode identity gate.
+
+### E.2 Second instrumentation channel, measured but NOT used to flip any row
+
+`--mlir-pass-statistics` (a real pass-manager channel, not a source grep) emits one report block per
+`runPipeline` call. At P2-B: block 1 = `LateInputVerifierPass`; block 2 = exactly **19** tail passes
+by class name in entry order, item-for-item with `p2-architecture.md` §3.1's corrected table and
+containing **none** of the four SIMT/DPX passes. It also confirms D-a at the **execution** level — the
+four sync-lock passes that ran are `Infer → LowerCreate → Mark → Free`, with no
+`BindSyncBlockLockArg` (`Prepare`-phase only) — where previously that absence rested on source
+structure alone.
+
+**Its limits.** Presence and order are supported; the **absence** signal is **uncharacterised** (it is
+not known whether MLIR's statistics tree also names passes that were scheduled but not executed), so
+it may **not** carry section B's zeros and does **not** dissolve A11's `missing_lock`. It is **not**
+the channel the frozen suite reads (`run_p2_suite.py:733-735` records pass-statistics and explicitly
+never asserts on it), so it cannot repair D-b. It is recorded in `docs/decisions.md` D039 as a
+candidate **additive** instrument only, pending the Challenger's ruling; no row here was flipped by it.

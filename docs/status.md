@@ -3883,5 +3883,37 @@ E4 未满足 ⇒ **B1–B7 在 P2-B = NOT_RUN**，不是 PASS。§5.2 的那些�
 
 **因此：本条不占用 D038 的裁决，也没有任何一行因它转绿。在 Challenger 裁决回来之前，`verify/` 一个字节都不改。**
 
+#### 4. 顺手量出来的两件事：**行号命名空间撞车**，以及 D11 的负面**有**独立的失效通道
+
+**（1）两套 row ID 撞车，而且是同字母异义 —— 已经写进了两行相邻的裁定里。**
+冻结套件的注册表（`run_p2_suite.py:1693-1705`）是 `A1–A15 / B1–B12d / C1–C6 / D1–D4`；
+`docs/p2-pass-trace.md` 是 `A1–A5 / B1–B7 / C1–C4 / D1–D11`。**同字母、不同义**：
+套件 A1 = 正例 Late 编译出 ELF（machine `0x1029`，这是 P2-C 的行）↔ 轨迹 A1 = 路由行有/普通管线行无；
+套件 A2 = 普通路径字节同一性回归 ↔ 轨迹 A2 = 两个 inference 函数**没被调用**；
+套件 B1/B2 = cache0 与载体删除两个 fixture ↔ 轨迹 B1/B2 = 禁止管线零；
+套件 C1 = 那两个 fixture 的"缺席 ≡ 显式 0" ↔ 轨迹 C1 = 十九个 tail pass 按序跑过。
+`docs/p2-verification.md:48` 已经声明"这些 ID 是冻结套件的"，但**反方向没有标注**，
+于是**我自己的记录里已经出现两处实例**：D038(d) 写"`_expect_catch` 满足 B1/B2"（套件义），
+而 D039 裁"B1–B7 = NOT_RUN"（轨迹义）—— 相邻两条裁定，"B1/B2"是两个意思。
+**处置**：在 `p2-pass-trace.md` 顶部加了显式的**命名空间警告块**与撞车对照表，
+并订下一条规矩：**任何文档里光秃秃的行号都是有歧义的，必须点名它属于哪份文档。**
+
+**（2）冻结套件里**一条路由行都没有** —— 我 grep 量的（`preflight`/`late-tail`/`retry`/
+`only-run-hivm`/`BOUNDARY`/`routing` 六个键，**各 0**）**。所以 Implementor 正在加的
+`[P2-BOUNDARY]` 日志**不被套件读**：它服务的是 `p2-pass-trace.md` 的 A1–A4，而那四行是
+**Lead 阅读式**（无自动 oracle）的行。这类证据**弱于**套件行，报告时必须这么写。
+（这与 `p2-verification.md` 覆盖缺口 2 一致，那条缺口本身就指向 A1/A2b。）
+
+**（3）一条好消息，也是量出来的**：`p2-pass-trace.md` §D 曾担心 D11 的负面**继承 P1 那个
+"没有 FAIL 分支"的检查器**。P2 套件里**不是**这样：`t_b6`/`t_b7`/`t_b8`
+（terminal PIPE_ALL deleted / moved into VF / before store）各自的 `out_checks`
+**返回真实 FAIL 串**，所以 P1 那个缺陷**没有传播过来**。两个限定：
+那些检查只在 `_expect_catch` 的 `rc==0` 分支可达（`:955-981`），`rc!=0` 分支退回共享的
+"wrong-reason"检验（也就是那个**空转 PASS** 机制的所在：键命中的是 IR dump 里**回显的输入**）；
+而且这条 D11 本身仍是 Lead 在归档 IR 上读的行，与套件的 B6–B8 是**两套 ID、两个仪器**。
+
+**已复核不变**：`run_p2_suite.py` = `0677be1a…`（seal 未动）；`tree/` = 58 文件；
+引入 `mix_mode`/`filter_passes`/`FilterPassesAttr` 的文件 = **0**。
+
 **下一步**：等三份回报（Implementor 提交 + G/I 复测；Verifier P2-B 验收 + 四条复现；Challenger 五问裁决
 外加本条追加的第 6 问）；未 push；`hivm-poc-evidence/` 本地独占。
