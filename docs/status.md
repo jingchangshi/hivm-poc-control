@@ -3560,3 +3560,21 @@ P2-B 解锁的是**通行轨迹/契约保持**行，**A1 与全部 D 行在 P2-B
   该检查是**与前提一致**，不是前提的证明；重生成两个 `.inc` 才能定案，留给 P2-B 的构建，现在不声称。
 
 **下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
+
+### 4. （§23 附）P2-B 范围补充：通行轨迹 A1–A4 需要的**入口边界日志在 HEAD 上根本不存在**
+
+我在派发后量了 `HEAD`（`cfaa59677`）：`bishengir/lib/Tools/bishengir-compile` 下
+**没有** `regbase/Utility.cpp:61`(`inferMixedCV`) / `:100`(`inferLayoutOptimization`) 的边界日志，
+**没有** `regbase/BiShengIRCompileMain.cpp:345`(`runRegBasePipeline` 函数入口) 的边界日志；
+唯一的 `[P2-Late]` 行是 `LatePipeline.cpp:251` 的 pinned-option 那条。
+所以 **`docs/p2-pass-trace.md` §A 的 A1/A2/A2b/A3/A4 五项目前跑不了**，
+而 §A 覆盖缺口 (2)(3)（"路由用边界日志断言"、"`inferLayoutOptimization`/`inferMixedCV` 零调用"）
+正是靠它们才关得上。通行轨迹按构造对这两个函数是盲的 —— 它们是只做 `module.walk`、不加 pass 的普通函数。
+
+已把这五处日志按 §A 已定死的锚点**并入 P2-B 范围**并追加派发给 implementor（msg `d8b58bd3`），
+并加了两条约束：**只加 instrumentation，不改控制流/pass 构造/输出 IR**；
+**以能被区分、绝不误认为错误的形式写到 stderr 单行**。
+同时要求它在报告里明确回答 **P2-B 结束时入口到底产出什么**，并再次强调
+**A1 不属于 P2-B，不得为让 A1 好看而造二进制**。
+
+**下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
