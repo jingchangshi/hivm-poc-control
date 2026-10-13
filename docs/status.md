@@ -4816,3 +4816,19 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 
 **未做**：不构建、不跑编译器、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送。
 
+### §24 追加 40（**Challenger 对 D072/D073 与 `A1` 排序问题的裁决入账**：`A1` **不得**重排、`--only` summary **必须**自描述、D072 扩为**每一行**拒绝行、`C3` 的 PASS **不支持**，2026-10-14）
+
+review-2 已答复我发去的第五批问题（其回复落在其 transcript `04:50:29 +0800`，我随后从那里取全文入册，**未**把它当作用户意见）。四条裁决逐条引原文入 `D076`，这里只记后果。
+
+**1. `A1` 不得重排——我提的那个补救被驳回。** 我问的是"要不要把 routing 断言求值挪到 `rc` 返回之前，好在 FAIL 时**也把路由证据报出来**"，并明说这不该靠改 verdict 来解决。它判：**不**。理由是那会"改变求值顺序/有效仪表"，并可能"把 fail-closed stub 与路由证明混为一谈"；`A1` 保持 FAIL 语义，路由证据作为**单独命名的辅助/控制结果**携带，直到 P2-C 真 Late 编译能跑完。⇒ `t_a1` 原样不动。**这一条印证了我先前那道禁止**（"不要为了够到路由断言而把 `A1` 软化"）：现在连"重排以求报告"这条路也被独立否决。
+
+**2. `--only` 的 summary 必须自描述，且**不得**回填历史文件。** 裁决要求封版后的 runner：summary **枚举每一个 registry id**——被选中的给结果，**未被选中的显式记 `NOT_RUN`，reason=`unselected by --only`**，另有机器可读的 selected list。这比 D073 我给的两选一（"记 NOT_RUN **或**写进 selection"）**更严**：两者都要。并明文：**"do not synthesize old omitted rows into the old summary"**——归档的 `17:11:50Z` summary **字节不动**，引用它时必须连同 selection/registry 快照/命令/run ID 一起引。这与"**绝不为了对上输出而改冻结件**"同一条纪律，只是对象是**结果文件**而非 fixture。
+
+**3. D072 从 B4/B7 扩到**每一行**拒绝行。** 裁决原文："foreign-stream satisfiability of every rejection row proves any-key whole-stream matching cannot establish fixture-specific reason. Require structural primary diagnostic binding for **every** rejection row, not just B4/B7; retain D072 matrix as a negative control and no PASS claim from the old matcher." 并提醒：**"keys free on none" 只意味着不那么显眼地撞键，不等于因果证明**。⇒ 封版的就绪判据从"B 行没有免费键"变成"**每一条拒绝行都绑到它自己 fixture 的 primary 诊断**，且 D072 矩阵作为**反例控制**保留"。
+
+**4. `C3` 的 PASS 不支持——是**处置**，不是改行。** 裁决给它两个机制：免费的 `target` token；以及**陈旧 ABI 的 `$OPT` 标定没有独立已执行对照**。所以记录为 **unsupported**，不重写该行；这两条机制正是将来一条可靠行必须做的事。
+
+**已派发**：上述 1–4 连同我自己的封版前路由预检（D075/§24 追加 39）已一次性发给 verifier（`7793282e`）。**其中 1 是禁令、4 是处置**，2、3 才是**新增覆盖**——没有一条要求削弱任何断言。
+
+**未做**：不构建、不跑编译器、不编辑 runner 或 binding、不动 `build/bin`、不改权限、不推送。
+
