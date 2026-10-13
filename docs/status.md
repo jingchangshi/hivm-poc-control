@@ -2387,3 +2387,62 @@ reconcile 该 vector"。置于 `:114` 之前属自然但非必需。
 
 **未变**：P2 生产代码 **0 行**；所有执行类验收行 **NOT_RUN**；D031 的编译器 pin 未动；
 `hivm-poc-evidence/` 本地专属；未推送、未改远程配置。
+
+---
+
+## 2026-10-13 第 5 轮追加：APPROVE 附带的三项非阻塞清洁 —— 其中一项是**文档中的假陈述**
+
+Challenger 的 APPROVE 把三项事实性清洁列为非阻塞。Lead 逐条独立复核后发现**第一项不是清洁，是错误**，
+另两项也确实需要收紧。
+
+### 1. §2.3.1 "The frozen Golden's ABI was produced through **this** helper" —— **假陈述，已删并改写**
+
+复核方式：直接读冻结件自身的头部，而不是回忆。`verify/tests/negatives/vadd_late_p1v2.mlir:9-11`
+（sha `d1023ac1…`）自述：
+
+> This is **HAND-AUTHORED text, not compiler output**. It is the input to the P2 Late
+> pipeline; it is not itself evidence of numerical correctness.
+
+且 P1 **没有**产出任何被验收的 A5 二进制 —— 该件是 P2 Late pipeline 的**输入**，不是任何路线的**输出**。
+∴ 不存在"经由该 helper 产出"的参考 ABI，helper 也就不可能是"Golden 所依据的契约"。原文的推论链
+（"Golden 是经此 helper 产出的 → 复用 helper ⇒ ABI 差异必属 pass 序列"）**两环都断**：前提假，且即便前提
+为真，复用 helper 也约束不了取值。
+
+改写后：§6.3 的 C1–C11 被明确为 P2 的**首次** ABI 测量（不是对既有基线的回归），其期望值来自冻结件与模板
+**源**，**绝不**来自"同一个 helper 跑过"。helper 被降格为其真实作用：只排除"Late 路线漏接/多接管道"这**一
+类**疑点。
+
+### 2. Mix/Aiv 模式必须**逐 pass manager 重读**，V1 的入口检查必要但**不充分**
+
+Challenger 第 3 轮即已指出 "For each later PM still check current input/reported mode because preceding
+passes may write attributes"，此前只落实了"V1 拒绝携带 `mix_mode`/`FilterPassesAttr` 的输入"，**未**落实
+逐 PM 重读。现补为 §3.2 的第三条后果：策略在**每个 manager 运行时**从当时的 module 重新解析
+（`PassExecutionPolicy.h:42-46`），∴ tail 中若有 pass 写入这两个属性，其后所有 manager 的模式都会改变，
+而 V1 的入口结论描述的是**更早的** IR。
+
+已实测（本轮新测）：生产树中**没有**任何写入者 —— `mix_mode` 的 in-tree 写入只出现在
+`unittests/Pass/PassExecutionPolicyTest.cpp:155`，`FilterPassesAttr` 只出现在
+`unittests/Pass/FilterPassesAttr*`/`FilterPassesTest.cpp`，`OptimizeScalarTransfers.cpp:443` 只**读**。
+∴ 重读预期与 V1 一致，但**保证不得建立在这一"缺席"之上** —— 与 §2.2 的死存储发现、C9 的零消费者发现
+同理。
+
+已传播：`p2-pass-trace.md` 的"每行须随模式报告"规则条目（改为"该段 trace 所属 manager 解析出的模式"）
+与 **E5**（由"整次运行记录一次模式"改为"**每个进入的 manager** 记录"）。
+
+### 3. `setLowerToLLVM` 的"无调用点"须限定范围
+
+原文写"inspected BiShengIR source 中不存在 `setLowerToLLVM` 调用点"，范围未写明，读者可能误读为"不存在
+该 setter"。实测：生成器**确实**产出 setter ——
+`build/tools/bishengir/bishengir/include/bishengir/Tools/bishengir-compile/CompileConfigs.cpp.inc:1402`
+（`setLowerToLLVM`，`:1407` 为 `getLowerToLLVM`）；全树搜索 `setLowerToLLVM` **仅此一处**。该文件由
+TableGen 生成到 `build/`，∴ 只 grep 源码树会**静默**看不到它。现写明：被测量的是手写树中**无人调用**它，
+而"生成但无人调用"的访问器改不动该 flag。
+
+**已落文档**：`docs/p2-architecture.md`（§2.3.1 首段与 policy 段重写、§3.2 第三条后果、§3.1
+`getLowerToLLVM` 条目）；`docs/p2-pass-trace.md`（模式报告规则、E5）。
+
+**性质说明**：这三项不改架构切分，也**不**改变已发出的 scoped entry-design **APPROVE**（Challenger 明言
+它们不改变已接受的切分）。第 1 项修正的是一个**若不修就会把 P2 的验收标准搞错**的假前提 —— 若照原文写，
+C1–C11 会被当成"对 Golden 的回归比较"，而实际上没有任何可比较的参照物，测试会因此被写成错的形状。
+
+**未变**：P2 生产代码 **0 行**；所有执行类验收行 **NOT_RUN**；`hivm-poc-evidence/` 本地专属；未推送。

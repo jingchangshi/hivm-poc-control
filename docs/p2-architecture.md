@@ -213,18 +213,24 @@ downgraded.
 `injectBarrierAllSync(config.getEnableHIVMInjectBarrierAllSync())`, `setDisableFMA`,
 `setSaveLinkedIR`, `saveTemps`, `setSharedDynamicSize`, `setNumWarps`/`setThreadsPerWarp`/
 `simtStackLimit`, the triton/mix/simt/sanitizer/debug switches, and the meta-op bitcode selection
-inputs. The frozen Golden's ABI was produced through **this** helper.
+inputs.
+
+**The Golden's ABI was *not* produced through this helper, and an earlier draft of this section said it
+was.** The frozen P1 artifact states in its own header that it is *"HAND-AUTHORED text, not compiler
+output"* (`vadd_late_p1v2.mlir:9-11`, sha `d1023ac1…`), and P1 produced **no** accepted A5 binary — the
+artifact is the **input** to the P2 Late pipeline, not an output of any route. So there is no
+helper-produced reference ABI to compare against, and the helper cannot be "the contract the Golden was
+built through". What it is instead is the **single** bridge (§6.3's C-rows are therefore P2's *first*
+ABI measurement, not a regression against a prior one).
 
 **Policy: Late mode calls the transfer helper verbatim.** It adds no field, removes no field, and
-reaches into no `HIVMCMainConfig` member directly. A Late result whose ABI differs from the Golden
-is then very likely a bug in the Late pass sequence rather than in option plumbing — **but "very
-likely" is the strongest thing sharing a helper can support, and it is not evidence.** Reusing the same
-transfer function does **not** by itself preserve the ABI: the helper reads config fields, and a Late
-entry that pins the §2.3.1 rows to different values than the Golden's invocation used would produce a
-different ABI *through the same helper*. The ABI is therefore asserted on the **emitted artifact**, by
-the §6.3 rows (C1–C11) and the `p2-binary-abi.md` C-row measurements, not inferred from the shared call
-path. The helper's role here is narrower and still worth stating: it removes one *class* of suspect
-(missing or extra plumbing on the Late route), so a failure is first looked for in the pass sequence.
+reaches into no `HIVMCMainConfig` member directly. That removes one *class* of suspect — missing or
+extra plumbing on the Late route — and nothing more. It does **not** establish the ABI: the helper reads
+config fields, so a Late entry pinning the §2.3.1 rows to different values would produce a different ABI
+*through the same helper*; and with no helper-produced reference in existence, agreement has nothing to
+agree *with*. The ABI is therefore asserted on the **emitted artifact** — the §6.3 rows (C1–C11) and the
+`p2-binary-abi.md` C-row measurements — and each of those is a fresh measurement whose expected value
+comes from the frozen artifact and the template source, never from "the same helper ran".
 
 **Consequence — options the helper does not transfer must not be silently ignored.** A verified
 instance: `EnableStaticBarePtr` (`Options.td:153-160`) defaults to `true`, is
@@ -618,9 +624,15 @@ void buildBiShengHIRAVEToLLVMPipeline(OpPassManager &pm, const BiShengIRCompileM
   `LowerToLLVM` is a `BiShengIRCompileInternalStateOpt` (`Options.td:1556-1562`, comment at
   `:1547-1549`) with default **`true`**, explicitly documented in-file as *"still real
   options/config entries … not currently surfaced as normal generated CLI/pass options"*, and **no
-  `setLowerToLLVM` call site exists anywhere in the inspected BiShengIR source** (grep over
-  `*.cpp`/`*.h`/`*.td`). So on this build the tail always runs, and Late's direct call is consistent
-  with the ordinary route rather than a special case.
+  caller of `setLowerToLLVM` exists anywhere in the inspected production source** (grep over
+  `bishengir/**/*.cpp`, `*.h`, `*.td`). The scope of that claim is deliberate and narrow: the
+  TableGen generator *does* emit a setter — measured at the generated
+  `build/tools/bishengir/bishengir/include/bishengir/Tools/bishengir-compile/CompileConfigs.cpp.inc:1402`
+  (`setLowerToLLVM`, with `getLowerToLLVM` at `:1407`) — so "no setter exists" would be false, and a
+  source-tree-only grep is silent about it precisely because the file is generated into `build/`. What
+  is measured is that nothing in the hand-written tree **calls** one, and a generated-but-uncalled
+  accessor cannot move the flag. So on this build the tail always runs, and Late's direct call is
+  consistent with the ordinary route rather than a special case.
 
   **Precision worth keeping, because it decides what the entry must do:** the direct Late call
   bypasses all three wrapper gates, so `LowerToLLVM` is **not a dependency of Late mode** — the direct
@@ -812,6 +824,18 @@ policy. Two consequences:
   frozen contract depends on. The preflight validator (V1) therefore **rejects a Late input that
   carries `mix_mode` at all**, rather than relying on a policy that happens to be inert today. The
   same rule covers `FilterPassesAttr`.
+- **V1's input check is necessary and not sufficient, so the mode is re-read at each later pass
+  manager.** The policy is resolved **from the module as it stands when the manager runs**
+  (`PassExecutionPolicy.h:42-46`), and each `PassManager::run` resolves it afresh. A pass in the tail
+  that wrote `mix_mode` or `FilterPassesAttr` would therefore switch the mode for everything *after*
+  it, and the input check would have been satisfied at a point that no longer describes the IR. So
+  every later manager — the A5 pipeline above all — must check the mode of **the IR it is about to
+  run on**, and record it, rather than inheriting V1's verdict. Measured today, nothing in the
+  production tree writes either attribute (the only writers in-tree are
+  `unittests/Pass/PassExecutionPolicyTest.cpp` and `unittests/Pass/FilterPassesTest.cpp`;
+  `OptimizeScalarTransfers.cpp:443` only reads), so the re-read is expected to agree with V1 — but the
+  guarantee may not rest on that absence, for the same reason the §2.2 dead-store finding and the C9
+  zero-consumer finding may not rest on theirs.
 
 **Functions are not pass identities — and one of them is not even a pipeline.** `runRegBasePipeline`,
 `inferLayoutOptimization`, `inferMixedCV`, `buildLowerAVEPipelines` and `runHIVMCCompileA5` are C++

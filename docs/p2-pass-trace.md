@@ -35,7 +35,8 @@ Rules that apply to every row:
   not the trace's — and that log is likewise summed over the whole invocation, which is why it sits at
   the function entry and not at a call site.
 - Every row is reported **together with the resolved Mix/Aiv mode** (`p2-architecture.md` §3.2):
-  a zero read is meaningless without it.
+  a zero read is meaningless without it — and the mode is the one resolved for **the manager that
+  produced that part of the trace**, since each manager re-resolves it from the IR it is handed (E5).
 - A row whose coverage is not demonstrated per pass manager is **NOT_RUN**, not PASS.
 
 ## A. Routing
@@ -112,7 +113,7 @@ negative for this row is an input with the terminal barrier moved into the VF he
 | E2 | all **four** filters off: `--mlir-print-ir-after-change`, `--mlir-print-ir-after-failure`, `--mlir-print-ir-before=<pass-arg>`, `--mlir-print-ir-after=<pass-arg>` | NOT_RUN |
 | E3 | complete logs archived via `--mlir-print-ir-tree-dir`; nothing truncated | NOT_RUN |
 | E4 | sentinels present: `--annotation-lowering` (first) and `--convert-hivm-to-llvm` (last) | NOT_RUN |
-| E5 | resolved Mix/Aiv mode recorded for the run | NOT_RUN |
+| E5 | resolved Mix/Aiv mode recorded **per entered pass manager**, not once for the run — the policy is re-resolved from the module each time a manager runs (`PassExecutionPolicy.h:42-46`), so a tail pass that wrote `mix_mode`/`FilterPassesAttr` would change the mode for the managers after it, leaving V1's input check describing an older IR | NOT_RUN |
 
 If E1–E5 are not all satisfied, every zero in section B is **NOT_RUN**, regardless of what the trace
 shows.
