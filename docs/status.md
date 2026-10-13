@@ -2245,3 +2245,86 @@ fixture 全部对上计划 §1 标定表：19 个 parse rc=0，`b03_cache_bad7.m
 复审结论。**步骤 4（Implementor P2-A）在二者报告之前不开始。**
 
 **未变**：P2 生产代码 **0 行**；`hivm-poc-evidence/` 本地专属；未推送、未改远程配置。
+
+---
+
+## 2026-10-13 第 5 轮：Challenger scoped 复审 → REVISE（仅剩两项规格缺口），已全部落实
+
+**阶段**：目标 §8 步骤 3（Challenger 评审入口设计）收口。`review-2`（`challenger-opus`，实际 served
+model **`gpt-6.1-sol`**，取自其 transcript 的 `model` 字段，非由 agent type 推断）在 commit `d2e6fae`
+上给出：**REVISE，范围仅限两项规格缺口**，并明言这两处改完即可给 scoped **APPROVE**，不被 Verifier
+未完成的测试冻结阻塞。裁决以 `SendMessage → team-lead`（rec458，13:31:13.555Z）送达，Challenger 未写
+文件；按既有规则由 Lead **逐字**保存至
+`hivm-poc-evidence/p2-20261013-late-pipeline/review/challenger-entry-design-verdict-round5.md`。
+
+**裁决先确认**：第 4 轮的四组修正"在 `d2e6fae` 上已满足"，且 Challenger **独立复现了 21 个操作数的
+census**（exit 0，含 `builtin.module`、`func.return`、`scf.yield`，计数与文档一致）。
+
+### 阻塞项 1 —— 三个指令选择选项给具体值
+
+原 §2.3.1 第 4 行只写"pin to the measured values"而不给值。现冻结为**全部 `false`**，显式 `true` 以
+命名该选项的诊断拒绝。Lead 未采信，独立复核并**扩大**了证据面：
+
+- `DisableFMA` 是 `FeatureControlOptions`，`bool`，默认 `"false"`（`Options.td:962-968`）；
+  `DisableDecomposeReduction`（`:1340-1346`）与 `DisableReorderInstruction`（`:1348-1354`）是
+  `SIMTOptimizationControlOptions`，同为 `bool` 默认 `"false"`。
+- 全树 grep `setDisableFMA|setDisableDecomposeReduction|setDisableReorderInstruction` 只命中
+  `hivmc/Config.h:106`（hivmc 自己的 setter）与转发点（`regbase/BiShengIRCompileMain.cpp:318`、`:325-326`；
+  `BiShengIRCompileMain.cpp:212`、`:218-219`）；**通读** `applyArchDependentCompileDefaults`
+  (`BiShengIRCompileConfig.cpp:371-384`) 全文，三者一个都没出现。生成 flag 的 grep（`disableFMAFlag` 等）
+  只命中 `hivmc/Config.h` 的 `{false}` 与 hivmc 自己的 `cl::init(false)`（`HIVMCConfig.cpp:89`、`:331`、`:337`）。
+  ∴ **pinned 值就是 regbase 路线上的实际生效值**。
+- 三者**不是死旗**：`PassPipeline.cpp:349-350` 把其中两个喂进 pass options struct，A5 侧读 `setDisableFMA`。
+  故该行属二进制身份，不是可有可无的清理。
+
+### 阻塞项 2 —— 计数：**按 scope 测量，按整次调用断言**
+
+原 §3.2 前置条件 6 把每个计数都"取在一个 function scope 内"。这会让**模块级** pass（如
+`ConvertHIVMToLLVM`）在两个进入的 manager 里各跑一次仍读作 "once"。现改为一张测量/断言对照表：
+
+| 断言 | 每 scope 测量 | 整次调用断言 |
+|---|---|---|
+| `ConvertHIVMToLLVM` | A5 pipeline 的模块 scope 计数 | **总计恰 1**；"每 scope 一次"或"tail 一次 + A5 一次"明确写成 **FAIL** |
+| 禁止 pass | 每个进入的 scope 计 0 | **总计 0**；在一个 manager 缺席、在另一个出现是 FAIL，不是局部豁免 |
+| `runHIVMCCompileA5` | 函数入口边界日志 | **总计 1** |
+| tail 各 pass | 按 pass **且**按 operation scope（嵌套函数 pass 在 entry 与 VF helper 上各跑一次是**合法**的） | 跨整次运行的 §3.1 **顺序**，且每个 pass 的效果出现在产出 IR 中 |
+
+已传播：`docs/p2-pass-trace.md`（规则条目、B 节导语、C2 行）、`docs/p2-verification.md` A9。另修 §2.5：
+`AppendDeviceSpec` 的 "exactly once" 也改为整次调用级 —— 该 pass 非幂等，"每 scope 一次"正是其失效模式。
+
+### 三项非阻塞清洁（均已落实）
+
+1. **复用 helper 不证明 ABI 保持**。§2.3.1 原句称 ABI 不一致"by construction 是 Late pass 序列的 bug"。
+   共用 transfer helper 约束的是**管道**不是**取值**：Late 入口若把 §2.3.1 各行 pin 成与 Golden 不同的值，
+   会**经由同一个 helper** 产出不同 ABI。现改为 "very likely" 并说明理由，ABI 断言仍落在**产出二进制**上
+   （§6.3 C1–C11 与 `p2-binary-abi.md` §C）。
+2. **host 守卫是 config 断言，不是 CLI flag**。`CompileHost` 是 `BiShengIRCompileInternalStateOpt`
+   （`Options.td:1550-1554`），文件注释（`:1547-1549`）自述 *"not currently surfaced as normal generated
+   CLI/pass options"* —— 根本没有 `--compile-host` 可"拒绝"。§3.1 原 bullet 写"§2.3 拒绝 `--compile-host`，
+   这才使 Late 的直接调用安全"，属于把不存在的 flag 当机制。现改为 `config.getCompileHost() == false`
+   不变量 + config 状态断言测试。
+3. **显式参数必须在解析之前送入**。`hasExplicitCLOption`（`BiShengIRCompileConfig.cpp:366-371`）测的是
+   `getNumOccurrences()`，由 `bishengir-compile.cpp:102` 的唯一一次 `cl::ParseCommandLineOptions` 计数
+   （位于 `registerAndParseCLIOptions`，`:89` 定义，唯一调用点 `:144`）。解析之后再注入只改 config 字段、
+   `getNumOccurrences()` 仍为 0，随后 `applyArchDependentCompileDefaults` 会把值**覆盖回去**。
+
+**Lead 的再推导比裁决多给出的一个约束（已向 Challenger 明确请其复核）**：窗口比"解析之前"更紧，是
+`:114`–`:121`。因为 `main` 在 `:114` 先裸扫 target、在 `:121-124` 把 `argv` 拷进 `originalCLArgs`，而
+下游 `:186` 转发的是**这个 vector**；若在 `:121` 之后、`:144` 之前注入，会满足 `hasExplicitCLOption`
+却让下游命令回显与 config 不一致 —— 正是 §2.3.1"一条规则"要防的 log-vs-binary 分歧。
+
+### 顺带修掉的三处既有引用错误
+
+第 4/5 轮审查暴露 `Options.td` 行号错位，已改：`CompileHost` `:1551-1555` → `:1550-1554`；
+`LowerToLLVM` `:1557-1563` → `:1556-1562`；其文件注释 `:1548-1550` → `:1547-1549`。
+
+**已落文档**：`docs/p2-architecture.md`（§2.3 行 193、§2.3.1 第 4 行与两段新论述、§2.5 第 1 项、§3.1 host
+bullet、§3.2 前置条件 6）、`docs/p2-pass-trace.md`（规则/B 导语/C2）、`docs/p2-verification.md`（A9、A12、
+E0 第 5 轮、新增 E0b）、`review/challenger-entry-design-verdict-round5.md`（逐字裁决 + 处置表）。
+
+**下一步**：已向 `review-2` 发出 scoped entry-design **APPROVE** 复审请求（含请其复核 `:114`–`:121`
+窗口主张）；仍等 `verify` 对四项的答复（补测 → v2 冻结，或具名异议）。**步骤 4（Implementor P2-A）
+在两者到齐之前不开始。**
+
+**未变**：P2 生产代码 **0 行**；所有执行类验收行 **NOT_RUN**；`hivm-poc-evidence/` 本地专属；未推送、
+未改远程配置；未改动 D031 的编译器 pin。

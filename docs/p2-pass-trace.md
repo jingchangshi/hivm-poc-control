@@ -22,12 +22,18 @@ Rules that apply to every row:
   indistinguishable from a run where nothing happened), and the per-pass selectors
   `--mlir-print-ir-before=<pass-arg>` / `--mlir-print-ir-after=<pass-arg>`. A trace produced with any
   of them is unusable for a zero in section B.
-- **Counts are per function scope.** A construction entry is not an execution: nested `PassManager`
-  construction inside a pass body (`PassPipeline.cpp:564` is exactly that) and retry wrappers can
-  produce several entries for one execution, and nested function passes can execute separately on the
-  entry and on the VF helper. Every "exactly once"/"zero" below is counted within one function scope.
-  Where the claim is about a **function** rather than a pass (section A), the count is the boundary
-  log's, not the trace's.
+- **Counting is per operation scope; the assertion is compile-wide.** A construction entry is not an
+  execution: nested `PassManager` construction inside a pass body (`PassPipeline.cpp:564` is exactly
+  that) and retry wrappers can produce several entries for one execution, and nested function passes
+  can execute separately on the entry and on the VF helper. So each count is **measured** at the
+  `runOnOperation`/`execute` boundary of the scope that actually runs it. It is then **aggregated over
+  every manager the run enters**, because the claims are about the whole invocation:
+  `ConvertHIVMToLLVM` must be **1 in total** (one per scope does not satisfy it — a module pass that ran
+  in two entered managers ran twice), the forbidden passes **0 in total** (absent from one manager but
+  present in another is a failure, not a local exemption), and `runHIVMCCompileA5` **1 in total**. Where
+  the claim is about a **function** rather than a pass (section A), the count is the boundary log's,
+  not the trace's — and that log is likewise summed over the whole invocation, which is why it sits at
+  the function entry and not at a call site.
 - Every row is reported **together with the resolved Mix/Aiv mode** (`p2-architecture.md` §3.2):
   a zero read is meaningless without it.
 - A row whose coverage is not demonstrated per pass manager is **NOT_RUN**, not PASS.
@@ -45,8 +51,9 @@ Rules that apply to every row:
 
 ## B. Forbidden — must be zero scheduled invocations
 
-Each of these must be **absent** from a trace whose coverage is demonstrated per pass manager, and the
-resolved mode recorded.
+Each of these must be **absent — zero in total, summed over every manager the run enters** — from a
+trace whose coverage is demonstrated per pass manager, with the resolved mode recorded. Absence from
+one manager while the pass runs in another is a FAIL for that row, not a local exemption.
 
 | # | forbidden | status |
 |---|---|---|
@@ -63,7 +70,7 @@ resolved mode recorded.
 | # | claim | evidence needed | status |
 |---|---|---|---|
 | C1 | the 20 tail passes ran, in the §3.1 order | trace order + per-pass **effect** in the IR (e.g. `cf` blocks after `--convert-scf-to-cf`; no `hivm.hir.*` after the conversions). The §3.1 table is the **base pipeline construction list, not twenty runtime executions**: nested function passes execute separately on the entry and the VF helper, so the count is per pass **and per operation scope** | NOT_RUN |
-| C2 | `ConvertHIVMToLLVM` = **exactly 1**, owned by HIVMC A5 | trace count = 1, and the pass is inside the A5 pipeline, not the tail | NOT_RUN |
+| C2 | `ConvertHIVMToLLVM` = **exactly 1 in total**, owned by HIVMC A5 | per-scope counts summed over every entered manager = 1, and the single execution is inside the A5 pipeline, not the tail. "Once per scope" or "once in the tail and once in A5" is a **FAIL** | NOT_RUN |
 | C3 | `AppendDeviceSpec` count = 0 in state 2 (complete matching spec) and = 1 in state 1 | trace count per state | NOT_RUN |
 | C4 | the validator pass ran **before item 1** of the tail | trace order: validator precedes `--annotation-lowering` | NOT_RUN |
 

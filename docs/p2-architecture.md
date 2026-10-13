@@ -190,7 +190,7 @@ names an earlier draft used were **wrong**, and one names an option that does no
 |---|---|
 | `--multi-kernel` | **absent**; the real flag is **`--enable-multi-kernel`** |
 | `--enable-auto-multibuffer` | **absent**; the real flag is **`--enable-auto-multi-buffer`** |
-| `--compile-host` | **absent, and not merely misspelled** — `$B --compile-host=1` exits `0` with `Unknown command line argument '--compile-host=1'`. `CompileHost` is a `BiShengIRCompileInternalStateOpt` (`Options.td:1551-1555`) documented in-file as *"not currently surfaced as normal generated CLI/pass options"*; the config field exists (default `false`), the CLI flag does not |
+| `--compile-host` | **absent, and not merely misspelled** — `$B --compile-host=1` exits `0` with `Unknown command line argument '--compile-host=1'`. `CompileHost` is a `BiShengIRCompileInternalStateOpt` (`Options.td:1550-1554`) documented in-file (`:1547-1549`) as *"not currently surfaced as normal generated CLI/pass options"*; the config field exists (default `false`), the CLI flag does not |
 
 That last row is a **test-design hazard, not a cosmetic fix**. A negative written as
 `not bishengir-compile --compile-host …` would "pass" — but because the driver rejected an *unknown
@@ -217,7 +217,14 @@ inputs. The frozen Golden's ABI was produced through **this** helper.
 
 **Policy: Late mode calls the transfer helper verbatim.** It adds no field, removes no field, and
 reaches into no `HIVMCMainConfig` member directly. A Late result whose ABI differs from the Golden
-is then by construction a bug in the Late pass sequence, not in option plumbing.
+is then very likely a bug in the Late pass sequence rather than in option plumbing — **but "very
+likely" is the strongest thing sharing a helper can support, and it is not evidence.** Reusing the same
+transfer function does **not** by itself preserve the ABI: the helper reads config fields, and a Late
+entry that pins the §2.3.1 rows to different values than the Golden's invocation used would produce a
+different ABI *through the same helper*. The ABI is therefore asserted on the **emitted artifact**, by
+the §6.3 rows (C1–C11) and the `p2-binary-abi.md` C-row measurements, not inferred from the shared call
+path. The helper's role here is narrower and still worth stating: it removes one *class* of suspect
+(missing or extra plumbing on the Late route), so a failure is first looked for in the pass sequence.
 
 **Consequence — options the helper does not transfer must not be silently ignored.** A verified
 instance: `EnableStaticBarePtr` (`Options.td:153-160`) defaults to `true`, is
@@ -240,7 +247,7 @@ Late invocation must have exactly one allowed value per row:
 | `--enable-static-bare-ptr` | LLVM call conv (ABI) | **reject an explicit `=false`**; an explicit `=true` is accepted because it agrees with the effective value. Not transferred, so `=false` is silently ineffective and the convention stays `true` (`hivmc/Config.h:830`); accepting `=false` would mean accepting a request the toolchain does not honour |
 | `--link-aicore-bitcode` | extra device bitcode list | **reject** — a substitute template must never mask the required C310 AIV one (§3.3) |
 | `--enable-hivm-inject-barrier-all-sync` | injects `--cce-auto-sync=bar-all` | **reject** — automatic sync injection is forbidden (§3.2) |
-| `--disable-fma` / `--disable-decompose-reduction` / `--disable-reorder-instruction` | instruction selection | carried unchanged by the helper — so unlike the bare-ptr row these *do* take effect; **pin** to the measured values, because instruction selection is part of the binary identity |
+| `--disable-fma` / `--disable-decompose-reduction` / `--disable-reorder-instruction` | instruction selection | carried unchanged by the helper — so unlike the bare-ptr row these *do* take effect; **pin each to `false`** and reject an explicit `true` with a diagnostic naming that option. The pinned values are the effective ones because **no arch-dependent default moves them**: `DisableFMA` (`Options.td:962-968`, `FeatureControlOptions`), `DisableDecomposeReduction` (`:1340-1346`) and `DisableReorderInstruction` (`:1348-1354`, both `SIMTOptimizationControlOptions`) each declare `bool` with default `"false"`, and a tree-wide search for `setDisableFMA`/`setDisableDecomposeReduction`/`setDisableReorderInstruction` finds only the forwarding sites (`regbase/BiShengIRCompileMain.cpp:318`, `:325-326`; `BiShengIRCompileMain.cpp:212`, `:218-219`) plus the config's own setters — no defaults function writes them. They are genuinely consumed on the regbase route (`PassPipeline.cpp:349-350` feeds `disableDecomposeReduction`/`disableReorderInstruction` into a pass options struct; the A5 side reads `setDisableFMA`), so instruction selection is part of the binary identity rather than a dead flag |
 | `--save-linked-ir` | **not an output path — an artifact type.** `SaveLinkedIR` (`Options.td:1132-1139`, `bool`, default false) switches the ccec output extension `.o`→`.ll` and its filename gains `_linked` (`hivmc/A5/HIVMCMainA5.cpp:68-71`), and appends `-Xclang -disable-llvm-optzns -S -emit-llvm` to the ccec argument list (`:158-163`) | **reject in Late mode** — it both changes what is produced (LLVM text, not an object) and disables the optimization the binary identity depends on. It cannot appear in any invocation that is meant to produce the accepted binary |
 | `--save-temps` | output **directory** only — `std::string`, default `""` (`Options.td:339-345`) | allowed as a diagnostic; must write outside the pinned paths. Kept separate from `--save-linked-ir` above: one is a destination, the other is a transformation |
 | `--enable-optimized-metaop` | selects `meta_op.aiv.c310.<O0\|O2>.bc` (`Options.td:818-826`, `bool`, **default `true` = O2**) | **pin explicitly to `true`** — the choice is part of P2's recorded binary identity (§3.3), and it must be pinned by an explicit argument rather than inherited from a default |
@@ -259,6 +266,24 @@ defaults below cannot move the value out from under a recorded binary identity. 
 that differs from the pinned one is rejected with a diagnostic naming the option and both values** —
 never silently overridden, because silent override would make the compile log disagree with what the
 binary was actually built from.
+
+**"Explicit" is a parse-time property, and that fixes exactly *where* the Late entry may inject the
+arguments.** `hasExplicitCLOption` (`BiShengIRCompileConfig.cpp:366-371`) returns true only when
+`getNumOccurrences() != 0`, and occurrences are counted by `cl::ParseCommandLineOptions`, called
+**once** at `bishengir-compile.cpp:102` from `registerAndParseCLIOptions` (`:89`), whose only call site
+is `main`'s `:144`. An entry that injects or rewrites the pinned arguments **after** that call has not
+made them explicit: it changes the config field, and then `applyArchDependentCompileDefaults` — invoked
+later, from `createFromCLOptions` — overwrites the value because `getNumOccurrences()` is still zero.
+
+Concretely, `main` already fixes the window. It raw-scans the target at `:114` **before** the parse,
+then copies `argv` into `originalCLArgs` at `:121-124` — also before the parse — and that vector is what
+is forwarded downstream at `:186` (`runRegBaseCompile(…, originalCLArgs)`, and thence
+`filterRegBaseForwardedHIVMCOptions`). So the pinned arguments must be written into `argv` in the window
+`:114`–`:121`, i.e. after the target is known (the validator needs it) and before both the parse and the
+`originalCLArgs` capture. Injecting later changes what the config holds while leaving the downstream
+command echo, and `hasExplicitCLOption`, disagreeing with it. The entry's own assertion that each pinned
+option is explicit must therefore read back the **post-parse `getNumOccurrences()`**, not its own
+bookkeeping — otherwise the check passes on exactly the mistake it exists to catch.
 
 **A TableGen default is not the effective default on the regbase route, and three rows above depend on
 that.** `applyArchDependentCompileDefaults`
@@ -458,7 +483,9 @@ The build-identity consequence stands independently of both: because the regbase
 (`pass-cut.md` §2). The Late entry therefore does not inherit it blindly:
 
 1. **Absent** → build the full spec from the verified target attributes and run `AppendDeviceSpec`
-   **exactly once** (counted by the pass instrumentation of §5).
+   **exactly once in total** — counted by the pass instrumentation of §5 and aggregated over every
+   entered manager (§3.2 precondition 6), because "once per scope" would let a second manager append a
+   second time and the pass is not idempotent.
 2. **Complete and matching** → validate it field by field against the CLI target and reuse it; do not
    run the pass.
 3. **Partial or conflicting** → **reject** with a diagnostic naming the differing field. An incomplete
@@ -539,13 +566,19 @@ void buildBiShengHIRAVEToLLVMPipeline(OpPassManager &pm, const BiShengIRCompileM
 ```
 
 - `getCompileHost()` — an early `return` that would replace the whole tail with the HACC host
-  lowering. §2.3 rejects `--compile-host`, which is what makes Late's direct call safe.
+  lowering. There is **no CLI surface for it to be reached through**: `CompileHost` is a
+  `BiShengIRCompileInternalStateOpt` (`Options.td:1550-1554`) the file itself documents (`:1547-1549`)
+  as *"not currently surfaced as normal generated CLI/pass options"*, so `--compile-host` is an unknown
+  argument rather than a flag Late could "reject" (§2.3, and the wrong-reason-pass warning at
+  `:196-202`). What makes Late's direct call safe is therefore a **config-state assertion**: the entry
+  asserts `config.getCompileHost() == false` — the field's own default — as an invariant of the Late
+  branch, and the corresponding test asserts the config state, never an unknown-option diagnostic.
 - `getEnableHIVMCompile()` — gates only the AVE builder, i.e. the branch Late **skips**. Because Late
   calls `buildLowerToLLVMPipeline` directly, this flag is **irrelevant to Late mode** and must not be
   forced by the entry; forcing it would only widen the blast radius on the ordinary route.
 - `getLowerToLLVM()` — the gate that governs **the ordinary route's** reach into the tail. Measured:
-  `LowerToLLVM` is a `BiShengIRCompileInternalStateOpt` (`Options.td:1557-1563`, comment at
-  `:1548-1550`) with default **`true`**, explicitly documented in-file as *"still real
+  `LowerToLLVM` is a `BiShengIRCompileInternalStateOpt` (`Options.td:1556-1562`, comment at
+  `:1547-1549`) with default **`true`**, explicitly documented in-file as *"still real
   options/config entries … not currently surfaced as normal generated CLI/pass options"*, and **no
   `setLowerToLLVM` call site exists anywhere in the inspected BiShengIR source** (grep over
   `*.cpp`/`*.h`/`*.td`). So on this build the tail always runs, and Late's direct call is consistent
@@ -683,14 +716,26 @@ is indistinguishable from a pass that did not run:
 5. **The trace must not be silently filtered.** See the filtering sub-section below. This is the
    precondition most likely to invalidate an otherwise clean trace.
 
-6. **A count is per function scope, not per construction.** "Twenty construction entries do not imply
-   twenty executions." The registration/`GEN_PASS_REGISTRATION` machinery, nested `PassManager`
-   construction inside a pass body (the in-pass form at `PassPipeline.cpp:564` is exactly this), and
-   multi-threaded cloning can each produce several *entries* for one *execution*. Every count in §3.1
-   and §3.2 that is written as "exactly once" or "zero" is therefore taken **within one function
-   scope** — the instrumented `runOnOperation`/`execute` boundary for that function — and the raw
-   trace is archived alongside it so the scoping is checkable. Where the claim is about a *function*
-   rather than a pass (§3.2's boundary logs), the count is the boundary log's, not the trace's.
+6. **Counting is per operation scope; the assertion is compile-wide. The two must not be confused.**
+   "Twenty construction entries do not imply twenty executions." The registration /
+   `GEN_PASS_REGISTRATION` machinery, nested `PassManager` construction inside a pass body (the
+   in-pass form at `PassPipeline.cpp:564` is exactly this), and multi-threaded cloning can each
+   produce several *entries* for one *execution*. So each count is **measured** at the instrumented
+   `runOnOperation`/`execute` boundary of the scope that actually runs it — the module scope, or one
+   function scope — and the raw trace is archived so the attribution is checkable. But scoping the
+   measurement must **not** weaken what is asserted: the goal's claims are about the whole invocation,
+   so the per-scope measurements are then **aggregated across every manager the run enters**:
+
+   | claim | measured per scope | asserted, compile-wide |
+   |---|---|---|
+   | `ConvertHIVMToLLVM` (§3.2 C2) | count at the module scope of the A5 pipeline that owns it | **exactly 1 in total.** "Once per scope, or once in the tail and once in A5" does **not** satisfy it — a module pass that ran in two entered managers has run twice |
+   | forbidden passes (§3.2 B) | zero at each entered scope | **exactly 0 in total**, summed over all scopes. A pass absent from one manager but present in another is a failure, not a local exemption |
+   | `runHIVMCCompileA5` (A4) | the function-entry boundary log | **exactly 1 in total**, the log being at the function entry precisely so both call sites are covered |
+   | tail passes (§3.1 C1) | per pass **and** per operation scope — nested function passes run separately on the entry and on the VF helper, so one pass legitimately yields two executions | the §3.1 **order** across the run, with each pass's effect present in the emitted IR |
+
+   Where a claim is about a *function* rather than a pass (§3.2's boundary logs), the count is the
+   boundary log's, not the trace's — and that log too is aggregated over the whole invocation, because
+   a function-entry log placed at a single call site would silently miss the other caller.
 
 **A printed header does not prove the pass body ran.** Measured in
 `third-party/llvm-project/mlir/lib/Pass/Pass.cpp`: the instrumentation callback fires at `:516-518`
