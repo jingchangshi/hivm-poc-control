@@ -4467,3 +4467,16 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 | 不存在的路径 | — | `(False, None, None)` |
 
 **函数判别正确**；缺陷在于**模块体内调用点 = 0**，而 docstring 与 `:2236-2248` 的注释却断言"陈旧 fixture **绝不会**被当作本次运行的证据 / 带该标记的一律不得引用"。三处读取 per-row 文件的引用点（`:813`、`:939`、`:1019` 的 `read_text()`）都没有做新鲜度或 run-id 检查。新增的 per-run 日志目录（`logs/suite-v3/<RUN_ID>`）是**实质修复**，对上述读取也顺带堵住了覆盖路径（目录是新的 → `FileNotFoundError` → main 的 `except Exception` 报 BLOCKED 而非 PASS）；但"新鲜度"这一**断言**仍是无强制力的文字。**两条路选一条，不要两条都沉默**：在引用点调用 `freshness` 并对 `predates_run` 为真者判 FAIL/BLOCK；或把那句断言从 docstring/注释里删掉。
+
+### §24 追加 25（同一份修正件里**第三个**"有断言、无执行"的新助手：`stub_bare` 永远为假、`stub_label` 无人调用，2026-10-14）
+
+在改的 v3（sha256 `174a0fdb6b5c4d9b…`，108 543 B）里把助手**当场在真实流上执行**：
+
+| 项 | 事实 |
+|---|---|
+| 常量 | `STUB_BARE_BYTES = 223`、`STUB_BARE_SHA = 1eb04fd1…` —— **正确**：`A13.env.stderr` **单独**正好 223 B 且 sha 正好 `1eb04fd1…` |
+| 域 | `stub_bare` 哈希的是 `(err + "\n" + out)`：A13.env 得到 **224 B**、sha `1754583502…` → 返回 **False** |
+| 后果 | 对**唯一那份标准裸 stub**，`stub_label` 给出 `'STUB-TERMINAL'`；而 STUB-BARE 这个标签**永不可能出现** |
+| 接线 | `stub_bare` 只被 `stub_label` 调用；`stub_label` **零调用点**；10 处实际使用的是（可用的）`stub_terminal` |
+
+即：D051a/D056(b) 规定的"哈希只作 **STUB-BARE 标签**、终位通用拒绝作语义检测器且有优先权"这一双段方案，**语义段已实现且正确，哈希标签段是死代码**。这是**同一份修正件里第三个**同形缺陷（连同 D064 的 `freshness`）：断言写在 docstring 里，却没有任何**被执行**的代码去强制它。补救：裸 stub 的同一性应对 `err` **单独**取哈希（stdout 为空本来就是它的定义之一），或把常量定义在拼接域上；然后在记录 census 的地方**调用** `stub_label` 并把观测到的标签计数打在旁边。**封版前必须让断言与被执行代码一致。**
