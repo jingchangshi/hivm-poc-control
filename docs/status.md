@@ -3505,3 +3505,58 @@ b01/b02 的 stderr 里确实带 MLIR 的 `note: see current operation` 操作转
 `c6838fc0…`/`0761c6e6…` 并重跑 I1–I7（A2 的回归就比对这个值，所以复原是承重的）。
 
 **下一步**：Implementor 实施 P2-B → Verifier 验收（步骤 5）。未 push；`hivm-poc-evidence/` 本地独占。
+
+---
+
+## 2026-10-14 第 21 轮（§23）：P2-A 的构建身份行已按实测填齐；P2-B 验收简报已派发；顺手跑掉覆盖缺口 4 的两个廉价检查，其中**第二个的判据字面写错了**
+
+### 1. `docs/p2-binary-abi.md`：A2/A3/A5/A6 已填（commit `bdd775b`），并收窄了表头那句笼统的 NOT_RUN
+
+表头原写 "no P2 compiler and no P2 binary exists yet"。写的时候是真的，**P2-A 构建之后就不再真**，
+留着会让四条 A 行看起来"没得跑"，而它们其实跑过。现在改成显式边界：A2/A3/A5/A6 **已执行并记录**；
+A1、A4、全部 B、全部 C、全部 D **仍 NOT_RUN**（它们要真二进制，而 P2-A 按设计不产）。
+**A2 的值是 P2-A 范围内的，会被 P2-B 重建取代，不得读成 P2 最终身份。**
+
+我今天**从盘上重测**（不是抄文档）的：
+- **A3**：两个 stage 包各**以自己为 base** 跑 `sha256sum -c` → **4/4 OK**（在别处跑会对正确的包报 FAILED，
+  这是既有教训，所以每次都写清 base）。
+- **A5**：D031 的带外摘要 `SNAPSHOT-MANIFEST-DIGEST.txt` 重跑 → **47/47 OK、零 FAILED、零 warning**，
+  且是**在两个 P2-A 构建和受护复原之后**测的；`INTEGRITY.json` 仍 `7f9b92bf…`，摘要自身仍 `4dfbc856…`，
+  两个被钉的路径（`build/bin/bishengir-opt`、`build/lib/meta_op.aiv.c310.O2.bc`）**盘上仍是钉子里的值**。
+  **没有为了迁就 P2 构建去改 D031 的钉子。**
+- **A6**：I1–I7 复原**前** PASS（`integrity-pre-restore.log`）、**后** PASS（`integrity-post-restore.log`、
+  `p1-integrity-gate-r1.log`）；G1–G4 有记录（`r1-guard-restore.txt`，`2026-10-13T15:49:04Z`），
+  G2 的"恢复产物比其链接输入更旧"是时间戳静态证明；`build/bin` 两个身份我重测回到
+  `c6838fc0…` / `0761c6e6…`。**该行不声称**恢复对 Ninja 安全 —— G2 是记录在案的缓解，
+  §3.3 已写明 `ninja -n` 看不见重新链接。
+- 顺手改正 A2 的一处**我自己写错的尺寸**：stage 里的 compile 是 **205,434,568 B**，
+  不是同名 `build/bin` 文件的 205,293,424 B。同名不同字节 —— 这正是每处引用都必须带路径的原因。
+
+### 2. Verifier 的 **P2-B 验收简报已派发**（msg `718b9500`）
+
+含：**准备可以现在做，执行必须等 implementor 报出 P2-B 包已 stage**（一次只对一个 build 目录）；
+P2-B 解锁的是**通行轨迹/契约保持**行，**A1 与全部 D 行在 P2-B 仍 NOT_RUN**，"还没有二进制"不是 P2-B 的失败；
+证据必须来自**真实 MLIR instrumentation**，源码 grep 计数一律驳回；禁止零清单、必需顺序、
+`ConvertHIVMToLLVM` **恰好一次且唯一属主是 HIVMC A5**；保护不变量**逐 stage 断言**；
+**终止屏障检查必须入口作用域**（`b07` 负例已在）；**不凭名字判断 `SyncBlockLock` 可删**；
+**报出命中的是哪一行**，因 SHA 不符或解析错误而失败的行记 **NOT_RUN**；
+`run_p2_suite.py:1725` 硬编码日志目录的**保旧**纪律；**不得改 oracle / 事后放松断言**。
+
+### 3. 覆盖缺口 4：我跑了那两个"不需要 run"的检查 —— **第二个的字面是错的**
+
+按 `p2-verification.md` §A 缺口 4 的记录，把判据跑在 P2-A/r1 构建生成的 `.inc` 上：
+
+- `ConfigUtils.cpp.inc`：`inputIRStage`/`inputIRStageFlag` **0 次**、`GEN_PASS_OPTION_TO_CONFIG` **0 次** —— 与预测一致。
+- `PassOptions.cpp.inc`：**记录里写的那个字面**（`Pass::Option<std::string> inputIRStage` 在同一行）**0 次**。
+  **这不是预测中的证伪** —— 生成器把声明发成**两行**：`:1192 Pass::Option<std::string>` / `:1193 inputIRStage{`，
+  在 `#ifdef GEN_ALL_OPTION_REGISTRATION`（`:441`–`:1676`）块内。所以正确写法是"行首的 `inputIRStage{` 且在该块内"，
+  而**设计前提在实测产物上是成立的**。**按原字面执行会得到一次假证伪** —— 判据自己说 0 就是证伪。
+  与 `verifyStoreCacheMode` 措辞、`sha256sum -c` 的 base 同形：**判据的效力等于它的拼写**。
+  已在记录处**就地补正**（补正只说准拼写，不放松判据）。
+- 顺带记下**第一条检查的证据力上限**：`ConfigUtils.cpp.inc` 的 mtime 是 **`2026-10-09 14:55:24`**，
+  **早于 P2-A 构建**（`PassOptions.cpp.inc` 是 `2026-10-13 23:06`，被重生成过）。
+  所以"0 次"既可能是"生成器对无 `passGroup` 的 def 本就什么都不发"（预测的原因），
+  也可能是"生成器没针对当前 `Options.td` 重跑"——**单看计数分辨不出**，与 §3.3 记的模板 bitcode 14:42 写入同一形状。
+  该检查是**与前提一致**，不是前提的证明；重生成两个 `.inc` 才能定案，留给 P2-B 的构建，现在不声称。
+
+**下一步**：等 Implementor 报 P2-B 包；Verifier 届时执行验收。未 push；`hivm-poc-evidence/` 本地独占。
