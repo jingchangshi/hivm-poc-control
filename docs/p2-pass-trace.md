@@ -23,7 +23,9 @@
 > reported as such (`docs/p2-verification.md` coverage-delta 2 already records the gap and points at
 > A1/A2b).
 
-**Status: NOT_RUN — no P2 compiler exists yet.** This file is the *record* for §3.2's
+**Status: NOT_RUN — a P2 compiler now exists (`impl/stage-p2b-r1/`, `ea217b8d…`, D074), but no
+archived run in this file is against it: the archived P2-B run bound the pre-instrumentation
+`stage-p2b` `47e02604…` as its `p2_compiler` (measured in §E.3 below).** This file is the *record* for §3.2's
 "measured at zero" claims. Every row below is **NOT_RUN** until the row carries a real command, a real
 log path under `/home/s00653124/workspace/hivm-poc-evidence/p2-20261013-late-pipeline/`, exit codes,
 and input/output SHAs. Opening this file early is deliberate: it is far cheaper than reconstructing
@@ -89,12 +91,21 @@ Rules that apply to every row:
 | A2b | caller `PassPipeline.cpp:564` | correct | **unchanged** |
 | A4 | `hivmc/A5/HIVMCMainA5.cpp:944` | **the path is wrong** | **`bishengir/lib/Tools/hivmc/A5/HIVMCMainA5.cpp:944`** — there is no `Tools/bishengir-compile/` segment in this path; `:944` is the `runHIVMCCompileA5` signature, as intended |
 
-**Measured absence, not assumed:** at HEAD, `regbase/Utility.cpp` contains **zero** `llvm::errs()`
-calls and both functions begin directly with their `module.walk`, and `runRegBasePipeline` has no log
-before `checkInOutOptionsValidity(config)`. So **A1, A2, A2b, A3, A4 are un-runnable as the tree
-stands** — the instrumentation they measure is not present. That instrumentation is in P2-B's scope
-(recorded in `docs/status.md` §23 addendum); these rows stay **NOT_RUN** until it lands and the run is
-archived, and no row may be flipped by inference from another.
+**Measured absence, not assumed — and now measured PRESENT, with an explicit HEAD/working-tree split.**
+At **HEAD `cfaa59677`**, `regbase/Utility.cpp` contains **zero** `llvm::errs()` calls, both functions
+begin directly with their `module.walk`, and `runRegBasePipeline` has no log before
+`checkInOutOptionsValidity(config)`. So against **HEAD alone** A1, A2, A2b, A3, A4 have no
+instrumentation. **That changed in the uncommitted P2-B cut** (four files, `+82/−7`, D074): measured
+2026-10-14 by `grep -c 'P2-BOUNDARY'` in the working tree — `regbase/LatePipeline.cpp` 1,
+`regbase/BiShengIRCompileMain.cpp` 2, `regbase/Utility.cpp` 2, `hivmc/A5/HIVMCMainA5.cpp` 1 = six
+sites, and the binary built from that cut (`ea217b8d…`) carries all six as strings. So the earlier
+phrasing "un-runnable as the tree stands" is **superseded**: the instrumentation exists in the
+working tree and in the P2-B artifact of record, and is **absent from HEAD** until the cut is
+committed. These rows nonetheless stay **NOT_RUN**, and the reason is now specific rather than
+premise-level: the only archived run whose streams are in the record was produced by
+`stage-p2b` `47e02604…`, a binary that **cannot emit the channel at all** (§E.3, D048), so its
+zeros are the unfirable-guard class (D040/D042) and not evidence. No row may be flipped by inference
+from another, and none is flipped here.
 
 **Why this note exists:** the anchors above were recorded as line numbers, and line numbers in a file
 the phase itself edits are not stable identifiers. A log placed at the stale `Driver.cpp:81` would be
