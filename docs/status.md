@@ -2898,3 +2898,21 @@ P2-B/P2-C 落地后转为强制。
 `llvm::cl::location(inputIRStageFlag)`），而声明**只有一个**；对照件同样如此（`:8` / `:11`）。故 check 3 必须以拼写
 `"input-ir-stage"` 或声明行形状锚定。**该陷阱只存在于 `CompileOptions.cpp.inc`**：`PassOptions.cpp.inc` 用
 `Pass::Option`，无 `Flag` 形式，朴素质数本来就是 1。
+
+### 9. P2-A 身份清单（Lead 复核后入账，2026-10-13T15:35Z）
+
+| 项 | 值 | 我的复核 |
+|---|---|---|
+| 生产代码提交（**仅本地**） | `ddc212e299f4493cc1ed8fa8a24cb6c9408e42b6`，parent/base `80e29e6f27192833d2d6cd3fd846e0b78ee02d1c`，分支 `feat/tilelang-hivm-late-pipeline`，10 文件，+1785/−19 | 提交内容确为那 10 个文件；工作树干净 |
+| 可否被误推 | 分支**无 upstream**（`git rev-parse @{u}` → no upstream configured），`git branch -a --contains` 仅本地分支 | 结构性不可误推；远端配置未动 |
+| 提交时可读性 | message 含 **"NOT YET ACCEPTED — pending Verifier acceptance"**，并写明**验收对象是暂存包而非 `build/bin`**（后者已回 P1） | 逐字核对通过（`impl/scratch/p2a-commit-message.txt`） |
+| 权威 diff 导出 | `impl/p2a-commit.diff`，92,625 B，sha `929d1684fa46cc1ff1222b8272b2e1c3a7ea41ed3a23be1d8257d9fad12cbcf9` | 与 `git format-patch -1` 一致；旧 `p2a-implementation.diff`（`9cea956e…`）**已标注被取代**（它只含 7 个修改文件，且早于 §4 注释更正） |
+| 暂存二进制 | `bishengir-compile` `2bf961bf…` / `bishengir-opt` `179788df…`（实拷贝） | 逐字节复算通过 |
+| 暂存 bitcode | O2 `5e7ccae2…`（**= P1 历史钉**）；O0 `0a34be8759a082d2b446e5369455d20c26d432eea19a5ca516c0e189ddafc258`（27,695,180 B） | 两者 mtime 均 `13:46` ⇒ P2 构建**未重生成任何**模板；**O2 仍是唯一绑定**，O0 仅并列存放 |
+| 报告 | `impl/P2A-REPORT.md`（18,362 B），§5 已改用**事发前记录**（`build.log:41/46`、`:134`，且全文 `Found ZLIB` 0 次）证明修复，§4 已补报 opt 的两次运行时证据 | 已核 |
+
+**记录可用性缺陷（已要求 Implementor 修正）**：`impl/stage-p2a-SHA256SUMS.txt` 位于其相对路径基准目录的**上层**，故
+`cd impl && sha256sum -c stage-p2a-SHA256SUMS.txt` 得 **4× FAILED open or read**，而正确基准
+（`cd stage-p2a && sha256sum -c ../stage-p2a-SHA256SUMS.txt`）为 **4/4 OK**。**我本人先读成了"包损坏"**，随后才发现是基准问题 ——
+与我在 P1 保留件上犯的同类错误。已请其把清单移入 `stage-p2a/`（与 `lead/preserved-p1-compiler/SHA256SUMS.txt` 一致），
+并已即时提醒 Verifier：**`sha256sum -c` 的结论必须连同清单基准目录一并记录**，因为"路径错"与"哈希不符"在该输出里无法区分。
