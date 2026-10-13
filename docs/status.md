@@ -3951,3 +3951,70 @@ entry-terminal 规则）。所以这一条是**判别力**缺陷，**不是**"�
 
 **下一步**：等三份回报（Implementor 提交 + G/I 复测；Verifier P2-B 验收 + 四条复现；Challenger 五问裁决
 外加本条追加的第 6 问）；未 push；`hivm-poc-evidence/` 本地独占。
+
+### §24 追加 3（同日 01:0x–02:0x）：**P2-B r1 的宿主机编译事故** —— 我先量，再裁定（D041）
+
+**事件**（`impl/scratch/p2b-r1-host-incident.txt`，19657 B，10-14 00:59）：Implementor 把
+`ninja -j 96 bishengir-compile bishengir-opt` 跑在**宿主机**上，而不是经 `scripts/in-container.sh`。
+该 build tree 是**容器构建**：`.ninja_deps` 记录的是容器系统头，宿主机上不存在，于是 ninja 判 4702 条边为脏、
+执行约 245 条，死在 `lib/Support/.../Process.cpp.o`（宿主 glibc 2.31/libstdc++ 9 vs 容器 glibc 2.39/libstdc++ 13，
+`mallinfo2`、`arc4random` 缺失）。损伤：**232 个 `.cpp.o` + 8 个 `.c.o` = 240 个宿主编译产物**、
+**3 个由这些产物重打的归档**、以及失败边自己删掉的 **1 个产物** `Process.cpp.o`。
+`build.ninja` 的 mtime 未变（23:05:14）⇒ **没有改任何构建配置**。
+
+**修复的复核 —— 我自己从盘上量，不采信报告**：
+
+1. delete-list 243 条路径现在**全部存在**，243/243 的 mtime 晚于 00:50，早于的一个也没有。
+   （**基准目录 `AscendNPU-IR-1/build` 必须写明**：`find`/`stat` 的结论离开基准目录没有意义。）
+2. 现在 `build/` 下**没有任何 `.o` 落在宿主窗口**。当前 `.o` mtime 直方图：22:5x ×4、23:00–09 ×2888、
+   23:4x ×1、01:00–09 ×248，**00:00–00:59 段为空**。
+3. 取路径字段做集合代数：touched(255) ⊇ deleted(243)，**touched ∖ deleted = 恰好 12 条，且全部是 00:58
+   那次容器内 cmake 重配生成的构建簿记/配置文件**（`build.ninja`、`CMakeCache.txt`、
+   `CMakeFiles/{cmake.check_cache,CMakeConfigureLog.yaml,cmake.verify_globs,rules.ninja,TargetDirectories.txt}`、
+   `compile_commands.json`、`lib/cmake/llvm/LLVMConfigExtensions.cmake`、`tablegen_compile_commands.yml`、
+   `Version.inc`、`LibraryDependencies.inc`；mtime 00:58:23–30），**没有一个是对象文件或归档**。
+4. deleted ∖ touched = ∅（被删的每一条都在 touched 里，没有"漏网的第 241 个"）。
+5. **touched 里每一条路径都以 `./` 开头** ⇒ **建树之外一个文件都没被动过**。这一条是"源码/冻结 fixture/oracle/
+   证据树未受损"的**实测**依据，而不是推断。
+6. r1 的容器内构建日志重建了**整个被删集合，另外多 8 个**，且 8 个都能解释：`Process.cpp.o`（失败边的产物）、
+   4 个被编辑的源文件（`LatePipeline`/`BiShengIRCompileMain`/`Utility`/`HIVMCMainA5`）、以及
+   `HFusionOps`/`LinalgOps`/`Version.cpp.o`（重生成的 `.inc` 的下游）；`comm -13` 为空 ⇒ **被删的没有一个是没重建的**。
+7. **严重性是量出来的，不是假设的**：把 `p2b-r1-host-touched.txt` 里删除前记录的 size 与重建后的 size 逐条比，
+   **156 条变了**（如 `Program.cpp.o` 44232→41736、`ELFAttributeParser.cpp.o` 33816→37440），99 条没变
+   ⇒ 宿主产物是**实质不同的目标文件**，删掉它们是**必要**，不是洁癖。
+8. **一条我明确"披露而不解释"的异常**：快照里 240 个对象的 mtime **全部落在 0.63 秒的窗口内**
+   （00:54:15.5072879630 → 00:54:16.1392879830）——这对 240 次真实编译（哪怕 `-j96`）来说太快，
+   而其中 156 个内容又确实不同。`ccache` 是开着的（`LLVM_CCACHE_BUILD=ON`，launcher
+   `/home/s00653124/Softwares/ccache/ccache`，`CCACHE_CPP2=yes CCACHE_HASHDIR=yes`），命中会瞬间完成，
+   但命中返回的是缓存字节，与那 156 条 size 变化矛盾。**两种候选解释我都没有证据**，
+   所以记为**未解异常**并转给 Challenger（Q8），不替它编一个原因。
+9. 22:58 那次**宿主机 cmake** 事故可判**已闭合**：P1 完整性门 I1–I7 在三次记录里都 PASS（23:10、23:46、00:46），
+   各 P2 staged bundle 本次也各自从自己的基准目录 4/4 通过 ⇒ 那 240 个宿主产物来自**一次建树读取**，
+   **没有污染任何被保全的产物**。
+
+**由这次事故带出的两个身份问题（都不是"洁癖"，都会真的挡住验收）**：
+
+- **`build/bin` 不再是 D031 的两枚 pin。** Implementor 在 00:46 确实把 `build/bin` 还原成了 D031
+  （`p2b-guard-restore.txt`：`c6838fc0…`/`0761c6e6…`，并给了 G2 的时序证明）；但 01:00 的 r1 **容器内**构建
+  **合法地重新链接**了它们 → `ea217b8d…`(205436664 B) / `4c31167b…`(214610872 B)，与
+  `impl/stage-p2b-r1/bin/` 逐字节相同。而冻结的 `p2-bindings.json` 里有**两条按路径+SHA 钉在 `build/bin` 上**的绑定：
+  `baseline_pre_p2_compiler`（套件 A2 的普通路径回归、D4 冒充检查）与 `bishengir_opt`（C6）；
+  runner 对路径-哈希不一致的行为是 **BLOCKED，不是误判为 PASS**。
+  **裁定：用 `lead/preserved-p1-compiler/`（本次复核仍在 D031 两枚 pin 上，外加 O2 模板 `5e7ccae2…`）把
+  `build/bin` 还原，并写 guard 日志。** P2 身份不会丢 —— 它以相同字节存在 `stage-p2b-r1` 里。
+  **由此得出的时序规则：还原之后又构建，就等于没还原；`build/bin` 的还原只能在"本阶段最后一次构建之后"做。**
+- **Verifier 的绑定指向了被取代的 bundle。** `p2-bindings.json.p2_compiler` 现在指向
+  `impl/stage-p2b/bin/bishengir-compile` = `47e02604…`（记的是 16:59:40Z 重绑），而它已被
+  `stage-p2b-r1`（`ea217b8d…`）取代 —— 后者才是携带**通行轨迹 A1–A4 需要的那四个边界日志**的 bundle。
+  在 D040 措辞修正及其重建之前重绑，只会再绑一个被取代的身份 ⇒ **绑定必须跟随最终 bundle**。
+
+**未动用任何需要用户同意的动作**：没有 `git reset --hard`、没有 `git clean`、没有强推、没有重建环境、
+没有改任何容器、没有 push、artifact 里没有凭据。建树 HEAD 仍是 `cfaa59677` + 同样 4 个 dirty 文件（已量）。
+
+**下一步**：① Implementor —— 还原 `build/bin` + guard 日志；交出**宿主机那次运行自己的命令行与日志**以及
+00:54 前后的 `ccache -s`（这是异常唯一缺的证据）；完成 D040 措辞修正；**只经 `scripts/in-container.sh` 构建**；
+stage 最终 bundle；两次提交。② Verifier —— 用自己的命令独立重跑"普查 + 还原"两项检查，并把 `p2_compiler`
+重绑到**最终** bundle 之后再跑验收。③ Challenger —— Q8：0.63 秒异常，以及这次重复的程序违规是否该立"常设规则"。
+日志路径：`impl/scratch/{p2b-r1-host-incident.txt,p2b-r1-host-delete-list.txt,p2b-r1-host-touched.txt,`
+`p2b-r1-build.log,p2b-r1-cmake-reconfig.log,p2b-guard-restore.txt}`、`lead/preserved-p1-compiler/`、
+`impl/stage-p2b-r1/SHA256SUMS.txt`。
