@@ -2644,3 +2644,28 @@ pass 命名空间无法取值，也未承载两个命名空间的 `--help` 证�
 
 已通知 Implementor：只需**更正注释**（生成面含两份 `Pass::Option`），**不要**加 `passGroup`；测试是
 Verifier 的，不需要它写。
+
+### Lead 自查出**自己准入记录里的一个缺陷**（§0.1f）—— 以同一标准对待
+
+`verify` 在其勘误消息里指出：我的准入引用 `5b25ea9b…`，而权威封存是 `bd9643b2…`，且我的 smoke 复跑
+"ran at ~14:04Z — before that re-seal landed"。**我不接受断言、去量**，结果比它说的更严重：
+
+| 事件 | 实测 (UTC) |
+|---|---|
+| Lead smoke 复跑 #1 的日志 mtime | **14:04:03Z** |
+| `run_p2_suite.py` 最后一次写入 | **14:10:23Z** |
+| v2 manifest 重封 | **14:14:39Z** |
+
+⇒ 复跑 #1 **既不是**当前 runner，**也不是**准入的封存件：它跑的是 `14:10:23Z` 之前的 runner 修订版，
+**早于**它本应验证的 item 8–9 加强。∴ §0.1b 那句"Lead smoke re-run reproduced the Verifier's result
+exactly"把它当成了准入证据，**这是我自己记录里的缺陷**，与我在 §0.1c 上报的两项**同类**。
+
+**处置（对称，不双重标准）**：①**保留**原日志，不删除（`lead-admission/lead-v2-smoke-repro.log`）；
+②对**封存件**重跑 #2（`2026-10-13T14:31:27Z`–`14:31:36Z`，exit 0，runner sha
+`0677be1a7ba217d7587c9c65436d93966ec5d40c03f5b8cc28c61989beea5621`），结果**完全相同**
+PASS=1 FAIL=0 BLOCKED=0 NOT_RUN=39，日志 `lead-v2-smoke-repro2-current-runner.log`（两日志并置，顺序不会丢）；
+③§0.1b 显式写出顺序；④两个 sidecar 事后复验 **OK**；⑤记入新行 **§0.1f**。
+
+**该缺陷未改变结论**（C6 是 fixture 自检，item 8–9 不触及它）——但这是**重测之后**才成立的论证，
+不是当初引用可以接受的理由。run #2 再次改写了 `verify/logs/suite/*` 与 `verify/work/run`（均非 pin），
+已披露。
