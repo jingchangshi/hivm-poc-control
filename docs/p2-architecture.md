@@ -273,17 +273,27 @@ arguments.** `hasExplicitCLOption` (`BiShengIRCompileConfig.cpp:366-371`) return
 **once** at `bishengir-compile.cpp:102` from `registerAndParseCLIOptions` (`:89`), whose only call site
 is `main`'s `:144`. An entry that injects or rewrites the pinned arguments **after** that call has not
 made them explicit: it changes the config field, and then `applyArchDependentCompileDefaults` — invoked
-later, from `createFromCLOptions` — overwrites the value because `getNumOccurrences()` is still zero.
+later, from `createFromCLOptions` — writes its own value over it, because `getNumOccurrences()` is
+still zero. (For three of the five rows the arch default happens to **equal** the pin, so that
+overwrite is benign *today* — which is precisely why the mistake would go unnoticed until a future
+default changed, and why the entry must assert explicitness rather than assume its write survived.)
 
-Concretely, `main` already fixes the window. It raw-scans the target at `:114` **before** the parse,
-then copies `argv` into `originalCLArgs` at `:121-124` — also before the parse — and that vector is what
-is forwarded downstream at `:186` (`runRegBaseCompile(…, originalCLArgs)`, and thence
-`filterRegBaseForwardedHIVMCOptions`). So the pinned arguments must be written into `argv` in the window
-`:114`–`:121`, i.e. after the target is known (the validator needs it) and before both the parse and the
-`originalCLArgs` capture. Injecting later changes what the config holds while leaving the downstream
-command echo, and `hasExplicitCLOption`, disagreeing with it. The entry's own assertion that each pinned
-option is explicit must therefore read back the **post-parse `getNumOccurrences()`**, not its own
-bookkeeping — otherwise the check passes on exactly the mistake it exists to catch.
+Concretely, `main` fixes the deadline, and it is **earlier than the parse**. It raw-scans the target at
+`:114` (before the parse, the same way `hasRegBaseTarget` does at `:56-70`), then copies `argv` into
+`originalCLArgs` at `:121-124` — also before the parse — and that vector, not `argv`, is what is
+forwarded downstream at `:186` (`runRegBaseCompile(…, originalCLArgs)`, and thence
+`filterRegBaseForwardedHIVMCOptions`). So the pinned arguments must be written into `argv` **before
+`:121`**: after that point `hasExplicitCLOption` can still be satisfied (up to `:144`) while the
+downstream command echo carries a different set of flags, which is the log-vs-binary divergence this
+section exists to prevent.
+
+Placement **before `:114`** — alongside the Late detection and target validation of §2.2, which must
+already run there — satisfies this with room to spare, and the target the validator needs is available
+from the same raw scan rather than from the parsed config. Placing it later than `:121` does not.
+
+The entry's own assertion that each pinned option is explicit must read back the **post-parse
+`getNumOccurrences()`**, not its own bookkeeping — otherwise the check passes on exactly the mistake it
+exists to catch.
 
 **A TableGen default is not the effective default on the regbase route, and three rows above depend on
 that.** `applyArchDependentCompileDefaults`

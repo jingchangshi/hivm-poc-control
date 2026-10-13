@@ -2308,10 +2308,14 @@ census**（exit 0，含 `builtin.module`、`func.return`、`scf.yield`，计数�
    （位于 `registerAndParseCLIOptions`，`:89` 定义，唯一调用点 `:144`）。解析之后再注入只改 config 字段、
    `getNumOccurrences()` 仍为 0，随后 `applyArchDependentCompileDefaults` 会把值**覆盖回去**。
 
-**Lead 的再推导比裁决多给出的一个约束（已向 Challenger 明确请其复核）**：窗口比"解析之前"更紧，是
-`:114`–`:121`。因为 `main` 在 `:114` 先裸扫 target、在 `:121-124` 把 `argv` 拷进 `originalCLArgs`，而
-下游 `:186` 转发的是**这个 vector**；若在 `:121` 之后、`:144` 之前注入，会满足 `hasExplicitCLOption`
-却让下游命令回显与 config 不一致 —— 正是 §2.3.1"一条规则"要防的 log-vs-binary 分歧。
+**Lead 的再推导比裁决多给出的一个约束（已向 Challenger 明确请其复核）**：deadline 比"解析之前"更早，
+是**必须在 `:121` 之前**。因为 `main` 在 `:114` 先裸扫 target、在 `:121-124` 把 `argv` 拷进
+`originalCLArgs`，而下游 `:186` 转发的是**这个 vector**；若在 `:121` 之后、`:144` 之前注入，会满足
+`hasExplicitCLOption` 却让下游命令回显与 config 不一致 —— 正是 §2.3.1"一条规则"要防的 log-vs-binary
+分歧。**落点**：与 §2.2 的 Late 检测/目标校验一道放在 **`:114` 之前**即可满足（validator 需要的 target
+从同一次裸扫即可取得，不必来自已解析的 config）；放在 `:114`–`:121` 之间也满足，但**晚于 `:121`
+不满足**。原文曾把窗口写成 `:114`–`:121`，读起来像"必须在 `:114` 之后"，与 §2.2"在 `:114` 之前"
+并置会产生表面矛盾，故改为以 `:121` 为 deadline 的表述。
 
 ### 顺带修掉的三处既有引用错误
 
