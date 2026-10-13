@@ -4410,3 +4410,19 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 **3. routing 门禁项在封版件里仍然缺失（阻塞）。** 九个 token（`P2-BOUNDARY`、`late-route`、`ordinary-regbase-pipeline`、`inferMixedCV`、`inferLayoutOptimization`、`retry-loop`、`routing`、`stage-p2b-r1`、`ea217b8d`）在 `run_p2_suite_v3.py`（`426ec057…`）与 `run_p2b_trace_harness.py`（`b286e4f6…`）中**全部为 0**；`CFG.p2_compiler` 仍绑 `impl/stage-p2b/bin/bishengir-compile`（`47e02604…`，marker **0/6**），而非 `stage-p2b-r1`（`ea217b8d…`，marker **6/6**）。D052/D056 把路由对提为**门禁项**（"not disclosure only"），因此**按现状封版的 v3 不能承担 P2-B 验收运行**：必须补上路由对（Late 有 marker/ordinary 无、ordinary 有 marker/Late 无，各自绑定确切 SHA 与 run id）并把绑定重指到 r1，否则这次运行不是验收运行。
 
 **4. 阻塞链未变。** implementor 仍停在只读权限提示（其四项交付未做：未重写提交、只经 `scripts/in-container.sh` 构建一次、暂存最终 bundle、从 `lead/preserved-p1-compiler/` 恢复 `build/bin` 并留 guard 日志）。**standing 建议：拒绝**——其待批命令是普通路径正例控制，已被冻结行 A2 + 路由对取代。P2-B 仍未接受；`build/bin` 未动（`ea217b8d`/`4c31167b`，01:00:24）；无构建、无推送。
+
+### §24 追加 21（**routing 对已实测执行**：双向判别成立，且 ordinary 半在 r1 上逐字节复现 A2 的 pre-P2 基线产物——这是 D055 从"可推"变"已测"的证据，2026-10-14）
+
+**做法**：不改源码、不构建，只把已暂存的 r1 bundle 经 `scripts/in-container.sh` 各跑一次（Lead 侧临时证据；独立验收证据仍属 verifier，裁决要求两套 provenance 分开）。命令与输出：`lead/scratch/routing-pair/run-routing-pair.sh` → `run-20261013T202128Z/`（每半都有 `cmd.txt`/`rc.txt`/`stdout`/`stderr`）。
+
+| # | 输入 | 参数 | rc | 产物 | 关键 marker | 终行 |
+|---|---|---|---|---|---|---|
+| 1 | `ordinary_regbase_memcpy_f32.mlir` | 无 late 旗标 | **0** | `kernel.o` 3992 B sha **`01fce255…`** | `ordinary-regbase-pipeline`；另有 `inferLayoutOptimization`/`retry-loop 1of2`/`a5-compile`；`late-route` **0** | 无 `[ERROR]` |
+| 2 | `vadd_late_p1v2.mlir`（golden，`d1023ac1…`） | `--input-ir-stage=late-hivm` | **1** | **ABSENT** | `late-route stage=late`；`ordinary-regbase-pipeline` **0** | fail-closed stub `[ERROR]`（285 B = 223 + 62） |
+| 3 | `ordinary_regbase_memcpy_f32.mlir` | `--input-ir-stage=late-hivm` | **1** | **ABSENT** | `late-route` **1**；`ordinary-regbase-pipeline` **0** | `[ERROR] Late mode: input validation failed…` |
+
+**绑定**：被测件 `impl/stage-p2b-r1/bin/bishengir-compile` sha256 `ea217b8d…`（完整 4/4 staged bundle）；wrapper `scripts/in-container.sh` sha256 `2ed26e9b9fc66f2376797ecbe4d21f5074cb162ab3f2a1cc6e55c74f9fead34f`。
+
+**三点结论。** (1) **双向判别成立**：Late 有/ordinary 无、ordinary 有/Late 无，两个方向都测到，而不是"只测存在"。 (2) **D055 由推变测**：r1 上无旗标的 ordinary 产物 sha 与冻结行 A2 断言的 pre-P2 基线 **逐字节相同**——这是**产物级**证据，说明插桩没有扰动 ordinary 路由的**输出**，比"marker 打出来了"强得多。 (3) 第 3 行是个有用的负例仪器：r1 上 fail-closed stub **只有合法 Late 输入才会到达**，非法输入更早被 Late 输入校验器拦下——这解释了为什么 A13.env（223 B 裸 stub，env 被 docker 边界丢掉后走的是合法 Late 输入路径）与本次第 2 行同族。另外 285 − 223 = 62 = 一行 marker + 换行，与 stub 两种形态的属性式规则互相印证。
+
+**边界**：这**不**关闭 D052/D056 的门禁项——门禁要求该对**作为一行存在于封版修正件内**并在最终 bundle 上跑；D060(d) 已测出封版 v3 里 **0** 条路由行。本次是**临时**证据，不得升格为最终 artifact-of-record。
