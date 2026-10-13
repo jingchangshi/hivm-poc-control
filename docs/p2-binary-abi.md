@@ -97,6 +97,22 @@ C8 inherits the P1 contract gate's **semantic** requirement: the terminal barrie
 moved into that helper must not satisfy it. The negative is
 `verify/tests/negatives/b07_pipe_all_moved_into_vf.mlir`.
 
+**C9's assertion boundary is narrower than "kept as the launch contract" suggests, and that must be
+stated or the row will be read as requiring something AscendNPU-IR does not do.** `dyn_shared_memory_buf`
+has **zero** consumers anywhere in the AscendNPU-IR tree (grep over `*.cpp`/`*.h`/`*.td`/`*.py`: no
+hits). It is a TileLang/TVM-side PrimFunc attribute: written by
+`tilelang/src/transform/lower_device_kernel_launch.cc:305`, read by
+`tilelang/tilelang/jit/adapter/wrapper.py:488-489`, and consumed at runtime by
+`tilelang/src/ascend/runtime/ascend_module.cc:482-489`, which sets
+`kAclLaunchKernelAttrDynUbufSize`. So within P2 the row can assert exactly two things, both on the
+**emitted artifact**: the func attribute is still present on the entry with value `196608`, and the
+device-spec `UB_SIZE` entry is still `2031616` (bits). The launch-contract consumption is a
+TileLang-runtime and P3 concern; a P2 check that hunts for a compiler-side reader will find none and
+must not read that absence as a failure. The frozen artifact records this too, including its own
+correction of an earlier claim (`vadd_late.mlir:38-46`: "an earlier note here claimed the arena 'has no
+carrier in the Late IR'. That was WRONG — it conflated 'no consumer in AscendNPU-IR' (true) with 'no IR
+carrier' (false)").
+
 ## D. Final artifact authenticity (goal §7 D)
 
 | # | requirement | status |

@@ -1992,6 +1992,26 @@ Config.h:86` 属主配置；`include/bishengir/Tools/hivmc/Config.h:746` 属**�
 
 **未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍等 `verify` 与 `review-2`。
 
+### P2 Lead 界定 C9 的断言边界 —— `dyn_shared_memory_buf` 在编译器树内**没有消费者**（Lead，2026-10-13）
+
+**阶段**：P2 步骤 3。目标 §6.3 第 9 条说"dynamic UB=196608 作为启动契约保留，不误写为设备容量"。若不把
+它的**断言边界**写清，这一行会被读成"要求 AscendNPU-IR 消费它"—— 而它并不消费。
+
+**实测**：`grep -rn 'dyn_shared_memory_buf' AscendNPU-IR-1/bishengir`（`*.cpp`/`*.h`/`*.td`/`*.py`）
+**零命中**。它在 TileLang/TVM 一侧：写于 `tilelang/src/transform/lower_device_kernel_launch.cc:305`，
+读于 `tilelang/tilelang/jit/adapter/wrapper.py:488-489`，运行时由
+`tilelang/src/ascend/runtime/ascend_module.cc:482-489` 消费（设 `kAclLaunchKernelAttrDynUbufSize`）。
+
+**∴ P2 内 C9 只能断言两件事，且都在发出的产物上**：(i) 入口函数上该 func attribute 仍在且值为
+`196608`；(ii) 设备规格里的 `UB_SIZE` 仍是 `2031616`（bits）。启动契约的消费属 TileLang runtime + P3；
+**P2 若去编译器里找消费者，会一无所获，且不得把这种"找不到"读成失败**。冻结产物自身也记了这一点，含
+它对早期错误说法的自纠（`vadd_late.mlir:38-46`：早前称 arena "has no carrier in the Late IR"，"That was
+WRONG —— 它把'在 AscendNPU-IR 中没有消费者'（真）与'没有 IR 载体'（假）混为一谈"）。
+
+**已落文档**：`docs/p2-binary-abi.md` §C（C9 边界段）。
+
+**未变**：P2 生产代码 **0 行**；两仓库仍在 D031 头；步骤 4 仍等 `verify` 与 `review-2`。
+
 ### P2 Lead 预冻结 B5/C4 的期望值 —— 从模板源定义，先于任何实现（Lead，2026-10-13）
 
 **阶段**：P2 步骤 3。**动机**：CLAUDE.md 要求"期望结果独立于生产实现、在实现之前定义"。目标 §6.2 的
