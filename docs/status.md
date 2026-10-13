@@ -2494,3 +2494,50 @@ Lead 复核，含四项缺口）。∴ **第 3 门 APPROVE 覆盖 `094c730` 之�
 **`verify` 进展（同刻实测）**：转录 543 条，最后活动 13:55:01Z —— 正在把测试清单从 v1 的 **35** 项扩到
 **40** 项（改写 A13、新增 A14/A15、更新 REGISTRY），即 v2 修订本身，不是卡住。**§8 步骤 4 的门禁仍
 是这一冻结落地**；P2 生产代码仍 **0 行**。
+
+---
+
+## 阶段：§8 步骤 4 —— v2 冻结准入 + P2-A 开工（2026-10-13，控制提交 `72c5dff`、`1e6e686`）
+
+**阶段**：测试冻结完成（v2），Lead 准入检查通过；Implementor 已开工 P2-A。
+**结果**：**准入 = 通过**；P2 生产代码自此**不再是 0 行**（Implementor 运行中）。
+
+### v2 冻结（不受信采纳，逐项独立复算）
+
+| 项 | 声称 | Lead 独立复核 | 结论 |
+|---|---|---|---|
+| v2 manifest | `5b25ea9b…` | 复算一致；sidecar `sha256sum -c` OK；**30/30 条 pin 的文件全部重算一致** | ✅ |
+| v1 manifest 未被改动 | `801b1edb…` | 复算一致（字节未变） | ✅ |
+| 无 fixture 漂移 | 23 个 byte-identical | 23 个 fixture 对 **v1** pin 全部一致 —— **零漂移** | ✅ |
+| 未弱化 v1 断言 | 声称 | 从 runner 重新推导：v1 的 A1–A13/B1–B11/C1–C6/D1–D4 全在；**forbidden-pass zero = A10、required order = A11、LLVM exactly once = A12**，均在且被加强 | ✅ |
+| 40 项 / 计数 | A15 B15 C6 D4 | runner REGISTRY 实测 40，计数一致；唯一 id 差 = **B12→B12a–d**（已在修订文档声明）+ 新增 A14/A15 | ✅ |
+| 冒烟 | PASS=1(C6) / NOT_RUN=39 | **Lead 亲自复跑**：`python3 -I tests/scripts/run_p2_suite.py` → exit 0、PASS=1 FAIL=0 BLOCKED=0 NOT_RUN=39，**与报告逐字一致**；日志 `p2-20261013-late-pipeline/lead-admission/lead-v2-smoke-repro.log` | ✅ |
+
+v1 manifest 对 4 个文件（README、两个 bindings、runner）已不再匹配 —— 这**正是**被声明的修订，不是漂移。
+
+### 两项记录缺陷（已上报所有者，未自行修改）
+
+1. **声明时间晚于封存时间**：`P2-TEST-MANIFEST-v2.json` 声明 `frozen_utc = 14:05:00Z`，而其自身 mtime 为 **14:00:53Z**（宿主 UTC+8，已用 `date -u` 核实）——声明**晚于**封存 4 分 07 秒，且我 14:02:57Z 读取时**该时刻尚未到来**；`p2-bindings.template.json` 声明同一 `14:05:00Z` 而写于 13:56:18Z。v1 manifest 此项**完全正确**（声明 == mtime），∴ v2 是回归。
+2. **一处措辞过宽**：修订文档称"no v1 assertion is weakened, removed, or **re-numbered**"。前两项成立（已确认无断言被删）；但 **B12→B12a–d 就是一次重编号**，虽然同文档已声明且严格更强。
+
+**处置**：两份文件都是 Verifier 的、且**已封存**，Lead 改动会破坏封存 ∴ 未自行动手；已请其在**未封存的**规范位置（如 `verify/ERRATUM-v2-freeze-time.md`）记录真实封存时间 14:00:53Z，并修正措辞；30 条 pin 的 SHA 才是封存本体且正确，**不建议**为元数据再出 v3。
+**并已披露**：Lead 的冒烟复跑重写了 `verify/logs/suite/*` 并新建 `verify/work/run`（两 manifest 均**不 pin** 任何日志；复跑后两个封存**复验 ALL OK**）。
+
+### 验收矩阵重新推导（我的表曾与冻结套件脱节）
+
+**发现**：`docs/p2-verification.md` 里 Lead 写的 A/B/C/D 表与冻结 runner **编号不一致**（B 从 B4 起错位一位、C 编号不同、D 漏了 D4）。**冻结套件是权威** ∴ 已按 runner **重新推导 A1–A15 / B1–B12d / C1–C6 / D1–D4**，并**显式记录**三条旧表有、冻结套件无的覆盖空白（**不是**悄悄删掉）：
+
+1. Late 但**缺 CLI `--target`** —— `a*` 用例覆盖的是**输入**属性（stage/module core/device spec/hacc target），CLI target 缺失是另一回事，**无任何用例**。
+2. **路由以 boundary log 断言**（Late 行在、ordinary 行不在）—— A1 成功**蕴含**走了 Late，但该断言从未由 trace 承载。
+3. **`inferLayoutOptimization`/`inferMixedCV` 零调用** —— trace 对其**天生盲**（plain `module.walk`），需函数入口 boundary log。
+4. 另记:goal §9 要求的**仓内可维护回归测试**在 C1–C5 中**没有**（它们是验收测试，不是仓内回归）。
+
+⇒ 列为 **§8 步骤 8 的覆盖问题**（Challenger 裁定），**不是**开工阻塞；已明确**不**要求 Verifier 现在补测。
+
+### 当前执行
+
+- **Implementor（`implementor`）已启动 P2-A**，brief 含 APPROVE 的四条 argv 义务、validator 注册须有 `--help` 证明、不得覆盖 P1 pin（按 §3.3 G1–G4 暂存）、不得改封存测试/golden、**不得做任何生产路径断言**（pass 计数/ABI/bitcode/二进制只能由 Verifier 执行后成为证据）。
+- `verify` 仍活跃（已收到勘误请求）。
+
+**未变**：所有执行类验收行 **NOT_RUN**（除 C6 冻结时 PASS，且 Lead 复跑一致）；`hivm-poc-evidence/` 本地专属；**未推送**（本地 ahead）。
+**下一步**：等 Implementor 交付 P2-A（源码 diff + 构建退出码 + 暂存包 SHA + `--help` 证明 + `getNumOccurrences()` 回读）→ 交 `verify` 做验收 → 再启 P2-B。
