@@ -1,6 +1,24 @@
 # P2 binary & ABI acceptance record
 
-**Status: NOT_RUN — no P2 compiler and no P2 binary exists yet.** Every row below is **NOT_RUN** until
+**Status: partially executed — scoped to what P2-A actually produced.**
+
+Boundary, stated so no row's status is inferred from a neighbouring row's (revised 2026-10-14):
+
+- **Executed: the build-identity rows (A2, A3, A5, A6).** A P2 compiler *does* exist — the P2-A
+  entry-only `bishengir-compile` — and its absolute path, SHA-256, tree SHA, staged-bundle hashes and
+  guarded-restore state are all measured below. This corrects the earlier blanket sentence in this
+  header ("no P2 compiler … exists yet"), which was true when written and stopped being true at the
+  P2-A build; leaving it would have made the A rows read as un-runnable when they had in fact run.
+- **Still NOT_RUN, unchanged: A1, A4, all of B, all of C, all of D.** A4 needs the *runtime-resolved*
+  `../lib` path from an executed compile; B/C/D need a real binary. **P2-A produces no binary by
+  design** (the entry refuses after validation), so nothing in B/C/D can be measured yet, and the
+  no-binary outcome is **not** a P2-A defect and **not** a P2 success — it is out of P2-A's scope.
+- **The A-row values are P2-A-scoped and will be superseded, not silently overwritten.** P2-B rebuilds
+  the compiler, so A2's identity will change; the superseded value moves to the retained-identity table
+  in §0 the way the P2-A bundle's already did. **Do not read A2's recorded value as the final P2
+  identity.**
+
+Every row below is **NOT_RUN** until
 it carries a real command, the tool's **absolute path**, the Git SHA of the tree used, input and output
 SHAs, the exit code, and the expected-vs-actual comparison. A prebuilt-ELF runtime run does not prove
 CodeGen E2E, and a finished compiler or generated ELF does not prove numerical correctness — P2 requires
@@ -16,8 +34,8 @@ values, because a second copy of a hash is a second thing that can drift.
 | role | fixed by | recorded in | status |
 |---|---|---|---|
 | **compiler** — P1's `bishengir-opt` | D031 / `snapshot/INTEGRITY.json` I5 (`0761c6e6…`) | A1 (historical identity, **not** P2's expected SHA) | recorded |
-| **compiler** — P2's own `bishengir-compile` | the P2 build from `80e29e6f27…` | A2, A3 (staged bundle), A5 (D031's pin unmodified) | NOT_RUN |
-| **compiler** — restore integrity of the P1 pin | guarded restore, `p2-architecture.md` §3.3 G1–G4 | A6 | NOT_RUN |
+| **compiler** — P2's own `bishengir-compile` | the P2 build from `80e29e6f27…` | A2, A3 (staged bundle), A5 (D031's pin unmodified) | **P2-A scope recorded** (`1a3f20f8…` @ tree `cfaa59677`); final identity pending the P2-B rebuild |
+| **compiler** — restore integrity of the P1 pin | guarded restore, `p2-architecture.md` §3.3 G1–G4 | A6 | **P2-A instance recorded** (I1–I7 PASS pre/post; G1–G4 logged; baseline re-measured `c6838fc0…`/`0761c6e6…`). Repeats at every later P2 build |
 | **bitcode** — C310 AIV template actually consumed | rebuilt from the P2 tree; path resolved from the **staged** bundle | B1, B2 (O0/O2), B3 (`/proc/self/exe`), B4 (`../lib`), B7 (no old/fallback template) | NOT_RUN |
 | **bitcode** — the store ABI inside it | the template source `DMAUtils.h` at HEAD | B5 (the 4th i32 libcall argument), B6 (cache4 not cache0) | NOT_RUN |
 | **bitcode** — hard failure when it is missing or wrong | the P2 entry, on the resolved path | B8 (N1–N4) | NOT_RUN |
@@ -77,11 +95,11 @@ bundles' SHAs match, so the content is identical and the mtime difference carrie
 | # | field | value | status |
 |---|---|---|---|
 | A1 | P1 `bishengir-opt` SHA (historical identity, **not** P2's expected SHA) | `0761c6e662ee015e30425ee29e0c2314753aa356b21eb4119ff99747327a1977` | recorded |
-| A2 | P2's own `bishengir-compile` identity: absolute path + SHA-256 + Git SHA of the tree | — | NOT_RUN |
-| A3 | staged bundle: `<stage>/bin/bishengir-compile` and `<stage>/bin/bishengir-opt` SHAs | — | NOT_RUN |
-| A4 | staged `lib/` template SHA and the `../lib` path actually resolved at runtime | — | NOT_RUN |
-| A5 | D031's old compiler pin unmodified | — | NOT_RUN |
-| A6 | `snapshot/INTEGRITY.json` I5 status before and after each P2 build, with the guarded restore of `p2-architecture.md` §3.3 step 4 (G1–G4) | — | NOT_RUN |
+| A2 | P2's own `bishengir-compile` identity: absolute path + SHA-256 + Git SHA of the tree | **P2-A scope:** path `/home/s00653124/workspace/hivm-poc-evidence/p2-20261013-late-pipeline/impl/stage-p2a-r1/bin/bishengir-compile`; SHA-256 `1a3f20f80d73908ce0b081608bb2af7132254261fd15f5d213e939d206df7c36`; tree `feat/tilelang-hivm-late-pipeline` @ `cfaa59677` (parent `ddc212e29`), `git status --porcelain` **empty**; staged file 205,434,568 B (distinct from the 205,293,424 B `build/bin` pre-P2/restored binary of the same name — same name, different bytes, which is exactly why every citation here carries its path). Predecessor `2bf961bf…` @ `ddc212e2…` retained in `impl/stage-p2a/` (see §0). **Superseded by the P2-B rebuild — not the final P2 identity.** | **recorded (P2-A scope)** |
+| A3 | staged bundle: `<stage>/bin/bishengir-compile` and `<stage>/bin/bishengir-opt` SHAs | **`stage-p2a-r1/`:** compile `1a3f20f8…`, opt `81bc93d43f37db34f33ae44f3b67ba71e9efd6bfb8a979da3715439a2d9c8b03`. **`stage-p2a/` (superseded):** compile `2bf961bf…`, opt `179788df75f07ca19b301eef7d787992eed428c78787914c2e92256ed1beb0cb`. Both re-measured from disk 2026-10-14 and both `sha256sum -c SHA256SUMS.txt` **4/4 OK run from each directory as its own base** (`cd <stage> && …`; a check run from elsewhere reports FAILED on a correct bundle — the standing rule). | **recorded (P2-A scope)** |
+| A4 | staged `lib/` template SHA and the `../lib` path actually resolved at runtime | — | **NOT_RUN** — needs an *executed* compile that resolves `../lib`; the staged SHAs alone (`5e7ccae2…` O2 / `0a34be87…` O0) are recorded under A3 but are **not** this row. See §0's no-symlink structural note. |
+| A5 | D031's old compiler pin unmodified | **Measured 2026-10-14 (UTC 16:36), after both P2-A builds and the guarded restore — re-run from the digest as its own base:** `sha256sum -c` on `p1v2-20261013-d025/lead/SNAPSHOT-MANIFEST-DIGEST.txt` → **47/47 OK, zero FAILED, zero warnings** (paths in that file are absolute, so the base is not a variable here — stated because it usually is). The digest's own identity is unchanged: `4dfbc856658b87034c6f2562e9aaf15863ec0c148ba1b13faa54c5eb438690a8`, and it pins `snapshot/INTEGRITY.json` = `7f9b92bf9766f008bcf23ab6d34f791a300f260b218584d2d3b2d088c32d4807`, **re-measured equal**. That file's `compiler.sha256` still names `0761c6e6…` and `compiler.linked_bitcode.sha256` still names `5e7ccae2…`, and **both paths on disk still hash to those values** (`build/bin/bishengir-opt`, `build/lib/meta_op.aiv.c310.O2.bc`). D031's pin was **not** edited to fit a P2 build. | **recorded (P2-A scope)** |
+| A6 | `snapshot/INTEGRITY.json` I5 status before and after each P2 build, with the guarded restore of `p2-architecture.md` §3.3 step 4 (G1–G4) | **P2-A instance, from the implementor's records I read on disk:** I1–I7 **PASS before** the restore (`impl/scratch/integrity-pre-restore.log`) and **PASS after** (`integrity-post-restore.log`, and `p1-integrity-gate-r1.log` → `PASS: all integrity invariants hold (I1-I7)`, incl. `store-carries-l2_cache_mode=4`). Guards, per `impl/scratch/r1-guard-restore.txt` (generated `2026-10-13T15:49:04Z`): **G1** both targets rebuilt (3 build logs); **G2** restored outputs dated **older** than their link inputs — compile `13:46:21 +0800` and opt `14:46:23 +0800` vs `libBiShengIRRegBaseCompileLib.a` `23:45:15` and `…bishengir-compile.cpp.o` `23:07:56`; **G3** staged hashes + the staged opt registering the new pass (`lead/p2a-admission/help-staged-opt.txt`); **G4** the sealed `bin/`+`lib/` bundle. **Both restored identities re-measured by me 2026-10-14:** `build/bin/bishengir-compile` = `c6838fc0a175ec6bb05214780a2a3e99ab478285620996dd5bea4c69f26aabe9`, `build/bin/bishengir-opt` = `0761c6e6…` — baseline restored. The preserved copies verify 3/3 from their own base (`lead/preserved-p1-compiler/SHA256SUMS.txt`). **What this row does not claim:** that the *restore* is safe against Ninja — G2 is the recorded mitigation, and §3.3 step 4 documents that `ninja -n` cannot see the relink. | **recorded (P2-A scope)** |
 
 ## B. C310 bitcode identity (goal §6.2)
 
