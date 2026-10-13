@@ -4729,3 +4729,38 @@ marker 的发射位置是 `runLateHIVMPipeline` 的**第一条语句**（见四�
 - **routing 由 A1/A2 承载、不新开行 ID**（`:914`/`:955` 把 `routing_detail` 直接门控进这两行）——这与"D059 要求 routing 证据绑定到确切 staged compiler SHA 与 4/4 bundle 哈希"相容，也正是 D071 必须先生效的原因。
 
 **未做**：没有运行任何编译、没有构建、没有动 `build/bin`、没有编辑绑定或 runner（那都是 verifier 的执行步骤）、没有改权限、没有推送。
+
+### §24 追加 36（verifier 的 D057(c) 预跑普查仪**独立复核**：截断的 dump 语料 + 与 matcher 不同谓词；以及"每一行都被别人的 stream 满足"的量化矩阵，2026-10-14）
+
+**被审对象**：`verify/work/p2b-acceptance/d057c-pre-run-census.py`（8531 B，04:44:24 新建），它要做的正是 D042/B12a/B12b 那一族——在封存/开跑前，把 runner 里**每一个** matcher 字面量拿来对着**真实**仪器与拒收文本跑一遍，看有没有"免费命中"（prospective false-green）。方向完全正确，做法也基本正确（用 `ast` 抽取，不重打）。runner under audit：`run_p2_suite_v3.py` sha `3d804ce08e5ae8d9`。我的复核**只读**：不构建、不编译、不编辑 verifier 或生产文件；脚本与 4 份输出存在 `lead/scratch/census-audit-20261014/`（含 `SHA256SUMS.txt`）。
+
+**先说通过的**：`STUB_ERROR`/`STUB_INFO` 两个字面量与归档的 223 B 裸 stub **逐字节一致**（`A13.env.stderr` = `1eb04fd1ae84c000…`，223 B；第 1 行 `[INFO] Using merged native A5 regbase pipeline`，第 2 行正是 `STUB_ERROR`）；`MARKER_LINES` 六条里有五条与 `stage-p2b-r1` 二进制里的**静态串**逐字一致。Pyright 报的三处 `Cannot access attribute "value" for class "expr"`（`:56`/`:60`/`:65`）**运行期安全**——每处要么在 `isinstance(e, ast.Constant) and isinstance(e.value, str)` 的短路之后，要么在由该 `all(...)` 守着的 `append` 里，所以**不要**为了让告警消失去改行为。（这是 [[check-literals-must-be-measured-against-the-artifact]] 的反向：一个**不**对应运行期失败的静态告警。）
+
+**缺陷 1：`MARKER_LINES` 第六条不是量出来的。** 二进制里 `grep -a -o` 得到的真串是 `[P2-BOUNDARY] retry-loop iteration=`——**值 `iteration=` 之后没有数字**，因为数字是运行期拼上去的；而普查仪手打的是 `[P2-BOUNDARY] retry-loop iteration=0`。实测一次真实运行发出的是 `iteration=1 of=2`（ordinary 半场）。所以这条语料**既不是**二进制的静态串，**也不是**一次运行的输出。**严重性：本轮为零**——无任何 key、无任何 regex 命中 `iteration=0` 或 `iteration=1 of=2`（`audit-census.out` 的 (B)(C)）。但注释写着"measured from stage-p2b-r1 strings"，而它并不成立（instance-11 家族：注释声称的出处，产物不支持）。
+
+**缺陷 2：dump 语料被截断到 62/2488 行。** 普查仪用 `embedded[:50] + embedded[-20:]` 代表那个 282 601 B 的 dump-carrying stream。实测：**`llvm` 全流 447 次命中、截断后 0 次**；`regbaseintrins` 106 → 0；`version` 78 → 0。而普查仪自己的规则把 `embedded-stream-head` 当作 risky 语料，所以这三条 key 会拿到 "**ok key … only named-diagnostic corpora**"，而它**自己未经截断的规则**给出的是 COLLISION-RISK。**即：为抓"免费命中"而造的仪器，在这三条上打了绿灯**（instance-2/14 家族：一个打不响的守卫读起来像覆盖）。
+
+**缺陷 3（更根本）：普查仪的碰撞谓词 ≠ matcher 的谓词。** `primary_diagnostic` 只接受 `classify_lines` 判为 `"diag"` 的行——**dump 体、附着的 IR note、boundary/cascade 行一律不足以作为证据**（源码 docstring 明说）。所以"某个 key 在 IR dump 里出现"**不可能**让一行变绿；把 dump/boundary 计入碰撞是**过度告警**，截断它只是削弱了一个保守信号。**真正决定一行的，只有 `diag` 面。**
+
+**于是我把普查重做成 matcher 精确版**（`matcher-census.py`：`importlib` 直接加载 runner，调用**它自己的** `primary_diagnostic`/`classify_lines`，**零转写**；语料 = 归档目录里全部 **60** 个 `*.stderr`，其中 27 个含至少一行 `diag`）。`diag` 面上的免费 token 量化如下（出现于多少个 stream 的 diag 面）：`late` **26**、`valid` **20**、`core` 8、`cache_mode` 8、`l2_cache` 8、`carrier` 7、`Ascend950PR` 4、`target` 4、`spec` 3、`sha` 6、`bitcode` 2、`identity` 2、`link-aicore-bitcode` 2、`AIC` 3、`llvm` 2、`stage` 3、`regbaseintrins` 1、`aveintrin` 1… **只有八条 key 在任何 stream 的 diag 面上都不出现**：`.bc`、`emit-llvm`、`lib dir`、`linked ir`、`meta_op`、`mismatch`、`template`、`version`。
+
+**交叉满足矩阵**（`cross-matrix.py`：每一行的 key-list × 每一个归档 stream，问"这一行会不会被**别人的** stream 满足"；因 `reason_check` 是 `hit is not None` 即 **any-key** 语义，故 any 命中即满足）：
+
+| 行 (:行号) | key-list | 接受的 stream 数 /27 | 其中外来 |
+|---|---|---|---|
+| `t_a3` (:994) | `llvm, stage, late` | **27** | 全部 27 —— **零鉴别力** |
+| `t_a4` (:999) | `aveintrin, regbaseintrins, stage, late` | **27** | 全部 27 —— **零鉴别力** |
+| `t_c4` (:2021) | `l2_cache, cache_mode, invalid store, valid` | 20 | A3–A9, B1–B11, C1, C4 |
+| `t_a5` (:1004) / `t_a6` (:1009) | `module_core_type,core` / `core,AIC,AIV` | 9 | A3,A5,A6,A7,A13,A14,B12c,B12d |
+| `t_b12b` (:1807) | `template,identity,sha,meta_op,version,mismatch` | 8 | A3,A4,A9,B1,B2,B4,B5,C1 |
+| `t_b3` (:1524) | `l2_cache,cache_mode,invalid store` | 8 | A4,A9,B1,B2,B3,B4,C1,C4 |
+| `t_a14` (:1322) / `t_b12c` (:1860) | `…save-linked-ir…` / `link-aicore-bitcode,rejects the option` | 5 | A13,A14,B12c,B12d |
+| `t_a9` (:1024) / `t_c3` (:1988) | `hacc.target,target` / `rejects the target,Ascend950PR,non-Ascend950` | 4 | A7,A8,A9(,C3) |
+| `t_a7` (:1014) / `t_a8` (:1019) | device-spec 组 | 3 | A7,A8,A9（互为可混淆三元组） |
+| `t_b12a` (:1761) | `bitcode,.bc,template,lib dir,meta_op` | 2 | B12c,B12d（另外两个 bitcode 负例） |
+
+**结论（这才是对验收有意义的说法）**：`t_a3`/`t_a4` 的 PASS **只**断言了 `rc != 0` 加"不是 fail-closed stub"——它们的 reason check 是**空的**。这正是 D043 说的"一个对什么都成立的守卫"，现在是**量化**的而非举例的；而**为防这一族而造的普查仪并没有把它报出来**（它的 A3/A4 相关输出只有一句"stage/late 是已知免费对")。最窄的 `t_b12a`(2) / `t_a7`,`t_a8`(3) 是相对最好的。
+
+**已落为 D072**：disposition 是把交叉矩阵当作**逐行负控制**（D043 补救的可操作化）——接受外来 stream 的行就是"key 不提供鉴别力"的行；然后要么用**它自己的**归档 diag 体量出一个对全部外来 diag 面都不出现的 token 补进该行 key-list，要么在**该行自己的 detail 里**声明它 reason-weak；并修普查仪的语料与谓词。**范围与不过度断言**：`"absent from every foreign diag surface"` 这个**否定**断言本身也是一个 check，其搜索空间是**本套件归档的 60 个 stream**（对该目录是一次**完整枚举**，但不是对所有可能运行的枚举），所以它是这个**冻结语料**的性质，语料增长必须重推（instance-14 的规矩）。
+
+**未做**：不构建、不编译、不编辑 verifier 或生产文件、不动 `build/bin`、不改权限、不推送。v3 **未封存**，故上述修补都是文本改动；frozen v2 suite 未动一字。
