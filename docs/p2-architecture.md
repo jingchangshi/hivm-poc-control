@@ -86,7 +86,8 @@ because `result[1]` is lowercase) plus `convertToDashSnakeFromCamelCase` (`Optio
 | generated config field | `std::string inputIRStageFlag` — `cppName + "Flag"` |
 | generated accessors | `setInputIRStage(const std::string&)` (chainable, returns `BiShengIRCompileMainConfig&`) / `std::string getInputIRStage()` — the accessors drop the `Flag` suffix |
 | generated CLI registration | `CompileOptions.cpp.inc`: `llvm::cl::opt<std::string, /*ExternalStorage=*/true> inputIRStage("input-ir-stage", …, llvm::cl::location(inputIRStageFlag))`, plus its entry in the string→option lookup table |
-| pipeline-options plumbing | **NOT generated** — see the correction below |
+| `ConfigUtils.cpp.inc` config↔pipeline-options conversion | **NOT generated** — `ConfigsToOptionsConversionGen.cpp:80-82` `continue`s on an empty group list |
+| `PassOptions.cpp.inc` pass options | **generated anyway, into the synthetic `ALL` group** — see the correction below. This row is the one an earlier draft got wrong |
 | compileConfigName | `BiShengIRCompileMainConfig` (inherited from `FeatureControlOptions`) |
 
 The rows above are the **observed** shape of the generated code for the `std::string` option
@@ -94,21 +95,48 @@ The rows above are the **observed** shape of the generated code for the `std::st
 `cl::opt<std::string,true> saveTemps("save-temps", …, cl::location(saveTempsFlag))` at
 `CompileOptions.cpp.inc:977`), re-derived for the new `def`.
 
-**Correction — the plumbing row is NOT automatic, and an earlier draft of this section was wrong
-about it.** `SaveTemps` carries a `passGroup`; the proposed `InputIRStage` would not. Measured:
-`ConfigsToOptionsConversionGen.cpp:80-82` reads the option's groups and **`continue`s when they are
-empty**, so an option without a group produces **no** `ConfigUtils.cpp.inc` assignment and **no**
-pipeline-options plumbing at all. `FeatureControlOptions` sets only `compileOptionCategories`
-(`Options.td:59-65`); `passGroup` is declared per-option, and options such as
-`EnableTritonKernelCompile` (`Options.td:72`) set it explicitly. So the three things the `def` does
-generate are the config field, the accessors and the CLI registration — **not** the conversion into
-pipeline options.
+**Correction — there are two generators, and an earlier draft of this section read only one of them
+and generalised.** `SaveTemps` carries a `passGroup`; the proposed `InputIRStage` would not. The
+empty-group `continue` is real, but it lives in **`ConfigsToOptionsConversionGen.cpp:80-82`**, which
+governs `ConfigUtils.cpp.inc` **only**. The pass-options generator is a different file and does **not**
+behave that way: `PassOptionsGen.cpp:96-103` inserts **every** option into a synthetic
+**`"ALL"`** group *before* testing the group list —
 
-That is sufficient for P2-A: the Late branch reads `config.getInputIRStage()` in the driver, which is
-exactly where the routing decision is made, and needs no pipeline-options member. The implementor
-adds a `passGroup` **only if** the value must reach a pass as an option, and that addition must be
-justified rather than inherited. No `InputIRStage` / `inputIRStage` / `input-ir-stage` collision
-exists at the pinned HEAD.
+```cpp
+for (const Record *R : specs) {
+  ConfigOption cfgOpt(R);
+  std::vector<StringRef> groups = cfgOpt.getPassGroups();
+  passGroup2Options["ALL"].emplace_back(R);   // <-- unconditional
+  if (groups.empty())
+    continue;
+  ...
+```
+
+— and `GEN_ALL_OPTION_REGISTRATION` is #define'd in **both** compile-pass translation units
+(`bishengir/lib/Tools/bishengir-compile/PassPipeline.cpp:241`,
+`bishengir/lib/Tools/bishengir-compile/regbase/PassPipeline.cpp:570`), each immediately followed by
+`#include ".../PassOptions.cpp.inc"`. So a group-less `InputIRStage` **does** reach
+`PassOptions.cpp.inc` and is emitted there as
+`Pass::Option<std::string> inputIRStage{*this, "input-ir-stage", llvm::cl::desc(…), llvm::cl::init("hir")}`
+for **both** `BiShengIRCompilePass` and `regbase::BiShengIRCompilePass`. `FeatureControlOptions` sets
+only `compileOptionCategories` (`Options.td:59-65`); `passGroup` is declared per-option, and options
+such as `EnableTritonKernelCompile` (`Options.td:72`) set it explicitly.
+
+**What this does and does not change.** It does **not** change the routing decision: the Late branch
+still reads `config.getInputIRStage()` in the driver, and that still needs no pass-options member, so
+the decision to omit `passGroup` **stands**. What it changes is the *description* of the generated
+surface, and it removes a premise from the §2.3.1 obligation-2 argument. `PassOptions : protected
+llvm::cl::SubCommand` (`mlir/include/mlir/Pass/PassOptions.h:92`), so a `Pass::Option` is reachable
+through **that pass's own `cl` sub-command namespace**, not through the top-level `--input-ir-stage`
+flag — the two declarations are distinct `cl::Option` objects in distinct registries, so the top-level
+one's `getNumOccurrences()` is not doubled by the pass-level one. But that is a **source-reading
+argument, not a measurement**, and it is exactly the kind of claim this project has had to retract
+before, so it is recorded as an **obligation to check in the A13 sub-runs** rather than as an
+established fact: assert that the pass-namespace declaration cannot receive a value on a Late
+invocation (and that supplying one does not reach the config the Late branch reads), and record the
+`--help` output for both namespaces. The implementor adds a `passGroup` **only if** the value must
+reach a pass as an option, and that addition must be justified rather than inherited. No `InputIRStage`
+/ `inputIRStage` / `input-ir-stage` collision exists at the pinned HEAD.
 
 The flag is therefore **`--input-ir-stage=late-hivm`**, exactly the goal's example. The default `hir`
 makes the option's absence byte-for-byte the old behaviour. Any value other than `hir` or `late-hivm`
@@ -315,7 +343,11 @@ these to the design as conditions on that verdict, so they are part of the froze
    echo.** After injection, the post-parse `getNumOccurrences()` for each pinned option must be **1**,
    and the vector forwarded at `:186` must contain the **same** single canonical argument. Asserting
    only the config value would miss a doubled echo; asserting only the echo would miss a config moved by
-   a default. Both, or the row is unproven.
+   a default. Both, or the row is unproven. **The stage selector itself is the option this row is least
+   safe to argue from source about**: §2.1 records that `--input-ir-stage` is declared in **two**
+   namespaces (a top-level `cl::opt` and a `Pass::Option` inside each compile pass), so "one occurrence"
+   must be shown by measurement for both, not inferred from `llvm::cl`'s registry structure
+   (`p2-verification.md` §A coverage delta 4).
 3. **`argc`/`argv` are not mutated in place.** `main` reads `argv` at `:114` and `:121-124`, and no
    source path reconciles the captured vector afterwards — which is the mechanical reason the deadline
    is `:121`. The entry builds the augmented argument vector **once**, and that same vector is what the
