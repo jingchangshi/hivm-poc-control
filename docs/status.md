@@ -4889,3 +4889,2548 @@ TIMEOUT
 **五、队友状态处置**：implementor 的任务 `tsjraxyyh`（标签 "Implement P2-A Late entry"，属 D035 早已关闭的阶段）自 18:03:36Z 起**卡在一个永不返回的 Bash 调用**上（3h07m，挂在它无法自行解除的权限提示上）。已 `TaskStop` 中止（即放弃那条我早已建议拒绝、且按裁决 1(c) 从不构成 P2-B 阻塞的提示），并按名字**恢复**该 teammate（上下文完整，294 条先前消息），改派**仅出计划**的 P2-C 增量任务，附**禁止编辑**约束（第五个脏文件会作废 D079 的归属链），要求结束时 `git status --porcelain` 仍为 4。verifier 一直在活跃推进，未干预；monitor `bcy4twuvr` 健康，将于 21:21Z 到期后重挂。
 
 **未做**：不构建、不跑编译器、不编辑 runner/binding/census、不动 `build/bin`、不改权限、不推送、不删除任何既有证据。
+
+### §24 追加 44（**冻结集 `299eaef3…` 的全量不变量审计结果**：9/9 清单身份独立重算一致、census 逐字保真、`R1`/`C3`/`A1` 的 AST 结构核验、二进制实物与标记对照；**两处发现——一处是消息级转写错误，一处是清单自述公式与其旁的哈希不符（D081）**，2026-10-14）
+
+**阶段**：应 verifier 于 21:40:21Z 的明确请求（"please run the full invariant audit on this set"），在**字节停止移动后**对冻结集做 Lead 独立审计。**不构建、不跑编译器、不编辑 verifier 任何文件、不动 `build/bin`、不改权限、不推送。**
+
+**一、清单身份逐条独立重算（我自己重算 sha256，不引用清单自述）**：`runner 299eaef3…`(132,523 B)、`bindings 4865d146…`(11,658 B)、`amendment b30251e9…`(25,692 B)、`wrapper 2ed26e9b…`(564 B)、`subject_compiler ea217b8d…`(205,436,664 B)、`bitcode_o2 5e7ccae2…`(31,206,796 B)、`bitcode_o0 0a34be87…`(27,695,180 B)、`census.script 10fd91d3…`(13,904 B)、`census.artifact 6ecdbfd5…`(15,929 B) —— **9/9 一致，0 不符**。清单内 `census.derived_against_runner_sha256` 与 `runner.sha256` **相同**，故 census 是对**冻结后的** runner 推导的。
+
+**二、census 的保真性独立复核（它自称"任何 pattern/key 都未转写"）**：我用**自己的** AST 遍历重新抽取，得 **23 个 regex 常量、15 个 key-list**，与 census 自报的 "extracted: 23 regexes, 15 key-lists" 相同；逐条比对后，**23/23 regex 常量与 15/15 key-list 逐字出现在 census 文本中，转写数 = 0**。census 头部打印的 runner sha 亦等于冻结的 `299eaef3…`。故该 census 确系由冻结字节推导，可作封版锚点。
+
+**三、`R1` 结构核验（AST，不读散文）**：`t_r1` 共 **12 个返回**：`PASS`×1、`FAIL`×6、`BLOCKED`×3、`NOT_RUN`×2。逐条：`rc==0` → **FAIL**（"the build no longer fails closed"）；期望终止串**由 `strings(1)` 从所绑二进制抽取**（定位器为 runner 既有的 `STUB_ERROR_PREFIX`），抽取失败/无该行 → **BLOCKED**（instrumentation 缺失绝不记 PASS）；流上无 `[ERROR]` → FAIL；终止串 ≠ 二进制抽出者 → FAIL；**写了 `kernel.o` → FAIL**；证据陈旧 → FAIL；`routing_detail` 的 late 半要求 **late 标记存在 且 四个 `ORD_MARKER_RES` pattern 全部缺席**——是**互斥断言**，非仅"标记存在"。运行实测：`rc=1`、终止串即二进制抽出的 fail-closed 行（175 B）、未写产物、late 标记在 `stderr:2`、四个 ordinary pattern 全缺席。
+
+**四、`C3` 无 PASS 路径（AST 确认）**：`t_c3` 共 5 个返回，**PASS = 0**（`FAIL`×2、`NOT_RUN`×3）；`rc==0` 分支返回的是 **NOT_RUN-scoped 证据**而非行判决，理由写在源码里（分歧的两个出口互斥，无法在一次执行中同时结算，按裁决 3 永不报聚合 PASS）。全表 46 行中另有 18 行同样**没有任何 PASS 返回路径**（`A3`–`A9`、`B1`–`B11` 多数、`C5` 等），这是 v3 把"匹配器 PASS"改写为 scope-declared `NOT_RUN` 的直接结果。
+
+**五、`A1` 的 rc 闸次序未动**：`rc != 0 → FAIL` 在 `:992`，`routing_detail(...)` 在 `:1026` **之后**，故 `A1` 在 P2-B 的**结构上**不可能承载 late 半 —— 这独立确认了 `R1` 作为封版晚半的**必要性**，而非便利性；也确认 Challenger 的"D076 第 1 项禁止重排 A1"与代码现状一致。
+
+**六、标记与二进制实物对照（从 `ea217b8d…` 本体抽 `strings`，不引用记录文字）**：二进制含 **6 个** `[P2-BOUNDARY]` 站点：`late-route stage=late entry=runLateHIVMPipeline`、`ordinary-regbase-pipeline entry=runRegBasePipeline`、`inference entry=inferLayoutOptimization`、`inference entry=inferMixedCV`、`retry-loop iteration=`、`a5-compile entry=runHIVMCCompileA5`。前五个各被其对应 pattern 命中（各 1 处）；`a5-compile entry=runHIVMCCompileA5` 被**四个 ORD pattern 中的 0 个**命中 —— **D075 的覆盖缺口为真**，且 `ORD_MARKER_RES` 恰为 4 项，"pattern 数≠站点数"的措辞与实物相符。
+
+**七、scoped 运行 `20261013T213619Z-2349219` 独立复核**：`results` **46 行**、id 各出现一次、`{PASS:7, FAIL:0, BLOCKED:0, NOT_RUN:39}`；39 个 NOT_RUN **全部**携带 `unselected by --only`，与 `selected` 完全互补，**0 未归属**；五个 `declared/observed` 对在 summary 内全部一致，且与盘上实测一致；`registry_snapshot_sha256 21d8d8ad…` **由我独立复算成功**（见第八条）。sealed 行只有 `A2`（ordinary 半，byte-identical + 路由 ord 半）与 `R1`（late 半，fail-closed）是**编译器结果**，其余 5 个 PASS 是 `S1`–`S5` **无需编译器的匹配器控件** —— 该事实须随验收一并陈述，不可只报"7 PASS"。
+
+**八、两处发现。**
+(a) **消息级转写错误（非缺陷）**：verifier 21:40:21Z 的消息把冻结 runner 写成 **127,736 B**，而盘上为 **132,523 B**，清单 `runner.bytes` 亦为 **132523**；`grep -rI "127736|127,736"` 在证据树与 hivm-poc-control **全树命中 0 个文件**，故该数字**从未进入任何产物**，封版集合自洽。记录在案，以免日后被引用。
+(b) **清单自述公式与其旁的哈希不符（D081，真缺陷）**：`SEAL-v3-MANIFEST.json:70` 的 `registry.snapshot_formula` 写的是 `sha256(json.dumps({'registry': ids, 'selected': null, 'selection_mode': 'full-registry'}, sort_keys=True))`，但其旁的 `snapshot_sha256 = 21d8d8ad…` **只在 `selected=<7 元列表> / selection_mode='--only'` 分支下成立**（该分支即 runner `:2740-2744` 的三元式在 `--only` 时的取值，我已独立复算命中）；**严格按清单自己写的公式复算得 `4a31990c…`**。危害有二：(i) 复核者照公式复算必得**不一致**，从而误判为篡改或"公式坏了"——清单是封版的**可复算锚点**，其自述必须自洽；(ii) Task 6 的全量跑将产出**真正的** full-registry 快照（按同一公式的 `selected:null` 分支，期望值 `4a31990c…`），届时**同一标签下将出现两个不同对象**，清单现文会读作"全量跑与封版矛盾"。等级：**不影响字节、证据或任何一个 PASS**（ID 枚举、真公式、实测哈希三者都在，真公式在冻结 runner `:2740` 内有档），属**封版对象的自述缺陷**。
+
+**九、处置**：D081 入册；要求 verifier 以**版本化修订**改正该标注（旧字节按 D080 的"改名不覆盖"方式保留），并在新清单中记明 `supersedes` 与真公式所属分支；随后执行 **Task 6**（全量 46 id 验收跑 + `build/bin` 还原后的 `C6` + census 附录），全量跑须逐字陈述"7 PASS 中 5 个是无需编译器的匹配器控件"。**本次未要求重做信任链或重封全量**——缺陷限于一处标注，其余 9 项身份、census 保真性、R1/C3/A1 结构与二进制实物对照均**实测通过**。
+
+**未做**：不构建、不跑编译器、不编辑 runner/binding/census/manifest、不动 `build/bin`、不改权限、不推送、不删除任何既有证据。
+
+### §24 追加 45（**§9 交付物盘点（只读测量）：六份控制文档齐备；"身份清单"的控制仓落点是 `p2-binary-abi.md` §0，其 9 行中 6 行仍 NOT_RUN —— 这给出一个可判定的 P2 完成判据**，2026-10-14）
+
+**阶段**：P2-B 封版后、P2-C 前的 Lead 交付物盘点。**本追加为记录写入；未构建、未跑编译器、未编辑 verifier 侧文件（runner/binding/manifest/census）、未动 `build/bin`、未改权限、未推送。**
+
+**一、§9 要求的控制仓六份文档全部在位**（尺寸与 mtime 为写本追加时实测）：`status.md` 504,229 B、`decisions.md` 253,941 B（81 行 D001–D081）、`p2-architecture.md` 110,952 B、`p2-pass-trace.md` 27,694 B、`p2-binary-abi.md` 31,847 B、`p2-verification.md` 64,774 B。
+
+**二、"编译器/bitcode/binary 身份清单"（§9 第 4 项）的控制仓落点已存在**：`docs/p2-binary-abi.md` §0 `## 0. Identity inventory (goal §9: 编译器/bitcode/binary 身份清单)`。其**既有设计**是"索引而非值表"——表中**刻意不复制任何数值**（原文明言"a second copy of a hash is a second thing that can drift"），值只在被引用的行里。本次**不改**该设计。**由此得到一个此前未被写成判据的 P2 完成条件**：§0 主表 **9 行，其中 6 行 `NOT_RUN`**（`bitcode — 实际消费的 C310 AIV 模板`、`bitcode — 其中的 store ABI`、`bitcode — 缺失/错误时硬失败`、`binary — 产出的产物`、`binary — 交给 P3`、`linkage — compiler ↔ bitcode ↔ binary`），全部落在 P2-C/P2-D 范围内。**身份清单里留 NOT_RUN 就等于有身份未固定，故 P2 验收时 §0 必须 0 行 `NOT_RUN`。**
+
+**三、§9 第 1 项（Late Driver 入口与配置变更）** → `p2-architecture.md` §1–§2：`--input-ir-stage` 为**新增**选项（该串在改动前 grep 零命中，D12 已实测），入口为"新增显式 stage 选择器 + 新 Late 分支"（§1 结论）。
+
+**四、§9 第 2 项（最终 Pass 顺序与执行 instrumentation）** → `p2-pass-trace.md` §A–§E；其中 §E.4 已记：`A4`（Late 上 `runHIVMCCompileA5` 恰好一次）在 P2-B **结构上不可达**（`LatePipeline.cpp:565-584` 提前 fail-closed），是 P2-C 的覆盖增量。
+
+**五、§9 第 7 项（P3 ACL Harness 输入）** → `p2-binary-abi.md` §D `D7`（binary、kernel symbol、HostArgs ABI、grid、dynamic UB、target 信息），现 `NOT_RUN`，属 P2-D/P2-C。**注意载体边界**：binary 本体 205,436,664 B 位于**本地专用**证据树，**不进控制仓**——控制仓只承载身份与接口，P3 由 D7 行指路到证据树。
+
+**六、两项须在 P2-C 闭合的交叉引用缺口（实测，非推断）**：`p2-binary-abi.md` 的 `C5`/`C7` 只写 "match the Golden" / "as expected"，**未指名任何具体值**；而被接受金标 `p1v2-20261013-d025/snapshot/impl/vadd_late.mlir` **明文记载**了这些不变量：`:18-20`（GM 子视图偏移以**元素**计 `b*8192`；UB `pointer_cast` 地址以**字节**计 `0/65536/131072`；UB 槽距 65536）、`:123`（`hacc.block_dim = 64 : i64`）、`:127`（`dyn_shared_memory_buf = 196608 : i64`）。同时测得：`32768`、`8192`、`65536`、`131072` 四个串在 `p2-binary-abi.md` 内**零命中**，在 v2 与 v3 两个 runner 内**亦零命中**。故 `C5`/`C7` 当前**不可复核**，P2-C 必须携带**实测**值（且须继承金标两处告诫：`N1` — `{l2_cache_ctl = 4 : i64}` 能解析但被**静默丢弃**，emit 的 libcall 收到的是 0 而非 4，故 cache 断言必须落在 **emit 的 LLVM IR** 上；`N3` — `hacc.block_dim` 被承载但**未被校验**）。
+
+**未做**：未构建、未跑编译器、未编辑 verifier 侧文件（`run_p2_suite_v3.py` / `p2-bindings.json` / `SEAL-v3-MANIFEST.json` / census）、未动 `build/bin`、未改权限、未推送、未删除任何既有证据。
+
+### §24 追加 46（**Challenger 封版规格逐条闭合表：七项要素全部由 Lead 独立测量闭合，含最后一项金标 fixture 哈希 2/2**，2026-10-14）
+
+**阶段**：P2-B 封版审计补完。**未构建、未跑编译器、未编辑 verifier 侧文件、未动 `build/bin`、未改权限、未推送。**
+
+Challenger 裁决 (3) 逐条要求密封对象"把哈希互相钉住"。逐要素独立测量（我重算，不引用清单自述）：
+
+| 裁决 (3) 要素 | 清单载体 | Lead 独立测量 | 判定 |
+|---|---|---|---|
+| runner 精确 SHA | `runner.sha256` + `bytes` | `299eaef3e8a675dcb9d42a1bbdd30148d83e3f05b4db8e64c26dfd6f66057dfd`，132,523 B（自算） | ✅ 一致 |
+| bindings 精确 SHA | `bindings.sha256` | `4865d146f635e91ba6db851c0ffa96a55985e4441d398942aae3434875d70e31`，11,658 B | ✅ 一致 |
+| registry/selection 快照哈希 + 枚举 ID | `registry.ids`(46) + `snapshot_sha256` | 46 个 id 与 runner `REGISTRY` 逐一相同（AST 抽取比对）；快照哈希**可复算**（`--only` 分支），见 D081 的**标注**缺陷 | ✅ 值可复算；标注须修订 |
+| wrapper SHA / 配置模式 | `wrapper.sha256_declared/observed` | `2ed26e9b9fc66f2376797ecbe4d21f5074cb162ab3f2a1cc6e55c74f9fead34f`，564 B（`scripts/in-container.sh`） | ✅ 一致 |
+| fixture/golden 哈希 | `golden_fixtures.tir/.json` | `golden_codegen_input.tir` `4194733b…`（3,338 B）、`.json` `576fa7a3…`（49,638 B），**2/2 一致**；路径 `/home/s00653124/workspace/tilelang/tests/golden/hivm/vadd_f32_single_tile/`，mtime 均为 **2026-10-09 14:16（不可变，未动）** | ✅ 一致 |
+| census 产物哈希 | `census.artifact` + `derived_against_runner_sha256` | `6ecdbfd5…`（15,929 B），且其 `derived_against_runner_sha256` **等于**冻结 runner sha | ✅ 一致 |
+| 修订清单（amendment）钉住上述 | `amendment.sha256` | `b30251e9c7a86a97ed0b3c9822635407385c3ce1eabdf20d06ff11c14c48bf23`，25,692 B | ✅ 一致 |
+| **运行日志独立记录 *观测到的* compiler SHA 与 staged 组件哈希** | run `20261013T213619Z-2349219` 的 `suite-summary.json` | summary 内 `p2_compiler`/`bindings`/`in_container_sh`/`bitcode_o2`/`bitcode_o0` 五对 `declared` 与 `observed` **全部一致**，且与盘上实测一致；故"运行日志是观测、清单是期望"这一分工**成立** | ✅ 一致 |
+| **可变日志目录不得成为封版身份的一部分** | `exclusions[3]` + `summaries_owned_by_this_seal`(1) / `summaries_explicitly_excluded`(6) | 清单**枚举**了它拥有的 1 份 summary 并**逐条排除** 6 份（各附理由），封版身份不含日志目录 | ✅ 一致 |
+
+**结论**：裁决 (3) 的规格**逐条闭合**；唯一未闭合项是 D081 的**标注**（值正确、公式标签写错分支），已派 verifier 以版本化修订改正。**审计期间还确认一处 message-only 事实**（追加 44 第八条 a）：verifier 消息里的 127,736 B 在任何产物中都不存在。
+
+**未做**：未构建、未跑编译器、未编辑 runner/binding/manifest/census、未动 `build/bin`、未改权限、未推送。
+
+### §24 追加 47（**`build/bin` 还原步骤的事前见证（只读实测）：还原资产 3/3 自证；三处受跟踪身份的"之前"状态已固定**，2026-10-14）
+
+**阶段**：P2-B 收尾前，对**唯一一处计划内的破坏性步骤**（把 `build/bin` 还原为 P1 编译器）做事前见证。**未执行还原**；本追加只读测量。**未构建、未跑编译器、未编辑 verifier 侧文件、未改权限、未推送。**
+
+**一、还原资产 `lead/preserved-p1-compiler/` 完整且自证**：`( cd <该目录> && sha256sum -c SHA256SUMS.txt )` → **3/3 OK**（基线须在**其自身目录**内，否则误报 FAILED——该陷阱已入册）。清单：
+
+| 资产 | sha256 | 大小 |
+|---|---|---|
+| `bishengir-opt.0761c6e6` | `0761c6e662ee015e30425ee29e0c2314753aa356b21eb4119ff99747327a1977` | 214,509,632 B |
+| `bishengir-compile.pre-p2.c6838fc0` | `c6838fc0a175ec6bb05214780a2a3e99ab478285620996dd5bea4c69f26aabe9` | 205,293,424 B |
+| `meta_op.aiv.c310.O2.bc.5e7ccae2` | `5e7ccae20f4e2a1887d1bdd87f787ea97f2732f7564a67013e737a163482fb42` | 31,206,796 B |
+
+文件名内嵌其 sha，故还原后路径与身份**同时**可辨。`c6838fc0…` 即 P1 基线 compile、`0761c6e6…` 即 D031 的 P1 opt pin，与身份清单 §0 第 1、3 行一致。
+
+**二、"之前"状态（还原前，实测）**：`build/bin/bishengir-compile` = **205,436,664 B**，与 `impl/stage-p2b-r1/bin/bishengir-compile` **字节数相同** —— 故 `build/bin` 当前确实是 **P2-B 构建**（符合 D041 的"还原是本阶段最后一步"次序；也再次说明 P2-B 验收**不得**把 `build/bin` 当作记录在案的产物）。`build/bin/bishengir-opt` = 214,610,872 B，其 sha `4c31167bfad5…` 即 P2-B 构建树身份，**非** P1 的 `0761c6e6…`。
+
+**三、`build/lib` 的 bitcode 是 P2 之前的字节（实测）**：`meta_op.aiv.c310.O0.bc` = `0a34be87…`（27,695,180 B）、`O2.bc` = `5e7ccae2…`（31,206,796 B），**两者 mtime 均为 2026-10-13 13:46**，即 P2 任何一次构建都**没有重写**过它们；且 O2 与 O0 的值分别等于 P2-B 清单所记的 `bitcode_o2`/`bitcode_o0`。故还原资产只需覆盖 O2（已备），O0 无 P2 期改动。**附带记录（非任何 pin、无影响）**：`build/lib/` 另有一个 `meta_op.aiv.c310.O2.bc.linked.bc`（`1b356045…`，31,180,028 B）——某次链接运行的遗留物；staged bundle 的 `lib/` **只有两个** `.bc`，不含它，故与 B7"无旧/回退模板"无关。
+
+**四、还原步骤的判据（供执行时照做，不预先声称已做）**：还原后 `build/bin/bishengir-compile` 须为 `c6838fc0…`/205,293,424 B、`build/bin/bishengir-opt` 须为 `0761c6e6…`/214,509,632 B；guard log 须在同一时刻记录**前后**两组 sha；`C6` 在此之后运行（§8 步骤 6 的前置）。**在此之前不宣布 P2-B 验收。**
+
+**未做**：未执行还原、未构建、未跑编译器、未编辑 runner/binding/manifest/census、未改权限、未推送、未删除任何既有证据。
+
+---
+
+## 2026-10-14 第 23 轮（§25 追加 48）：P2-B 全量运行的**独立验收审计** —— 逐项自盘复算，9 项身份全部一致；**新发现 4 项（D082–D085）**，其中 3 项是**计数精度**而非假绿；另确认一处"任何产物中都不存在的字符串"（凭据掩码）与一处**过期的 Golden 注记**
+
+**阶段**：P2-B 门禁（§8 步骤 5）。**方法**：只读，全部从盘上重算，不引用任何清单/消息的自述值。**未构建、未跑编译器、未编辑 verifier 侧任何文件、未动 `build/bin`、未改权限、未推送。**
+
+### 一、`A13` 详情里的"密钥"是**工具输出掩码**，不是泄漏、也不是产物内容（→ **D082**）
+
+审计 `suite-summary.json` 的 `A13.detail` 时，匹配到的 reason key 渲染为 `{{SECRET_XXXXXXXX}}` 形式。四个独立探针：
+
+| 探针 | 结果 |
+|---|---|
+| `grep -rIl '{{SECRET_'` 扫全证据树 | **0 个文件** |
+| `b"{{" in <suite-summary.json 原始字节>` | **False** |
+| 对 `suite-summary.json` 原始字节做 regex 定位 `\[ERROR\] Late mode: (\S+) is set \(value` | 得到一个 **27 字节** token，charset `[A-Z0-9_]`，首 `B` 末 `E`，sha256 `b634c103569bec6a7832f9220268de23c7fc5497cb6b4da72a8591bfba92dd2c` |
+| `grep -n 'SECRET_\|{{' run_p2_suite_v3.py` | 无（但 AST 读同一文件可读到该行） |
+
+**结论**：花括号形式是**我的工具输出被凭据掩码层替换**的结果，盘上字节未变；掩码层认得"像凭据的字符串"。该 token 是 **fixture 自己写的、刻意假的环境变量名**：`run_p2_suite_v3.py:1432` 把它作为 env 变量**名**（值 `"1"`）交给 A13 的 env 子运行，而生产代码从一个**编译期常量**回显该名（`regbase/LatePipeline.cpp:350` `getenv(<NAME>)`、`:352` 打印名、`:353` 打印值），故 A13 与生产常量的耦合**真实存在**，其 PASS 是**挣得的**。**未泄漏任何凭据。** 但记录纪律由此确定：**该 token 的任何一种渲染都不得写入持久记录**——写掩码形式会留下一个"任何产物中都不存在"的字符串（D081 的同族失效，机制不同），写盘上形式则等于把"像凭据的字面量"抄进控制文档。**做法**：以"定位器 + 长度 + sha256"引用（本追加即如此）。
+
+### 二、验收记录的 9 项身份**逐项自盘复算，全部一致**
+
+| 记录项 | 我实测 | 判定 |
+|---|---|---|
+| v3 runner | `299eaef3e8a675dcb9d42a1bbdd30148d83e3f05b4db8e64c26dfd6f66057dfd`，132,523 B | ✅ |
+| oracle v2 | `0677be1a7ba217d7587c9c65436d93966ec5d40c03f5b8cc28c61989beea5621` | ✅ |
+| seal（manifest-3） | `8c18d22e9740b4e42ed7113977c26a095e9d55edc4a93a53b887526bac195317`，schema `seal-v3-manifest-3` | ✅ |
+| amendment | `b30251e9c7a86a97ed0b3c9822635407385c3ce1eabdf20d06ff11c14c48bf23` | ✅ |
+| P2 编译器 | `ea217b8d423b2e463e8c9d3953fcf037fbf4446f0a3caa0cb21b107c85a09787` | ✅ |
+| wrapper | `2ed26e9b9fc66f2376797ecbe4d21f5074cb162ab3f2a1cc6e55c74f9fead34f` | ✅ |
+| 还原 guard log | `0e20b92e89eda0a7ecd56f4686161c9849dc99faafdce36edf653fd535d41aeb` | ✅ |
+| full-run summary | `85691a291e476a971c86bfd2a306898faccd77f4f3d473452241efa76499a6d9`，19,807 B，run `20261013T232010Z-2744262`，exit 1 | ✅ |
+| 快照哈希 | `4a31990c595e2e9b79a9e8889101d87de8da2eedd1a1c444d0238dc3a55d0475` **==** manifest-3 的 `branch_full_registry.produces` | ✅ **D081 修订 live 验证** |
+
+**D041 还原已落地**：guard log 的 `BEFORE`（compile `ea217b8d`/205,436,664 B、opt `4c31167b`/214,610,872 B）/`AFTER`（compile `c6838fc0`/205,293,424 B、opt `0761c6e6`/214,509,632 B）/`EXPECTED`（D031 pins）三组齐备，`VERDICT` 3/3 OK，`base_dir` 写明；且 `lib/meta_op.aiv.c310.O2.bc` **前后同为 `5e7ccae2…`** —— 还原未触碰 P1-pinned bitcode，P2 身份保留在 `impl/stage-p2b-r1/bin/bishengir-compile`。
+
+**manifest-3 的 `supersedes`** 逐字段核过：`schema=seal-v3-manifest-2`、`path=SEAL-v3-MANIFEST.94a9ec3d.json`、`sha256=94a9ec3d…`、`reason` 明确写"值是**对的**，**注记**错了"、`retained_by="rename-not-overwrite ... bytes untouched"`；且 `registry.snapshot_branches` 的 `branch_only.produces=21d8d8ad…`（`this_is_the_recorded_snapshot_sha256: true`）与 `branch_full_registry.produces=4a31990c…`（`false`）两臂各自带旗标——旧版把"通用公式"放在值旁，新版把**产生该值的臂**放在值旁，D081 的改正**自洽**。
+
+**逐字面量核过**：addendum 称 stub 终止行 175 B —— 实测自 r1 二进制 `strings(1)` 取出的该行**恰为 175 B**；称 R1 的 late-route 标记在 `stderr:2` —— 实测 `R1.stderr` 第 2 行即 `[P2-BOUNDARY] late-route stage=late entry=runLateHIVMPipeline`。
+
+**计数**：PASS 列表逐 id 加总 = 10(A)+13(B)+3(C)+1(R)+5(S) = **32**；FAIL 9、BLOCKED 1、NOT_RUN 4，合计 **46**，**每个 id 都点名，无"减法式 sound PASS"**（符合 D077）。
+
+### 三、**32 个 PASS id 背后是 29 项不同的测量**：三对 id 是同一个测量（→ **D083**）
+
+`S1–S5` 的运行目录里**没有 `.cmd.txt`、没有 `.stderr`** —— "5 个 compiler-free 控制"独立证实（它们从未调用任何二进制）。但 27 个 compiler-driven **id** 里有三对是**同一测量**：
+
+| 对 | 证据 | 性质 |
+|---|---|---|
+| `A2` ≡ `C5` | `t_c5` 源码即 `return t_a2(work, log)`（`:2249`）；`C5` **无** `.cmd.txt`/`.stderr`；两者 detail 文本完全相同 | 源码**明示的别名**，C5 未消耗独立证据 |
+| `B3` ≡ `C4` | 同 fixture `b03_cache_bad7.mlir`，同 flags 仅 `-o` 不同；stderr **逐字节相同**（415 B，`11754808e50c…`）；两者都命中同一 key `l2_cache` | 同断言、同输入的两次执行 |
+| `B12c` ≡ `B12d` | 同 fixture `vadd_late_p1v2.mlir` + `--link-aicore-bitcode=b01_cache0.mlir`；stderr **逐字节相同**（487 B，`f8841243a0d1…`） | 见 §四：两者其实连 `lib/` 状态都相同 |
+
+**另**：`B12d` 的抬头断言（"combined absent-template + extra-bitcode"）**无见证**——它设想的对照臂是**已填充**的 `lib/`，但 `_b12_isolate`（`:1899-1916`）仅在传入 `populate` 回调时填充，而**只有 `B12b`（`:1993`）传了**；故 B12c/B12d 都**从未形成**"模板存在"那一臂，两者观察到的拒绝**只来自 extra-bitcode 门**。
+
+**故**：不同（断言, 输入）测量 = **24** 项 compiler-driven，即 **29 项不同测量** 对应 32 个 PASS id。**没有任何一行断言了假的东西**——每行的 detail 都是真实测得的 detail——所以这是**计数精度**缺陷，**不是假绿**；且**不得**事后靠删 id 来"修正"（那是 D077 禁止的减法式计数）。
+
+### 四、**密封 runner 里有一条注释与自己的代码矛盾**（→ **D084**）
+
+`run_p2_suite_v3.py:2048` 注释 `_b12_isolate(work, log, "B12c")   # normal staged lib/ (unchanged)`，但该函数**只**在传入 `populate` 时填充 `<w>/lib/`；B12c 没传，故其 `lib/` **是空的** —— 与紧邻的 `:2092` 自己标的 `# empty lib/` **同态**。这是"B12 家族设计意图（normal vs empty 模板差分）在这一对上从未实现"的痕迹。runner 已密封（`299eaef3…`）且 census 头绑定该 sha，**就地修改会移动密封字节并使 census 绑定失效**——修不如不修。**纪律**：记录该矛盾、绑定到实测时的 sha、并披露其后果（§三 的 B12d 无见证）；**未来**的密封可改，**这一个**不行。
+
+### 五、**Golden 的 N1 cache 注记在 HEAD `cfaa59677` 已过期**，而 P2 自己的 oracle 早已站在正确一侧（→ **D085**）
+
+Golden 的 N1 注记（`{l2_cache_ctl = 4 : i64}` 可解析但**被静默丢弃** …… 发出的 libcall 收到 **0** 而非 4；写于 HEAD `e878f349`）及 P1 据此派生的 `B8.CACHE4` 规则，在 P2-B 基线 HEAD `cfaa59677a8b63587140ab271d56db9e22c593ab` 上**已过期**。三条独立证据：
+
+1. `HIVMDMAOps.td:193-198`：`StoreOp` 现声明 `OptionalAttr<I32Attr>:$l2_cache_mode`，文档写明"valid store modes are exactly {0, 1, 2, 4}"。
+2. `regbase/HIVMToStandard.cpp:1382-1418`：`appendExtraOperands` 在 `atomicKind` **之后**追加 cache mode 作为**第 4 个** libcall 操作数，且在 **Ascend950 路径上无条件追加**（属性缺席则 0），其他 target 保留 3 操作数 ABI；此前 `verifyStoreCacheMode(op)` 先拒绝非法值（`HIVMDMAOps.cpp:396-406`，`Utils.cpp:111-117` 合法集 `{0,1,2,4}`，其中 `4 = NOTALLOC_CLEAN`）。
+3. **P2-B 自己产出的** dump `impl/scratch/p2b-r1-trace/tree/builtin_module_no-symbol-name/11_convert-hivm-to-std.mlir`（sha `1525d6f377830d84dc760a9633f631f787de6486f3887f6c3a6c12d9e36ffbde`，6,888 B，mtime 2026-10-14 02:03）：`:4 %c4_i32 = arith.constant 4 : i32`，`:34 call @store_ubuf_to_gm_1d_float(%cast_5, %cast_6, %c0_i32, %c4_i32)`，且私有声明是 **4 操作数**。
+
+旁证：`B3`/`C4` 的**活**诊断即该门的原文 —— `valid store modes are 0, 1, 2, 4`。而**冻结的 v3 oracle 已经期望 4**：`t_c2`（`:2152-2157`）在"非 `operand` 形式"与 `val != 4` 上都 FAIL，并在 detail 里点名 silent-drop；`t_a15` 带同一期望；只有 **cache0** fixture（C1 的 `absent`/`c0`）期望 0 —— **那是正确的**。**后果**：(a) P2-C/P2-D 若从 P1 移植 oracle，必须改基到"**产物属性**"上——P1 的规则是 grep **源 IR 文本**里的 `l2_cache\w*`，在 P1 是"构造性 FAIL"，且 P1 找的名字是 `l2_cache_ctl`，当前 head 拼作 `l2_cache_mode`（`l2_cache\w*` 仍能匹配）；(b) 凡引用该过期注记之处，须标 superseded，避免任何读者再推出期望值 0。
+
+### 六、**未做**
+
+未构建、未跑编译器、未编辑 runner/binding/manifest/census/acceptance 任何 verifier 侧文件、未动 `build/bin`、未改权限、未推送、未删除任何既有证据。**新发现 4 项（D082–D085）已入册**；§三/§四 属**不影响 PASS 有效性**的精度与注释缺陷，**提交 Challenger §8 步骤 8 的 final-diff 复审作为明列议程**（按"仅在架构门/定向硬失败时唤醒"的规则，不为此单独唤醒）。
+
+---
+
+## 2026-10-14 第 23 轮（§25 追加 49）：**P2-B 门禁裁定 —— ACCEPTED（计数按实测更正后）**；同轮解除 D079 对 P2-C 的编辑锁（cut 已提交、清单改基为**内容**），并给出 implementor 待裁的两项与 N1 更正
+
+**阶段**：P2-B 门禁（§8 步骤 5）。**裁定人**：Lead（gatekeeper）。依据 = 追加 48 的逐项自盘复算。**未构建、未跑编译器、未编辑 verifier 侧文件、未改权限、未推送。**
+
+### 一、裁定：**P2-B = ACCEPTED**
+
+| 裁定要素 | 结论 |
+|---|---|
+| 产物身份（staged bundle `ea217b8d…`） | ✅ 与记录一致；`build/bin` 已还原为 D031 pins 且 `build/lib` bitcode 未被动过 |
+| 冻结集自洽（runner/oracle/seal/amendment/census/wrapper） | ✅ 9/9 身份自盘复算一致；D081 修订**自洽且 live 验证** |
+| 测试是否**因预期语义而失败**（goal §7 要求） | ✅ 9 个 FAIL 全部是"要求 rc==0 的 Late-POSITIVE 行"，在**按设计 fail-closed** 的构建上因 rc 门失败；非 SHA 不匹配、非解析错误 |
+| 有无假绿 | ✅ 无。旧假绿（B12a/B12b/C3）已在 v3 关闭为 NOT_RUN；A13 由假绿转为**真 PASS**；`A13.plain` 与 `R1` 两处与 stub 逐字节相同的流是**按其定义**应当如此的 |
+| 计数是否可被读成夸大 | ⚠️ **须更正后接受**：32 PASS id = **29 项不同测量**（24 compiler-driven + 5 compiler-free）。三对 id 是同一测量（`A2≡C5`、`B3≡C4`、`B12c≡B12d`），且 `B12d` 的"combined"断言**无见证**（D083/D084）。**没有任何一行断言了假的东西** |
+
+**本裁定同时声明 P2-B 验收 *不* 建立的事**（与 verifier 的 addendum §8 一致）：无 Late-positive 构建、无数值正确性、无 goal §6.3 的 C1–C11 ABI 检查、trace 行 A4 的 exactly-once 计数仍 NOT_RUN、第 6 个路由位点（`a5-compile`）仍无断言。
+
+### 二、解除 D079 编辑锁：**cut 已提交，快照清单改基为"内容"**
+
+D079 规定：P2-C 一开始改 `LatePipeline.cpp`（四文件之一），以"工作树恰好四个脏文件"为判据的清单就会**无声失效**。故在 P2-C 之前执行 D079 自己的合法状态 (b)：
+
+1. 提交前复测：四文件工作树哈希与 diff 字节哈希**与 v1 清单 [2]/[3] 逐字节相同**（`324fc3a5…`/`5cc21d7b…`/`8ecbfc00…`/`4b089427…`，diff `89d64743…`）—— 即这份 cut 自清单写出以来**未被改动**。
+2. **提交**（本仓库 `AscendNPU-IR-1`，分支 `feat/tilelang-hivm-late-pipeline`，**非**默认分支，无 upstream）：新 HEAD `347221f5522dcbe8504f442ae82933f5840026f8`，父提交 `cfaa59677a8b63587140ab271d56db9e22c593ab`；`--cached` 恰 **4** 个文件、untracked **0**、提交后 `porcelain` = **0**。**未 push、未改分支/远端配置。** 提交只记录源码：**不含任何二进制，也未因它而重新构建**。
+3. **快照清单 v2（内容钉）**：`lead/scratch-p2b-source-snapshot-20261014/P2B-SOURCE-SNAPSHOT-v2-committed.txt`（+ 生成器 `p2b-source-snapshot-v2-committed.py`）。它以 `git rev-parse <commit>:<path>` 取的 **commit 内 blob** 为钉，故后续任何工作树编辑都**无法**使其失效。三条 predicate 实测 PASS：`commit-carries-exactly-four`、`committed-clean-nothing-else`、`worktree-matches-commit`；diff 以 commit 区间重算 = `89d64743…`（与 v1 相同）。**v1 字节原样保留**（`1b8f3878…` 未变），v2 内以 `supersedes` 指名；`SHA256SUMS.txt` **追加**两行新条目（原 3 行逐字保留），从本目录 `sha256sum -c` = **5/5 OK**。
+4. **边界声明**：v2 **不**加强关于二进制的任何主张——诚实主张仍是 v1 所述、Challenger 已接受的"**精确字节 + 逐边构建溯源**"，而**不是**"证明全新编译"（ccache 命中在 ninja 输出里不可见）。本次提交**不新增**关于构建的证据。
+
+**结论**：P2-C 现在**可以**编辑 `regbase/LatePipeline.cpp`（及四文件中的任何文件），P2-B 产物 of record 的归因**不再失效**——它的地址是 commit `347221f5…`，而不是"工作树里恰好脏着什么"。
+
+### 三、implementor 待裁两项 —— 裁定
+
+**R1（模板身份的存放位置）＝ 编译期内建常量，不接受运行时可读的期望值。**
+理由：N2 是身份门禁，必须**可证伪**。若期望哈希在运行时从某个文件读取，编译器就可能"拿一个产物与它自己（或与上一阶段刚写出的东西）比较"，该门禁退化为恒真。故：期望值须是 P2 树内的**编译期常量**，且检查须比对**实际解析到的模板字节**。配套要求：(a) 该常量须按 D077 进身份清单，并记其**出处**（由哪次 P2 模板构建产出）；(b) 生成该常量的一步须留日志；(c) 按 D085 的教训，记录在案的推导必须**真能复算**出该值；(d) 按 D053，现有"not implemented in this build"文字**删除**，不是改写；(e) 失败须**带名失败**并同时打印：解析到的模板**绝对路径**、期望路径、观测 sha 与期望 sha —— 对应 goal §6.2"找不到要求的 C310 bitcode 必须直接失败"。
+
+**R2（§3.3 模板重建如何分阶段，以免覆盖 P1-pinned `build/lib/meta_op.aiv.c310.O2.bc`）＝ 首选"根本不写 `build/lib`"。**
+把 P2 模板产出到**staged bundle 自己的 `lib/`**（产物 of record 的目录），并把 P2 **自己的** sha 记为一个**新的、不同的**值——**绝不**覆盖或复用 P1 pin `5e7ccae2…`。若共享树构建确实不可避免，则**构建之前**必须：(a) 把 preserve 集**扩为** `build/lib/meta_op.aiv.c310.O2.bc`、`.O0.bc` 以及附带的 `.linked.bc`；(b) 写 D041 式 guard log（`BEFORE`/`AFTER`/`EXPECTED`/`VERDICT`，写明 `base_dir`）；(c) **串行**——该 build 目录上不得有第二个并发构建。身份清单须把 P1 的 sha 与 P2 的 sha 记为**两行**，绝不共用一个标签（D081 的教训）。模板重建**属于构建**，必须走 `scripts/in-container.sh`（D044），不得在宿主机构建。
+
+### 四、N1 更正（→ **D085**；此项更正我此前派发时的**过期**表述）
+
+P2-C/P2-D 关于 store cache 的期望值取 **4**（第 4 个 i32 操作数），**不是 0**；属性名 `l2_cache_mode`；合法集 `{0,1,2,4}`；4 操作数 ABI 在 **Ascend950 路径上无条件**、其他 target 保持 3 操作数。**P2 自己的冻结 oracle 已经期望 4**（`t_c2` `:2152-2157`、`t_a15`），只有 **cache0** fixture（C1 的 `absent`/`c0`）期望 0——那是正确的。**不得**从 P1 移植 `B8.CACHE4`：它是 grep **源 IR 文本**的规则，在 P1 为"构造性 FAIL"，且 P1 找的名字 `l2_cache_ctl` 与当前 head 的 `l2_cache_mode` 不同名。
+
+### 五、P2-C 范围确认（不变，供派发）
+
+§6.2 身份门禁 **B1–B8**（存在性 → SHA-256 身份 → 留日志 → 附加 → **唯一一次** A5；绝对路径 + SHA；O0/O2 选择须留日志，依据 `BiShengIRCompile.h:92-106` 的 flag > `detectCannVersion()` > 默认 O2；实际可执行路径；`../lib` 模板选择以"单一推导 + 规范路径 + 换模板差分"证明）；§6.3 **C1–C11** ABI 检查（尚不存在，须新建；P1 的 `p1v2-20261013-d025-verify-negatives/` 八变异体族是复用先例）；D069/D070 行；D075 的 `a5-compile` 位点需要一个 **verifier 拥有的消费者**（今天没有任何可执行物读该 marker）。
+
+### 六、未做
+
+未构建、未跑编译器、未编辑 runner/binding/manifest/census/acceptance 任何 verifier 侧文件、未动 `build/bin`、未改权限、未推送、未删除任何既有证据。本追加新增的磁盘状态仅：本仓库一次**本地提交**（`347221f5…`）与 v2 清单两文件 + `SHA256SUMS.txt` 追加两行。
+
+---
+
+## 2026-10-14 第 23 轮（§25 追加 50）：D085 的**自纠**（范围比初稿窄——操作文档早已带 cache 更正）；一次**自盘断言越界**与一处**未经测量的枚举**（新 D086）的诚实记录；在途派工状态
+
+**阶段**：P2-B 裁定之后的记账收尾，与 P2-C 在途并行。**裁定人**：Lead。**未跑编译器、未编辑 verifier 侧任何文件、未动 `build/bin`、未改权限、未推送、未删除任何既有证据。** 本追加写作期间 Lead **未构建**（在途构建由 implementor 经 `scripts/in-container.sh` 单线执行；下方只记录**已落盘**的实测事实）。
+
+### 一、D085 自纠：范围收窄（初稿把"文档需要修"当成了结论）
+
+写 D085 时我按"操作文档需要更正"来措辞。复查操作文档后确认**并非如此**，两处**已经**写明：
+
+- `docs/p2-architecture.md` §2.4/§7 **已经**把冻结产物（P1 v2 scoped-vf 产物）的那段散文标注为 **STALE BY DESIGN**，并指名引用 Challenger 自己的 `challenger-d025-zqumt69b/entry-evidence/p1v2/scoped-vf/INTEGRITY.json` 字段 `stale_header_comment`（原文大意：那段散文写于 D012 修复**之前**，**故意不编辑**，因为编辑它会改变已受独立 Challenger 复核的产物身份 `d1023ac1…`）；该文档 `:504`/`:520`/`:529-530` 亦已写明该 op 携带 `{l2_cache_mode = 4 : i32}`、合法集 `{0,1,2,4}`。
+- `docs/p2-verification.md:103`（B1）与 `:130`（C2）**已经**期望该操作数为 **4**。
+
+**故 D085 的真实贡献只有三条**：
+
+1. 在 `cfaa59677` 上对该过期注记的**三条独立肢体**确认（`.td` 声明 `OptionalAttr<I32Attr>:$l2_cache_mode` + "valid store modes are exactly {0, 1, 2, 4}"；regbase lowering 在 Ascend950 路径上**无条件**追加第 4 操作数；`Utils.cpp` 合法集 `{0,1,2,4}`）；
+2. **新观察**：P2-B **自己产出**的 dump 携带 `%c4_i32` —— `impl/scratch/p2b-r1-trace/tree/builtin_module_no-symbol-name/11_convert-hivm-to-std.mlir`（sha `1525d6f377830d84dc760a9633f631f787de6486f3887f6c3a6c12d9e36ffbde`，6,888 B，mtime 2026-10-14 02:03）；
+3. **冻结的 v3 oracle 已经断言该值**（`t_c2:2152-2157` 在非 `operand` 形式与 `val != 4` 上都 FAIL；`t_a15:1590` 同），故 **唯一需要更正的是我自己的 P2-C 派工，不是 oracle、不是操作文档**。
+
+两层命名亦已在 `p2-binary-abi.md` 精确写明：`l2_cache_mode` 是 **IR 属性**，`l2_cache_ctl` 是**模板**的窄化局部变量（同名不同义）。**改动只是行内修订，该行仍是 4 格。**
+
+### 二、一次自盘断言越界，以及一处"枚举未经测量"（新 **D086**）
+
+**(a) 断言越界（我的自检写错了范围，不是修订出错）。** D085 行内修订的写入**成功**（脚本已打印 `D085 amended`），随后我自己的写后自检 `if l.startswith("| D08"): assert l.count("|") == 5` 抛 `AssertionError: (134, 6)`——它把 **D081（line 134）**也纳入，而 D081 的 5 格是**先于本次改动就存在**的既有漂移。**无半成品**：修订已在盘上，仅自检范围错。实测确认 D082–D085 各 **4 格**。
+
+**(b) 我此前"约 11 行 5 格"的说法是估计，实测不符，并且那份记录本身写错了。** 该说法在 `docs/status.md:4873`（追加 42 §七），它给出的是**一份具名清单**："**11 行**……D030、D041 一带、D049、D053–D055、D071、D074、D075、D076、D078"。对 `docs/decisions.md` 实测（85 行，格数 = 管道数 − 1；awk 与 python 两种独立数法一致）：
+
+| 格数 | 行数 | 成员 |
+|---|---|---|
+| **4** | **60** | 与第 21 行表头（4 列）一致 |
+| **2** | **10** | D045 D046 D059 D060 D061 D062 D063 D064 D065 D066 |
+| **3** | **7** | D051 D052 D054 D055 D056 D057 D058 |
+| **5** | **7** | D033 D049 D071 D074 D076 D078 D081 |
+| **6** | **1** | D075 |
+| 合计 | **85** | 60+10+7+7+1 = 85；其中偏离 4 格者 **25 行**（**不是 11**） |
+
+`status.md:4873` 那份清单**五处不成立**：(i) 它把自己的族**多数**（11 vs 实测 8，即 >4 格者）；(ii) 点名的 5 个 id **不具备**所述性质——D030 D041 D053 实测 **4 格**，D054 D055 属**另一类**缺陷（3 格）；(iii) **漏掉** D033 与 D081；(iv) 含一个非 id 条目（"D041 一带"）与一个**跨过合格行**的区间（D053–D055，其中 D053 是 4 格）；(v) 对 **17 行不到 4 格**者**只字未提**。**唯一幸存的是它的机制句**：多出的末格是形如 `docs/decisions.md` Dxxx; `docs/status.md` … 的**指引串**。
+
+**(c) 新 D086 已入册**（`docs/decisions.md`，4 格，置于 D085 之后）：**对产物行的枚举本身就是一条主张，必须先测量再依赖**——清单不比计数（D083）或标注（D081）更可信。**处置不变**：25 行的结构漂移**仍有意推迟**到门禁 diff 之外；本追加只**更正计数与清单**，不动版面，并把 25 行列为 §8 步骤 8（Challenger final-diff）的明列议程。
+
+**(d) 写 D086 时我立刻又犯了一次同类错，且被同一次复测当场抓住。** D086 首版的行文里写了字面量 `|`（"number of `|` minus 1"），于是它自己落成 **5 格**——我**刚刚**加入了正在记录的那个漂移族。**在任何记录写下之前**即由紧随其后的复测发现并改正为 "pipe count minus 1"。改正后实测：**86 行**，直方图 `{2:10, 3:7, 4:61, 5:7, 6:1}`，偏离者仍为 **25 行**（D082–D086 全为 4 格）。**这条自证的价值**：本追加记录的规则（"枚举/计数/标注都须实测"）在**同一分钟内**对**它自己的作者**生效了一次。
+
+### 三、在途派工状态（截至本追加写入时）——**均未裁定，Lead 只作只读复核**
+
+| 派工 | 收件人 | 已落盘的实测事实 | 状态 |
+|---|---|---|---|
+| **P2-C 实现**（R1 编译期常量 / R2 不写 `build/lib` / N1 更正 / 与测试冻结互盲） | implementor [1a0493] | `impl/scratch/p2c-template/`：`s1a-build-template-inputs.sh` + `template-inputs-{O2,O0}.txt`（各 4,498 B，108 个模板目标）+ `template-build.log`（162,237 B）**NINJA_RC=0**；`build/lib/meta_op.aiv.c310.{O2,O0}.bc` 在本步**前后 sha 逐字节相同**（`5e7ccae2…` / `0a34be87…`）→ **P1 pins 未被本步写坏**，符合作业面界定 | **在途** |
+| **追加文件 + P2-C 测试冻结 + `a5-compile` 消费端 + trace A4 exactly-once** | verifier [180a41] | 尚无新落盘文件 | **在途** |
+
+**工作树实测**：`AscendNPU-IR-1` 分支 `feat/tilelang-hivm-late-pipeline`，`git status --porcelain` **0 行**，HEAD `347221f5…`；**本次测量时点无** `ninja`/`ccec`/`bishengir` 进程在跑（故不违反"同一 build 目录不得并发构建"，亦满足"物理 NPU 测试串行"）。
+
+**给 implementor 的一条只读观察（Lead 不代改其自有文件）**：`impl/scratch/p2c-template/s1b-make-bundle-lib.py` 被 Pyright 报 2 处 `reportArgumentType`（`None` 赋给 `str` 形参，约 `:42-44`）。属其自有 scratch 文件的类型卫生，请在其提交前自行处置。
+
+### 四、未做
+
+本追加写作期间**未构建、未跑编译器**；未编辑 runner / bindings / manifest / census / acceptance / addendum 任何 **verifier 侧**文件；**未动 `build/bin`**（`5e7ccae2…` / `0a34be87…` 仍是本步前后实测一致的那两个值）；未改权限；**未推送**；未删除任何既有证据。本追加新增的磁盘状态仅：`docs/status.md` 本追加、`docs/decisions.md` 入册 **D086**（4 格）与 D085 的行内修订。
+
+---
+
+## 2026-10-14 第 23 轮（§25 追加 51）：P2-C 在途 S1(b) 的只读复核 —— **两处发现**（一处"恒真空"的身份检查、一处**自产模板包与 P1 钉不逐字节相同**），P1 钉本身**未被写坏**
+
+**阶段**：P2-C 在途（§8 步骤 6），**非裁定**。**裁定人**：Lead，只读复核 implementor 的 scratch 产物，**未编辑其任何文件**。**未跑编译器、未构建**（本追加期间无 `ninja`/`ccec`/`llvm-link` 进程）、**未编辑 verifier 侧文件、未动 `build/bin`、未改权限、未推送、未删除任何既有证据**。
+
+**缘起**：追加 50 §三 只覆盖到 S1(a)（`template-build.log`）。此后 implementor 推进到 S1(b)，产生 `s1b-make-bundle-lib.py`（3,937 B）、`s1b-run.sh`（16,667 B）、`template-link.log`（1,272 B）。本追加为其**复核记录**。
+
+### 一、S1(b) 做了什么、日志说了什么
+
+`s1b-run.sh` 复刻 `build.ninja` 里那三个 link edge，把 S1(a) 重建的 108 个 per-file 模板 bitcode 链成模板包，**输出到证据树** `impl/stage-p2c-r1/lib/`（不写 `build/lib`）。`template-link.log` 自报：`O2_LLVM_LINK_RC=0`、`O2_CCEC_RC=0`、`O0_LLVM_LINK_RC=0`、**`S1B_RC=0`**。
+
+### 二、发现 1（**该检查恒真空，且其失败不被 `rc` 覆盖**）
+
+`s1b-run.sh:25` 的 `sha256sum` 用的是 **缺 `lib/` 一段**的路径 `.../impl/stage-p2c-r1/meta_op.aiv.c310.O2.bc`（另加 `.linked.bc`、`.O0.bc`）。实测这些路径**不存在**；三文件实际在 `.../stage-p2c-r1/lib/` 下。故日志里标题为 `--- bundle lib/ sha256 (P2's own identity) ---` 的那一节**三个值全是 `No such file or directory`**，即**该节没有测量到任何东西**。
+
+更关键：`rc` 只由三个 edge 的返回码设置（`:12`、`:16`、`:20`），**`sha256sum` 的失败根本不进 `rc`** ——所以 **`S1B_RC=0` 关于"模板包身份"什么都没断言**。
+
+**归类**：这是 `sha256sum -c` **基目录**族的又一次现身（我自己的既有记录：错误的基路径会让检查以"不像不匹配"的方式报错）；这里更甚——脚本**自己的 rc 也看不见**它。同时，**该节标题写了 `lib/` 而代码漏了 `lib/`**，属"注释与其自身代码矛盾"（D084 族）。**处置**：已派 implementor（msg `4a97dc4b`）改用带 `lib/` 的路径，并让身份检查**进入 `rc`**（或产出消费者必须读取的独立哨兵）。
+
+### 三、发现 2（**自产模板包与 P1 D031 钉不逐字节相同** —— §6.2 必须先解释才能声称"`../lib` 选中的模板"）
+
+Lead 实测（`sha256sum` + `cmp`）：
+
+| 文件 | P1 钉（`AscendNPU-IR-1/build/lib/`，mtime **2026-10-13 13:46**） | P2 自产（`impl/stage-p2c-r1/lib/`，08:42） | 差 |
+|---|---|---|---|
+| `meta_op.aiv.c310.O2.bc` | `5e7ccae2…` 31,206,796 B | `3807eb3d…` 31,206,992 B | **+196 B** |
+| `meta_op.aiv.c310.O0.bc` | `0a34be87…` 27,695,180 B | `b8c68dcb…` 27,695,840 B | **+660 B** |
+| `meta_op.aiv.c310.O2.bc.linked.bc` | `1b356045…` 31,180,028 B | `cbd56bd9…` 31,180,672 B | **+644 B** |
+
+`cmp` 在 O2 与 O0 上**首个差异字节都是 byte 37, line 1**（正在头部字符串可能出现之处）；两处增量**不相等**（+196 vs +660），故**不是一处定长替换**。**本追加不对成因下结论**（bitcode 非可复现的常见来源：producer 串 / 绝对路径 / ident / 时间戳），已按"小判别实验"规则派 implementor 做**判别测量**（`strings`/`llvm-bcanalyzer` 对比两文件，指出**实际**差在何处），并要求其在记录中写明 **P2 内核链实际消费的是哪一个包、其字节为何与钉不同**。**允许的正确答案**是"P2 链自己新构的包，与 P1 钉差 X 字节"——**不允许**把新包当作钉来陈述。
+
+### 四、同时**独立确认 R2 成立（P1 钉未被写坏）**
+
+`build/lib` 三个文件的 **mtime 仍是 2026-10-13 13:46**（**早于**今天 08:39/08:42 的 S1(a)/S1(b)），且两个 sha 仍**等于 D031 钉**（`5e7ccae2…` / `0a34be87…`）。故 S1(a)/S1(b) **确未写 `build/lib`**——追加 50 §三 记的"NINJA_RC=0 且前后 sha 相同"由此获得**mtime 侧的第二条证据**。旁证：`build*/` 被 `.gitignore:2` 忽略，故这些写入不进 porcelain（与"工作树 porcelain 0 行"不矛盾）。
+
+### 五、其他在途状态
+
+- verifier [180a41]：**仍无**新落盘文件；派工项（新追加文件 / P2-C 测试冻结 / `a5-compile` 消费端 / trace A4 exactly-once）全部**在途**。
+- implementor [1a0493]：另有 2 处 Pyright `reportArgumentType`（`s1b-make-bundle-lib.py` 约 `:42-44`，`None` 赋给 `str` 形参）已随同一消息请其提交前处置。
+
+### 六、未做
+
+本追加写作期间**未构建、未跑编译器**；**未编辑** implementor 的 `s1a-build-template-inputs.sh` / `s1b-make-bundle-lib.py` / `s1b-run.sh` / 任何日志；未编辑 verifier 侧任何文件；未动 `build/bin`；未改权限；未推送；未删除任何既有证据。本追加新增的磁盘状态仅 `docs/status.md` 本追加。
+
+---
+
+## 2026-10-14 第 23 轮（§25 追加 52）：追加 51 发现 2 的**文档侧交叉引用** —— `p2-binary-abi.md` §0 **预先声明**的模板 contingency **已触发**，"两个主张不得合并"的分裂义务随之生效；并复核 §0 的 6 个 NOT_RUN 行**仍应保持 NOT_RUN**
+
+**阶段**：P2-C 在途，**非裁定**。**裁定人**：Lead（只读复核 + 派工）。**未构建、未跑编译器、未编辑任何 teammates 的文件或 verifier 侧文件、未动 `build/bin`、未改权限、未推送、未删除任何既有证据。**
+
+### 一、§0 早已把"模板是否被重新生成"写成了一条**预声明义务**（实测引用）
+
+`docs/p2-binary-abi.md` §0 的模板段落原文：
+
+> "**The templates were *not* regenerated — this row's contingency did not fire (measured 2026-10-13).**" … "**Had they differed, the split would have been mandatory — the two are different claims about possibly the same bytes, and this record must never collapse them.**"
+
+即：该文档**事先**规定——P1 历史钉与"P2 自产模板身份"是**两个主张**；只要字节不同，**必须分裂成两行**，不得合并。P2-A 与 P2-B 时两者字节相同（`5e7ccae2…` / `0a34be87…`），故当时共用一行是**合法**的（P2-A 的 `stage-p2a-r1` 与 P2-B 的 `stage-p2b-r1` 均实测 4/4 且模板仍等于钉）。
+
+### 二、追加 51 的发现 2 **正是**该 contingency 的触发条件（首次触发）
+
+P2-C 的 S1(a)/S1(b) 是**第一个**模板字节**不同于钉**的 P2 产物：O2 `5e7ccae2…`(31,206,796 B) → `3807eb3d…`(31,206,992 B)，O0 `0a34be87…`(27,695,180 B) → `b8c68dcb…`(27,695,840 B)。**故 §0 规定的"分裂"现在是义务**：
+
+- P1 历史钉 `5e7ccae2…` / `0a34be87…` **保持为独立且不变**的身份（`build/lib` mtime 13:46 仍在盘上；`stage-p2b-r1/lib/` 4/4 per D074）；
+- P2 **自产**模板身份（`3807eb3d…` / `b8c68dcb…`）**另立一行**——不替换钉、也不默默称作"the template"。
+
+已把该交叉引用连同 §6.2 的后果派给 implementor（msg `b6ea79a3`）：**B4 的"`../lib` 选中的模板"必须指名 staged 编译器实际解析的哪一个包**；§0 自己那条 caveat 仍然有效且不因布局而解除——"编译器**选择**了该路径"（B3 `/proc/self/exe`）、"O2 被**选中**而非 O0"（B2）、"链出的 kernel **消费**了该模板"（B1/B5/B6）**都仍需一次真实执行的编译**。
+
+### 三、§0 的 6 个 NOT_RUN 行复核：**结论为"仍应 NOT_RUN"，未做任何填充**
+
+§0 身份清单共 9 行：3 行为 `recorded`（P1 `bishengir-opt` 钉；P2 自己的 `bishengir-compile` = P2-B 域内已记 `ea217b8d…`；P1 钉的还原完整性 = P2-A 实例已记），**6 行为 NOT_RUN**：① C310 模板实际被消费（B1/B2/B3/B4/B7）；② 其中 store ABI（B5/B6）；③ 缺失/错误时硬失败（B8 N1–N4）；④ 产出的 binary（D1–D6）；⑤ 交给 P3 的 binary（D7）；⑥ 编译器↔bitcode↔binary 联动 sidecar（A2/B1/D2）。
+
+**复核结论**：这 6 行**全部**依赖于"Late 路由真实产出 kernel binary 的一次执行编译"，而 P2-B 的构建是**按设计 fail-closed** 的（9 个 FAIL 即该设计的产物，见追加 48/49），故**当前不存在**可支撑它们的执行事实。**本追加不为它们填任何值**——按 goal §7"**不得把仅有源码推断的项目标记为已执行 PASS**"，以及 §0 自身两条例（"值必须是该次运行**实际消费**的文件"、"从文档抄来的哈希不是证据"）。P2 验收要求 §0 的 NOT_RUN 归零，该归零**只能由 P2-C/P2-D 的执行结果达成**，不能由 Lead 的复核达成。
+
+### 四、未做
+
+本追加写作期间**未构建、未跑编译器**；未编辑 implementor 的 scratch 脚本/日志；未编辑 verifier 侧任何文件；未动 `build/bin`；未改权限；未推送；未删除任何既有证据；**未编辑 `p2-binary-abi.md`**（其 §0 的"分裂"义务由 P2-C 的产物来满足，届时按需以追加方式补记，不回头改写既有段落）。本追加新增的磁盘状态仅 `docs/status.md` 本追加。
+
+---
+
+## 2026-10-14 第 23 轮（§25 追加 53）：**P2-C 计划评审与裁定** —— 计划**有条件批准**（S1→S7 顺序与单构建目录串行制接受）；两问作答；对"编译期期望模板 SHA 常量"的**定义与标签**作出裁定（新 **D087**），并把"自产常量"的**循环性**明确披露、指定承担正确性举证的三处产物
+
+**阶段**：P2-C（§8 步骤 6），**在途**。**裁定人**：Lead（gatekeeper）。**未构建、未跑编译器、未编辑 implementor 或 verifier 的任何文件、未动 `build/bin`、未改权限、未推送、未删除任何既有证据。**
+
+### 一、收到的计划（implementor msg，摘要）
+
+**S1** 模板重建（bundle-local，选 R2 优先支，**不写 `build/lib`**）：(a) 容器内 ninja **per-file** `.bc` 目标（写入 `build/tools/...`，永不进 `build/lib`），由 ninja 自己的 depfile 判定 stale；(b) 容器内**逐字**执行 `build.ninja` 的两条 edge 命令（不重打），`-o` 指向新 bundle 的 `lib/`；守门 = 前后 `sha256` + **`base_dir` 具名**。**S2** 记录 P2 自产身份（**两行两标签，永不合并**）。**S3** 实现 `bishengir::runLateBitcodeAndA5(ModuleOp, const BiShengIRCompileMainConfig &)`，与 `runRegBasePipeline` 并列，使 gate 与 attach **共用同一** `getLibDirFromExecutable`/`link`/`buildBitcodeFileName` 推导。**S4** 容器内单次构建编译器。**S5** 暂存**新** bundle 目录（不覆盖 `stage-p2b-r1`/`stage-p2b`）。**S6** 从 `lead/preserved-p1-compiler/` 还原 `build/bin`（D041 式守门日志，**最后构建之后再还原**）。**S7** 在 `347221f5` 上追加提交（**不改写**、**不推送**），功能增量与纯加性 instrumentation 分开提交。
+
+**计划自证的关键观察（接受）**："R1 的常量与 R2 的重建是**有序的、不是独立的**"——常量必须是**尚不存在**的模板的 SHA，故顺序为：先模板 → 再测量 → 再写常量 → 再构建编译器。
+
+### 二、两问作答
+
+1. **`PassPipeline.h`（第五个文件）：批准。** 在**既有** `regbase/PassPipeline.h` 中声明（仿 `runRegBasePipeline`），**不新建头文件**、**不用文件内重复声明**——两份声明是签名漂移可以藏身之处，而"不并行重推导"正是 S3 的目的。**条件**：无新头文件；**提交信息写明五文件范围**（第五个文件之所以安全，正是因为 D079 状态 (b) 已把 P2-B 的 cut 钉在**提交**上，而非工作树状态）。
+2. **§0 清单行：归 Lead 放置。** implementor **不得编辑 `docs/p2-binary-abi.md`**；其把实测值 + 出处写进 P2-C 证据即可。
+
+### 三、裁定：**编译期"期望模板 SHA"常量的定义与标签**（新 **D087**）
+
+**(a) 定义（标签必须逐字如此）**：该常量是 **"入口必须观测到的 SHA-256：本次编译器构建所依据、并由暂存 bundle 携带的那个 C310 模板"**。它**不是** D031/P1 钉——**实测为假**：P2-C 自产模板 `3807eb3d…`(O2)/`b8c68dcb…`(O0) 对上钉 `5e7ccae2…`/`0a34be87…`（**+196 B / +660 B**，首个差异字节 **37**，两处增量**不相等**且 O2 另有 ccec post-link edge，故排除"定长替换"）。它也**不是**"模板内容正确"的证明。
+
+**(b) 循环性必须披露（一句话，写在其证据里）**：因常量派生自它所守护的那次构建，N2 臂断言的是 **"该编译器构建之后没有东西替换过模板"**——**替代/构建后漂移检测器**，不是正确性证明。**承担正确性举证的三处产物须并列点名**，以免读者把 gate 读大：S2 的两行身份（两行两标签，D081）、B5/B6（模板**内部**的第 4 个 i32 store 操作数 / cache4）、以及 **swap-the-template 差分**（证明链接器确实读**那个**文件的腿）。
+
+**(c) 后果分支**：若模板构建被证明**非可复现**，则该常量是**一次构建**的属性、**不是树的属性**——同源重建即使其失效、必须重新生成，**P3 继承该性质**。由下方判别实验决定，**不预判**。
+
+### 四、S2 记录前**必须**完成的判别实验（本轮裁定把"为何不同"列为前置条件）
+
+1. **路径嵌入判定**：以**完全相同的输入**把 O2 link edge 跑**两次到两个不同的 `-o` 路径**并比较。两者不同 ⇒ 工具嵌入了输出路径（无害，且直接解释该增量）；两者相同 ⇒ 该 edge 与路径无关，成因在输入或真非确定性。O0 edge 同做。
+2. **指名实际差异**：对两个 bundle 做 `strings` 与/或 `llvm-bcanalyzer`，**说出究竟哪部分内容不同**——不得只报"byte 37 不同"就收工。
+3. **报告 S1(a) 究竟重建了多少个、哪些 per-file `.bc`**，以及 `DMAUtils.h` 相对这些对象上次构建是**内容**变了还是**只有 mtime** 变了。**仅 mtime 陈旧、内容未变而输出仍不同 = 非确定性**，正是改变常量含义的那种情形。
+
+**另设一条措辞闸门**：§6.2 说"the correct C310 bitcode"。既然自产模板**不等于** P1 钉，其证据中**任何**地方都不得让"correct"被读成"与 `5e7ccae2…` 逐字节相同"；**B4 必须指名暂存 bundle 自己的字节值**——钉的行与 P2 的行是**两个不同的主张**（§0 早已预声明该分裂义务，见追加 52）。
+
+### 五、归属与后续 Lead 动作
+
+- **implementor 负责**：S1–S7、证据、负例、五文件提交；（另：修 `lib/` 路径并让身份检查进入 `rc`，见追加 51 §二）。
+- **Lead 负责**：§0 的分裂行；并在其 S7 提交之后，重生成**内容钉**快照清单 **v3（覆盖五个文件）**，以"改名不覆盖"取代 v2——implementor 无需触碰。**该 v3 尚未生成**（等 S7 的提交）。
+- **登记表现状（实测）**：87 行（D001–D087），直方图 `{2:10, 3:7, 4:62, 5:7, 6:1}`——偏离 4 格者仍为 **25 行**（D085/D086/D087 全为 4 格）；D081 的 5 格与其余 24 行仍**有意推迟**（D086）。
+- **不**为此唤醒 Challenger（非架构门、非定向硬失败）；D087 连同 25 行漂移一并列入 **§8 步骤 8**（Challenger final-diff）明列议程。
+
+### 六、未做
+
+本追加写作期间**未构建、未跑编译器**；未编辑 implementor 或 verifier 的任何文件；**未编辑 `p2-binary-abi.md`**；未动 `build/bin`；未改权限；未推送；未删除任何既有证据。本追加新增的磁盘状态仅：`docs/status.md` 本追加、`docs/decisions.md` 入册 **D087**（4 格）。
+
+---
+
+## 2026-10-14 第 23 轮（§25 追加 54）：S1(a) 在构建树里留下的一处**"已武装"危害**（新 **D088**）—— D031 bitcode 钉的 `build/lib` 副本现已**脏**，且**可被显式 target 原地重写**；**但**默认 `all` **够不到**它，且身份在 4 个暂存 bundle 里**另有副本**（已实测）
+
+**阶段**：P2-C 在途，**非裁定**。**裁定人**：Lead（只读测量 + 派工）。**未构建、未跑编译器、未编辑 implementor 或 verifier 的任何文件、未动 `build/bin`、未改权限、未推送、未删除任何既有证据。**
+
+### 一、测量到的状态
+
+`build/build.ninja:216819` 把 `lib/meta_op.aiv.c310.O2.bc` 声明为一个 **ninja 输出**（`CUSTOM_COMMAND`，ccec 跑在 llvm-link 中间件 `lib/meta_op.aiv.c310.O2.bc.linked.bc` 上）——**它不是静态产物**。implementor 的 S1(a) 于 **08:39 今天**重建了 108 个 per-file 模板 bitcode，于是：
+
+- **54 个 O2 输入**与 **54 个 O0 输入**的 mtime **晚于**该钉（钉为 **2026-10-13 13:46**）；
+- 中间件 `…O2.bc.linked.bc` 也仍是 13:46 → **它自己的输入也更新了**。
+
+∴ **钉与中间件二者皆脏**。
+
+### 二、界限（**这里我一度把结论说过头，实测把它收窄了**）
+
+`build.ninja:288795` 是 `default all`；文本核对显示 `all` 的输入表**不含** `install-bishengir-publish-products`。**故一次朴素的 `ninja` 够不到模板目标，不会重写该钉。** 暴露面因此是**仅限显式 target**：`bishengir_link_aiv_c310_O2` / `_O0`、`install-bishengir-publish-products`（它列出了全部 `bishengir_link_*` phony），以及任何依赖它们的 target。**S1(a) 之所以无恙，只是因为它打的是 per-file 输出而非其消费者**——这一点近乎侥幸，故要求 implementor 把该边界**具名写进证据**，而不是留作隐含。
+
+**由此派生的规则（约束 P2-C、P2-D 与 P3）**：**任何步骤都不得构建 C310 模板的任何消费者**（`install-bishengir-publish-products`、任何 `bishengir_link_*` phony 或依赖者），否则会**原地覆盖** D031 钉的盘上字节；且该钉的身份**必须从暂存 bundle 读取并具名 `base_dir`**，**不得**从 `build/lib` 读——后者现在是五个副本里**最不可信**的一个。
+
+### 三、身份另有四份副本（实测，故该危害有界）
+
+`5e7ccae20f4e2a18…` / `0a34be8759a082d2…` 在**四个相互独立**的 bundle 中逐字节存在（Lead 实测）：
+
+| bundle | O2 | O0 |
+|---|---|---|
+| `impl/stage-p2a/lib/` | `5e7ccae2…` | `0a34be87…` |
+| `impl/stage-p2a-r1/lib/` | `5e7ccae2…` | `0a34be87…` |
+| `impl/stage-p2b/lib/` | `5e7ccae2…` | `0a34be87…` |
+| `impl/stage-p2b-r1/lib/` | `5e7ccae2…` | `0a34be87…` |
+| `impl/stage-p2c-r1/lib/`（新，P2-C 自产） | `3807eb3d…` | `b8c68dcb…` |
+
+故即使 `build/lib` 被覆盖，D031 身份仍**可重构**，冻结绑定仍有重指目标（D048/D062 的补救范式）。**旁证**：`verify/work/run/B12b/lib/` 与其 `p2b-acceptance/` 同名副本持有 **pre-D012 危害模板 `44e4387b…`（31,179,496 B）**——即 N2 否定例所用的那个替换危害件，与 §B 记录一致。
+
+### 四、入册与派工
+
+- **新 D088**（`docs/decisions.md`，4 格）：本条危害的实测 + 界限 + 规则 + 四副本。**系 D048/D062 所命名之类（"冻结绑定中位于构建树下的每一条绝对路径，都是 P2 构建会确定性抢占的基线"）在 bitcode 钉上的补全**，并**首次测量了"脏"这一状态本身**。
+- 已派 implementor（msg `0df252fd`）：在 P2-C 证据中写 (a) 既定的 `build/lib` BEFORE/AFTER 守门、(b) "S1(a) 武装了消费者但未触碰它们"这一陈述、(c) 四个保留副本为该钉的权威来源。
+- 登记表现状（实测）：**88 行**（D001–D088），直方图 `{2:10, 3:7, 4:63, 5:7, 6:1}`，偏离 4 格者仍为 **25 行**（D085–D088 全 4 格）。
+- **不**为此唤醒 Challenger；D088 列入 **§8 步骤 8** 议程。
+
+### 五、未做
+
+本追加写作期间**未构建、未跑编译器**（**特别地：未执行任何 ninja**，包括 `-n` 干跑——本条界限纯以 `build.ninja` 文本核对 + `find -newer` 计数 + `sha256sum` 得出）；未编辑 implementor 或 verifier 的任何文件；未编辑 `p2-binary-abi.md`；**未动 `build/bin`**；未改权限；未推送；未删除任何既有证据。本追加新增的磁盘状态仅：`docs/status.md` 本追加、`docs/decisions.md` 入册 **D088**（4 格）。
+
+## 2026-10-14 第 23 轮（§25 追加 55）：TASK A **独立验收通过**；一处**定位更正**（更正的对象是**我自己的记录**）；一处 **D084 家族新发现**（committed cut 内 `LatePipeline.cpp:141` 的文档注释与其下常量不符 → 新 **D089**）；一次**哈希命名空间虚警**的澄清与**我自己 v2 清单上一处 D081 形状的标签风险**（前向修法：v3 具名哈希函数）；工作树已进入 S3（实测 3 行 porcelain），**不使任何既有归因失效**
+
+### 一、TASK A 独立复验 —— **ACCEPTED**
+
+对 verifier 的 `ACCEPTANCE-P2B-v3-FULLRUN-ADDENDUM-2.txt`（7,494 B，mtime 08:45）由 Lead **自盘复算**，不是读其自述：
+
+- 交付物自身：`88010e93f38529955e52f8dd43af066c08ff037cb2ef769ed70a9a81ad4e9277`（复核一致）。
+- 它声称"未编辑任何 sealed 字节"，我逐项**从磁盘重测五个封存身份**，全部与 P2-B 记录一致：runner `299eaef3…`、oracle `0677be1a…`、seal `8c18d22e…`、`scripts/in-container.sh` `2ed26e9b…`、`ACCEPTANCE-P2B-v3-FULLRUN.txt` `0d3ed35f…`。
+- 其"三段式字节探针"我**在 addendum 自身的磁盘字节上**复现：既无 27 字节字面 token、也无任何 `{{` 括起的占位符 —— 即转录规则是在**产物上**成立，而非仅在自述里成立。
+- 结论接受：**32 个 PASS id = 29 个独立测量**（24 编译器驱动 + 5 编译器无关），这是**计数精度**更正，**不是假绿**（每行的 detail 串都是该行真实测得的 detail，未撤任何 id、未减法，D077）；D082/D083/D084 与我的独立复算一致。
+
+### 二、定位更正：`:142` 是**定义**处，`:350-358` 是 echo —— 更正的是**我的**记录
+
+实测 committed cut（`git show 347221f5:…/LatePipeline.cpp`）：
+
+```
+:138  ArrayRef<PinnedOption> pinnedTrue()  { return ArrayRef(kPinnedTrue); }
+:139  ArrayRef<PinnedOption> pinnedFalse() { return ArrayRef(kPinnedFalse); }
+:141  /// The process-wide deadline the Late entry must not be caught by.
+:142  constexpr const char *kLegacyEnv = "<27 字节 token>";
+:350  if (const char *legacy = ::getenv(kLegacyEnv); legacy && *legacy) {
+```
+
+即：**`:142` 是常量定义处，`:350-358` 是 `getenv` echo 处**。我在**追加 48 的 D082** 里**只记了 echo 处（`:350`）而漏了定义处**。这不是 verifier 的错，是**我的引用不完整**：按 D082 自己订下的规则（token **只以 locator + 长度 + sha256 引用**），一个只指向 echo 的 locator 让读者**无法定位该值所在**。verifier 的 `:142` 为准。
+
+**处置**：不重写追加 48 的行（status.md 是我的追加式记录，按 rename/retain-not-overwrite 精神不改历史字节），在**本追加**给出更正并交叉引用；D082 的引用自此以 `:142`（定义）+ `:350-358`（echo）为完整形式。
+
+### 三、D084 家族新发现：`:141` 的文档注释与其下常量**不符**（新 **D089**）
+
+同一次实测暴露：`:141` 的注释 `/// The process-wide deadline the Late entry must not be caught by.` 紧邻 `:142 kLegacyEnv`，但该常量**不是** deadline，而是 §2.3 互斥守卫所用的 **legacy env 名**。它确为**离群**：相邻两个常量的注释（`:138`/`:139`）准确、具体。
+
+**加重情形**：verifier 的 addendum 现以 `LatePipeline.cpp:142 kLegacyEnv` 作为 token 的 locator —— **引用方是对的，被引的行是错的**；顺该指针走的读者会读到一条关于 "process-wide deadline" 的注释，而那样的实体并不存在。
+
+**处置**：属 **D084 家族**（cut 内的注释与自身代码矛盾）→ **记录，不原地修**；已非必需地告知 implementor（msg `01c298e4`）：**仅在其本就编辑该文件且完全免费时**，另开一个**纯注释的 cosmetic commit**，**我明确不要求**，且**严禁**与功能 diff 同提交（D086 的禁止 cosmetic churn 规则），**严禁**改动任何诊断串（D043 Q7）。该缺陷绑定 blob `sha256 5cc21d7b…`（25,817 B, `347221f5`）。
+
+**入册新 D089**（`docs/decisions.md`，4 格）：除记录该缺陷外，提炼一条通用规则 —— **locator 是关于"邻域"的断言，不是关于一个字节**；以 `file:line` 引用一个定义时，**必须同时读其上下行**，否则引用方正确、被引行错误的情形无法被发现。
+
+### 四、一次哈希命名空间虚警的澄清，与**我自己 v2 清单上一处 D081 形状的标签风险**
+
+**（a）虚警已澄清，无异常、v2 清单正确。** 我曾把两值并列读作矛盾，实测澄清为**两个不同函数**：
+
+| 量 | 实测值 | 说明 |
+|---|---|---|
+| `sha256(文件内容)` @HEAD | `5cc21d7bce6ff119d99743d9174cbddd2e356635d38651b74eb51a8a71ec277c` | **正是 v2 清单所记**，逐字一致 |
+| `git rev-parse HEAD:<path>` | `eb3f25a8a582e400fa0627d80d6ab2d9bf7d7041` | git 的 **SHA-1** object id（40 hex） |
+| 文件字节数 @HEAD | 25,817 | — |
+
+记本条以免后读者把同一现象重新当异常上报。
+
+**（b）但风险是真的，只是在我的产物上。** v2 清单 `[2]` 把值标为 "committed blob sha256"，而复核者**最自然的复现手段**（`git rev-parse` / `git hash-object`）返回的是 **SHA-1**，会得到一个**不匹配**——与**篡改不可区分**。这正是 **D081 的形状**（标签与被标值不同源），只不过值本身是对的。
+
+**前向修法（不重写 v2 字节）**：S7 提交后的 **v3 清单必须在每个值旁具名哈希函数**（"sha256 of the file's content bytes; NOT the git object id, which is SHA-1 here"），并**并列出该 SHA-1 供对照**；同时把覆盖从 4 文件扩到 **5 文件**（P2-C cut）。已同步 implementor（msg `01c298e4`），要求其 S2 行**具名**每个身份由哪个函数产生。
+
+### 五、工作树已进入 S3（实测 3 行 porcelain）—— 不使任何既有归因失效
+
+| 文件 | 字节 | worktree sha256（前 16） |
+|---|---|---|
+| `…/regbase/PassPipeline.h` | 2,857 | `470b44f38a19c110…` |
+| `…/regbase/BiShengIRCompileMain.cpp` | 35,006 | `1985862c5f101b05…` |
+| `…/regbase/LatePipeline.cpp` | 25,852 | `3034c54dd7a6f3d8…` |
+
+`HEAD` 仍为 `347221f5522dcbe8504f442ae82933f5840026f8`（未变）。三行与**已批准的五文件 cut** 一致（implementor 已采纳我在追加 53 批准的头文件声明；`PassPipeline.h` 被改即为该采纳的实测证据）。
+
+**为何这不 void 任何东西**：P2-B 的归因**已由 D079 状态 (b) 改基为 commit-addressed**（v2 清单锚在 `347221f5`），后续工作树编辑不能使之失效 —— **这正是 v2 相对 v1 要买的东西，此处实测兑现**。同理，verifier 的冻结义务也不受影响：TASK B 明确**不得读**这三个文件（已派 msg `8ddfe26c`）。
+
+### 六、TASK B 放行（与独立性的保护）
+
+已发 verifier（msg `8ddfe26c`）：**TASK A ACCEPTED + TASK B GO**，并加七项强调：**①** 模板 present/absent 对照须成为**可执行行**（以此关闭 D084 所述 B12d 的"未见证合并主张"）；**②** 期望值须独立于 P2-C 产线 diff（若要读 diff 才能定期望，**停下报我**，那是设计信号而非查表）；**③** 宣布冻结身份（runner 路径 + sha256 + 字节数 + `base_dir`）；**④** 运行隔离（D046：勿复用固定 log 目录，否则陈旧 C6 文件会被误引）；**⑤** 每个否定例须因**语义断言**失败（goal §7），逐行声明它设计去触发哪条断言；**⑥** D085 适用（cache4 → 操作数取值 4、属性名 `l2_cache_mode`、合法集 `{0,1,2,4}`、不得移植 P1 的 `B8.CACHE4`、cache0 例期望 0）；**⑦** §6.2 的"正确 C310 bitcode" **不得**读作"与 P1 钉 `5e7ccae2…` 逐字节相同"（P2-C 自产模板合法地不同），**B4 须具名暂存 bundle 自身**的值。其余（§6.3 C1–C11 的 ABI oracle，P1 `p1v2-20261013-d025-verify-negatives/` 八变体家族为复用先例；D075 的 `a5-compile` 消费者；trace A4 的"Late 恰一次"计数）仍在其名下。
+
+**时序**：TASK B 须在 implementor 的 S4/S5 暂存**之前**落地，以保住相互独立（implementor 已承诺冻结公布前不读新测试）。
+
+### 七、未做
+
+本追加写作期间**未构建、未跑编译器、未执行任何 ninja**；未编辑 implementor 或 verifier 的任何文件；未编辑 `p2-binary-abi.md`；**未动 `build/bin`**；未改权限；未推送；未删除任何既有证据。磁盘新增仅：**本追加**、`docs/decisions.md` 入册 **D089**（4 格，并删去文末一处会使该行脱离表格的空行 —— 该空行是本追加之前的文档结尾留白，非任何人的产物行）。登记表现状（实测）：**89 行**（D001–D089），直方图 `{2:10, 3:7, 4:64, 5:7, 6:1}`，偏离 4 格者仍为 **25 行**。
+
+## 2026-10-14 第 23 轮（§25 追加 56）：implementor 的**四臂 smoke**（产线方自跑，**非验收**）已落地 —— 模板 present/absent 对照**已可执行**且**失败即闭合**；S4 构建**未触碰** D031 钉（D088 的界限**由论证变为实测**）；由此暴露一条**测试环境前提**：Late 正向行**必须**跑暂存 bundle（新 **D090**）；并诚实记录一处**时序倒置**（冻结写在实现之后）
+
+### 一、四臂 smoke 的实测结果（`impl/scratch/p2c-smoke/smoke-late-run.log`）
+
+Lead 直接读其产物，不采信自述：
+
+| 臂 | 被跑的可执行/`../lib` | rc | 产物 | `a5-compile` | 门的判定 |
+|---|---|---|---|---|---|
+| A | `impl/stage-p2c-r1/bin` + 该 bundle 自身 `lib/` | **0** | `kernel.o` 4,448 B `sha256 2c4247c3…` | **1** | `verdict=PASS`（observed == expected == `3807eb3d…`） |
+| B | `build/bin` + `build/lib/` | 1 | ABSENT | 0 | `sha256-mismatch`（observed `5e7ccae2…` = **P1 钉**，expected = 本构建自产） |
+| C | 该 bundle + **空** `lib/` | 1 | ABSENT | 0 | `template-absent` |
+| D | 该 bundle + `lib/` 为**指向 `lib-real/` 的解析** | 1 | ABSENT | 0 | `template-resolved-outside-expected-path` |
+
+四臂的 `late-route=1 / ordinary-regbase-pipeline=0 / retry-loop=0` 一致。**A 臂**即 P2 完成判据的形态（真实 Late 输入 → 新入口 → 单次 HIVMC A5 → 产物），**但它是产线方自跑，不是验收**；B/C/D 三臂是 goal §6.2 *"Late 模式下找不到要求的 C310 bitcode，必须直接失败"* 的**正面证据**（无产物、`a5-compile=0`、**无回退**），并正是 D087 裁定中承担 N2 的**替换/漂移检测**证据 —— **明确不是正确性证明**。
+
+### 二、S4 构建未触碰 D031 钉 —— D088 的**界限**由"论证"变为"实测"
+
+`impl/scratch/p2c-build/s4-build-2.log` 只有 4 条边（1 编译 + 2 链接 + 1 收尾）。Lead 实测 `build/lib/meta_op.aiv.c310.O{2,0}.bc` 仍为 `5e7ccae2…` / `0a34be87…`，**mtime 仍是 10-13 13:46**（未变）。即 D088 所述危害**在 S4 下未触发**，其"默认 `all` 够不到模板消费者"的界限此番**由实测支撑**而非仅由 `build.ninja` 文本推得。已要求 implementor 把该测量写进 S2/S4 证据。
+
+### 三、由此暴露的**测试环境前提**：Late 正向行必须跑暂存 bundle（新 **D090**）
+
+`getLibDirFromExecutable` 以可执行的 **real path** 推 `../lib`，门再把该处的模板与**编进该二进制**的值比对。故：
+
+- **`build/bin/bishengir-compile` + `build/lib/` 现在按设计失败即闭合**（B 臂）—— 文件在、且正是 P1 钉，但**不是本构建所对着构建的那份**，故被拒。
+- 因此**任何指向 `build/bin` 的正向行都会失败**：理由是**对的**，但**不是作者想断言的断言**。这是**一个正待被写下的 false-FAIL** —— false-PASS 的镜像；在记录里它会被读成"冻结坏了"，而不是"设计性拒绝"。
+- **推论**：`bin/` 若是指向构建树的**符号链接**，`../lib` 会被静默重指到构建树（real path），故 bundle **不能**靠符号链接"借"进构建树。
+
+**规则（D090）**：每条 Late 正向行**必须声明**其可执行路径与它**必须解析到的 `lib/`**；基线模板身份一律从暂存 bundle 读并具名 `base_dir`（D088）。
+
+### 四、诚实记录：一处**时序倒置**
+
+CLAUDE.md 的控制是"测试与期望须**在与实现独立的前提下、在实现之前**定义"。实况是：implementor 的 **S1–S4 已先落地**，verifier 的 **TASK B 冻结写在实现之后**。我在 authorize TASK B 时下的"须在 S4/S5 之前落地"**已被在途工作越过**，故**不再成立** —— 我不掩饰这一点。
+
+**支撑独立性的不再是时序，而是取值来源**：冻结中每行的期望值**必须具名其来源**，可采信的来源只有两处 —— **冻结的 Golden fixtures** 与 **goal §5 的保护不变量清单**（该清单就在 goal 文档里：AIV grid=64、per-block GM 索引、8192 f32/block、UB 偏移 0/65536/131072、32768 字节 DMA、动态 UB 196608、cache4、128 次 64 元素、pb32、四个 set/wait 同步操作、entry-terminal PIPE_ALL）。**若某行的期望值只能靠观察 P2-C 运行得到，该行就不独立**，须如此声明而非默认保留。已派 verifier（msg `c4be29d5`）：逐不变量引 §5；**具名其未读之物**（P2-C 产线 diff、`impl/scratch/p2c-smoke/`、`impl/stage-p2c-r1/`），并**禁读** `impl/scratch/p2c-smoke/`（内含产线方 smoke 输出与一个**编进二进制的期望值**，读了会让期望"被抄"而非"被推"）。
+
+### 五、另一处待澄清（已问 implementor，msg `08c95ef0`）
+
+D 臂的诊断行同时打印 `exists=yes` 与 `observed-sha256=(unreadable)` —— **存在却不可读**，读者会问为什么。若路径检查有意先于哈希、故哈希**根本未尝试**，应在 S2 说明并让出词如实（如 `not-attempted` + 理由）；**但**须先确认 verifier 的冻结行**是否以这些串为键**，若是则**改一个词都要先协调**（D043 Q7：不得改动 oracle 所键的诊断）。
+
+### 六、未做
+
+本追加写作期间**未构建、未跑编译器、未执行任何 ninja**；未编辑 implementor / verifier 的任何文件；未编辑 `p2-binary-abi.md`；**未动 `build/bin`**；未改权限；未推送；未删除任何既有证据。磁盘新增仅：**本追加**、`docs/decisions.md` 入册 **D090**（4 格）。登记表现状（实测）：**90 行**（D001–D090），直方图 `{2:10, 3:7, 4:65, 5:7, 6:1}`，偏离 4 格者仍为 **25 行**。
+
+## 2026-10-14 第 23 轮（§25 追加 57）：P2-C 门禁处的**goal §3 复认**（§F.4 要求"每个门禁复认一次"）与 **§9 交付物盘点**（谁在 P2-C 下该更新哪一份）
+
+### 一、goal §3 复认：**served model 未变**，F.3 的结论继续成立
+
+来源与 §F.2 同法：各 agent 自身 transcript 里网关回显的 `model` 字段（`…/ea69c136-…/subagents/agent-*.jsonl`）。本轮实测（只统计值，不抄内容）：
+
+| 角色 | 标签 | **served model** | 本轮计数 |
+|---|---|---|---|
+| implementor | `implementor-sonnet` | `deepseek-v4.1-flash` | `agent-aimplementor-b00c1b2a2e618c73` 1710×（当前）、`…-619b17ef…` 381×、`…-2-433e3f…` 155× |
+| verifier | `verifier-haiku` | `mimo-v2.6-flash` | `agent-averify-fd1c402be6c7e059` **2063×**（当前，§F.2 记的 169× 已陈旧）、`…-fd1c402b…` 系另三份 |
+| challenger | `challenger-opus` | `gpt-6.1-sol` | `agent-areview-2-744b9123f07b8871` 563×（当前）、`…-175c0b7e…` 144×、`…-44c1079f…` 72×、`…-achallenger-00ae991f…` 266× |
+| Lead | `team-lead` | `deepseek-v4.1-flash` | 与环境横幅 `group/auto-deepseek-v4-1-flash` 一致 |
+
+两份 `agent-averify2-…` / `agent-averify-b230d508…` 仍只含 `<synthetic>` 记录（未产生 model 调用）→ **不是任一方向的证据**。
+
+**结论**：三槽的 served model 与 §F.2 相同，**F.3 的偏差结论（无任一 agent 由 Claude 模型服务）继续成立**，本轮**无新增偏差**。附注：§F.2 的**计数**是快照，会随会话增长而陈旧——**被复认的是分类，不是计数**；引用时以本表/§F.2 的**分类**为准，计数只作趋势旁证。
+
+### 二、§9 交付物盘点（实测 mtime/size）与 P2-C 下的更新归属
+
+| 交付物 | 现状 | P2-C 下的更新归属 |
+|---|---|---|
+| `docs/status.md` | 本文件（追加式） | **Lead**（每阶段追加） |
+| `docs/decisions.md` | 90 行 | **Lead** |
+| `docs/p2-architecture.md` | 110,952 B，10-14 00:52 | **implementor** 增补 P2-C 的**新互斥入口与 Late 路由**一节；**Lead** 复核 |
+| `docs/p2-pass-trace.md` | 27,694 B，10-14 05:06 | **verifier**（trace A4"Late 恰一次"计数等行） |
+| `docs/p2-binary-abi.md` | 31,847 B，10-14 05:06 | **Lead**（§0 的 9 行身份清单：6 行 NOT_RUN 待 P2-C 转 recorded；模板 contingency 的分裂行由我落） |
+| `docs/p2-verification.md` | 64,774 B，10-14 02:08 | §A–§E 的**测试行**由 **verifier**；§F（模型身份）由 **Lead** 复认（见§一） |
+
+**缺口（如实）**：`p2-verification.md` 现仅 3 处提及 P2-C，即**尚无 P2-C 的 A–D 行**；这不是缺陷而是**在途**（冻结尚未公布）。冻结公布后由 verifier 增补，再入 §8 步骤 8 的 Challenger 终审。
+
+### 三、未做
+
+本追加写作期间**未构建、未跑编译器、未执行任何 ninja**；未编辑 implementor/verifier 的文件；未编辑 `p2-binary-abi.md`；未动 `build/bin`；未改权限；未推送。磁盘新增仅本追加。
+
+## 2026-10-14 第 23 轮（§25 追加 58）：模板差分探针 **验收通过**（我逐项独立复算，数字全中）—— 由此得出一条**重要发现**并入册 **D091**：**P1 钉没有重建路径**（其源码状态是**已消失的未提交工作树态**）；探针同时**撤回**了早先的因果归因；O0 差分**仍 NOT_RUN**（已如实标注，未冒充 PASS）
+
+### 一、我的独立复算（不采信自述，逐项从 dis15/ 重测）
+
+| 探针断言 | 我的复算 | 结论 |
+|---|---|---|
+| 指令流 diff = 0 行 | 非元数据行各 **1,325,498**，`diff` = **0 行** | ✅ 代码相同 |
+| 元数据定义行 diff = 57,584 | 元数据定义行各 **803,035**，变更行 **57,584** | ✅ 逐字一致 |
+| 全部变更的 DISubprogram 指向同一 DIFile | 变更行中 508 行是 DISubprogram；其 `file: !N` **去重后只有一个** `!456594`，解析为 `DMAUtils.h` | ✅ 唯一来源 |
+| 39 个 define 行带 `%l2_cache_mode` | 两侧各 **39** | ✅ |
+| 1,677 个 store 描述符调用，diff 0 | 两侧各 **1,677**；`p1.storecalls` vs `p2.storecalls` = **1,677 行 vs 1,677 行，diff 0 行** | ✅ |
+| `instr.diff` / `meta-norm2.diff` 为空 | 二者均 **0 字节 / 0 行** | ✅（我另跑独立 diff，故非"空文件"伪证） |
+
+**注**：0 字节的 diff 文件本身是可疑物（"空日志"家族），故我**没有**采信文件为空，而是**自己重跑了那两条 diff**——这才是它成为证据的原因。
+
+### 二、发现入册 **D091**：P1 钉**没有重建路径**
+
+`git` 侧我也独立核对：`80e29e6f2`（2026-10-13 19:47:10）是 **2026-09-17 以来唯一**触碰该头的提交；行数 **2377 → 2428**；`l2_cache_mode` 出现次数 **0 → 16**；工作树副本与该提交副本 **diff 0 行**。
+
+而钉的对象构建窗口是 **13:37:55–13:46:02**，该头的工作树 mtime 是 **14:42:53**（在窗口**之后**、提交**之前**）。故钉来自**一个中间未提交态**，后被工作树编辑覆盖 —— 这解释了 anchor 测试为何"钉不等于任何提交"，且**不是**测试太粗，而是**事实如此**。
+
+**推论 1**：钉的身份**只能以字节保存**（D031/D088）；重建**不能**"确认"它 —— 任何重生成它的流程都不是验证，而是**静默替换**。**推论 2（关闭一处早先的错归因）**：钉**本就**带 `%l2_cache_mode`，与 P2 模板逐字相同（39 行 / 1677 调用 / diff 0），故 +196 B **不是** cache-mode 改动所致，而是**一个头的调试行号表**之差。
+
+**披露的范围限制（我接受为限制，不视为缺陷）**：内容比较是**再发射 IR**（生产方自己的 clang 15；LLVM 19.1.7 拒读该 bitcode，且无 LLVM-15 的 `llvm-dis`/`llvm-bcanalyzer`），故"两侧都被再发射归一化掉"的原始差异会不可见 —— 探针 §7.2 已自行披露。
+
+**这两条推论回答了我在追加 51 §四.2 / 追加 53 要求的判别器**，该义务就此关闭。**§0 的落点（待 S7，我保留）**：`p2-binary-abi.md` §0 应记入"钉无重建路径"作为 D031/D088 保存规则的**理由**；我**故意现在不改该文件**，以免在 verifier 冻结读取期间造成正文变动——此义务在本追加登记，不靠记忆。
+
+### 三、探针**撤回**了早先的因果归因（诚实记录）
+
+探针 §5 明确撤回 implementor 早先"O2 +196 B 归因于 `80e29e6f2` 的 cache-mode 改动"的注记，理由是**产物证据不支持**。这是**主动自纠**，我认可并记录；它与"第 4 个 i32 store 操作数**就是** cache 模式、且在当前 HEAD 带 4"的既有结论**方向一致**（该 Golden N1 注记早已陈旧）。
+
+### 四、O0：**NOT_RUN 的可接受性是有条件的**
+
+探针 §7.1 把 O0 差分如实标为 **NOT_RUN**（同一再发射在 `dav-c310-vec` 上两次崩在同一处，遂停），并说明它**在本构建中不可达**（argv 阶段把 `--enable-optimized-metaop` 钉为 true）。**接受**，但条件化："+660 B O0 差分与 O2 同类"**未被测量**，其无害性**依赖 O0 不可达**。故我把"不可达"从**假设**升为**待测断言**：goal §6.2 要求证明 **O0/O2 选择**，故 implementor 须以**测量**给出 O0 的选择规则（何种标志/状态会选中 O0、Late 门是否可能选中它），否则该 NOT_RUN 就不是"无关的未跑"，而是"承重的未跑"。
+
+### 五、我对 implementor 的四项小要求（已派 msg `e0d5a21b`）
+
+1. 把"**P1 钉无重建路径**"写进 S2 证据（作为保存规则的理由）；
+2. 以**测量**给出 O0 选择规则（见 §四）；
+3. **S6 日志一句不精确**：其"build/lib was never written by S1"与 D088 的实测（54+54 个 per-file 输入变新）矛盾 —— 应改为"S1 未写钉的字节，但确实重写了 `build/lib` 下的 108 个 per-file 模板输入（D088）"；含糊的证据句会被后人当作"`build/lib` 未被触碰"；
+4. `s7-syntax-check-commitA.log` 为 **0 字节** —— 空日志**无法区分**"干净"与"没跑"（"恒真空"家族），须输出一条显式判定行。
+
+### 六、未做
+
+本追加写作期间**未构建、未跑编译器、未执行任何 ninja**；未编辑 implementor/verifier 的文件；**未编辑 `p2-binary-abi.md`**（理由见 §二）；未动 `build/bin`（**注**：implementor 的 S6 已按 P2-A 先例把 `build/bin/bishengir-compile` 还原为 P1 编译器 `c6838fc0…`，那是**其**动作，我仅记录）；未改权限；未推送。磁盘新增仅：**本追加**、`docs/decisions.md` 入册 **D091**（4 格）。登记表现状（实测）：**91 行**（D001–D091），直方图 `{2:10, 3:7, 4:66, 5:7, 6:1}`，偏离 4 格者仍为 **25 行**。
+
+### 七、本追加的一处**自纠**（承 §五）
+
+§五 我写下的 msg id `e0d5a21b` 是**错的** —— 我在**实际发送之前**就把 id 写进了记录，于是记录了一个**并不存在的指针**。实际发送返回的 id 是 **`599456a7`**（`599456a7-4977-426e-a17b-5d4f4ce86802`）。**谁都不该在指针指向的对象存在之前登记该指针**；这与 D081（值旁的标签须能复现该值）同一族，只是标的是**指针而非值**。§五 第 1–4 项的要求与 msg `599456a7` 一致，以该 id 为准。**不**回改 §五 的字节（追加式记录），以本条更正。
+
+## 2026-10-14 第 23 轮（§25 追加 59）：S1–S7 落地后的**收口** —— §0 强制拆分**已落笔**（`p2-binary-abi.md`，31847→41042 B）；两处**新实测发现**（暂存编译器**硬链接**、**掩码击中哈希串内部** → 新 **D092**）；一处**冻结前拦下的缺陷**（verifier 的 `A5_KEY` 前缀无关，实测计 2）；两项**裁定**；一处被取代的 smoke run
+
+### 一、S1–S7 已落地（实测，非转述）
+
+分支 `feat/tilelang-hivm-late-pipeline`，base `347221f5522dcbe8504f442ae82933f5840026f8`（v2 钉），其上两提交：
+
+- commit A `5d4aabdea7fe3f2907f5c1f79f74f381213aa847`（2026-10-14 09:10:41，"P2-C (goal §6.2 / architecture §3.1): the Late route's steps 4 and 5"），shortstat **3 files changed, 238 insertions(+), 13 deletions(-)**；**仅 `-fsyntax-only` 检查过，从未链接或运行**。
+- commit B `4495ab29b350f9285337de66a6a19f0e8bc68510`（09:11:22，"[P2-C-GATE] observability lines (pure additive)"），**1 file, 80 insertions(+), 0 deletions**；**暂存二进制即由此状态构建**。
+- base..HEAD 合计 **3 files changed, 318 insertions(+), 13 deletions(-)**；diff 字节 **20009 B**，`diff_sha256` `25b14f326ec028191ff0e2026e8e91e415c0636e38c3c54d39876d9f5d85c090`；porcelain **0 行**。
+
+**五文件切口的 v3 清单已重跑并落盘**：`lead/scratch-p2c-source-snapshot-20261014/P2C-SOURCE-SNAPSHOT-v3-committed.txt`，sha256 `5b2f10407b639ffb6edcbdad6a29aa373c4d35af42f19fe8125549d69baea369`，**5082 B**（生成器 `p2c-source-snapshot-v3.py` sha256 `691471d98621426239fbcb51e420c297ea4a2c06231bb81a12adc825da039faa`）。清单内**每个值旁都写了产出它的哈希函数**（`sha256`=内容字节 / `git-id`=git 对象 id，本仓库为 SHA-1），并注明 porcelain/untracked 两行是**生成时刻观测**而非钉本身（D079）。五个文件 `worktree == commit` 谓词 **PASS**；v2 的四个值未变，**变的只是地址**（v2 真于 `347221f5`，v3 真于 `4495ab29b`）。
+
+**产物登记册**（`impl/stage-p2c-r1/`，我从**其自身 base** 重跑 `sha256sum -c SHA256SUMS.txt` → **4/4 OK**）：`bin/bishengir-compile` `812c5cb1…` 205,469,200 B；`lib/meta_op.aiv.c310.O2.bc` `3807eb3d…` 31,206,992 B；`lib/…O0.bc` `b8c68dcb…` 27,695,840 B；`lib/…O2.bc.linked.bc` `cbd56bd9…` 31,180,672 B。
+
+### 二、冻结前拦下的一处缺陷（verifier 的文件，我只报告不编辑）
+
+`verify/p2c-freeze/a5_marker_count.py` 的 `A5_KEY = "a5-compile entry=runHIVMCCompileA5"` **不带前缀**，而正确 Late 运行会发出**两条**该子串的行 —— `BiShengIRCompileMain.cpp:624` 的 `[P2-C-GATE] a5-compile entry=runHIVMCCompileA5 route=late` 与 `hivmMC/A5/HIVMCMainA5.cpp:952` 的 `[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5`（实测：归档流**第 10、11 行**，`grep -c` = **2**）。而每个 marker 自身的期望是 **1**。故该计数在**正确**编译上返回 2 → 落入脚本自己的 `a5 count>=2` 分支 → **false-FAIL**；同时它把**两条不同的主张**（A5 被调用**恰好一次** vs 两条 marker 各出现一次）混同为一。已派 msg `32c2f363` 给 verifier，并附我给出的最小判别（按**完整 marker 行**分类计数，或按前缀分组各自计数）。
+
+**同类提醒（已同时给出）**：该脚本头声明 `Exit codes: 0 = PASS … 3 = usage/ERROR`，但 `__doc__.splitlines()[0]` 在 `__doc__ is None`（如 `python -O`）时抛 `AttributeError`，进程退 **1** —— 恰是 **FAIL** 的编码。**"恒真空"家族**：一个无法区分的失败码会被读成真实判决。
+
+### 三、两项裁定（已答 implementor）
+
+1. **`docs/status.md` 的 P2-C 阶段条目由我写**（追加系列是我的、且它在冻结读取面上）；implementor 拥有 `docs/p2-architecture.md` 的 P2-C 段与其 scratch/bundle 内记录。二者不重复：架构文档讲**设计与阶段切口**，追加讲**状态、证据落点与裁定**。
+2. **不为"调试元数据差分"这一发现唤醒 Challenger。** 理由：该结论**对已披露的限制稳健**（再发射 IR + O0 NOT_RUN），我**独立复算了探针的全部数字**，且范围限制已入册 D091；Challenger 的下一次唤醒点是 **goal §8 步骤 3 的冻结评审**，该发现的议程槽是 **步骤 8 的最终 diff 评审**，并附一个**聚焦问题**：(a) 是否存在**不经前端流水线**的原始 bitcode 比较路径？(b) 若存在隐藏的**非调试**差异，该结论是否仍成立？
+
+### 四、一处**被取代**的运行记录（诚实记录）
+
+四臂 smoke 的 `late-20261014T005231Z` 曾在 arm D 打印 `observed-sha256=(unreadable)`，已被同参数的 `late-20261014T005329Z` **取代**（arm D 在该次正常打印 observed == expected == `3807eb3d…`）。**运行记录以 `005329Z` 为准**；`005231Z` 的目录保留、不删。四臂的产物与判定与追加 56 所述一致（A rc=0 全通、B/C/D rc=1 零 attach 零 a5-compile 产物缺失），**仍非验收证据**。
+
+### 五、**§0 落点已完成**（本追加同时执行；追加 58 §二 的义务就此关闭）
+
+`docs/p2-binary-abi.md` 已由我编辑为：sha256 `45704ed5299a94815e716fd0dc2b1bde8e0592667ec3ae2ff0427d391f139a02`，**41042 B**（此前 31847 B）。四处改动：
+
+1. **表头边界**：把 A1 从 NOT_RUN 名单中移出（其行自 P2-A 起即 `recorded`，我 2026-10-14 在 `lead/preserved-p1-compiler/bishengir-opt.0761c6e6` 重测 214,509,632 B），并把"B/C/D 需要一个真二进制"改为"需要**一个已冻结、独立所有、且被执行**的消费者"——真二进制自 P2-B 起已存在，缺的是**执行**，不是二进制。
+2. **编译器行**：记入 P2-C 身份 `812c5cb1…`（提交 B `4495ab29b`，五文件切口），并说明 P2-B `ea217b8d…` 是**按范围**被取代、**非缺陷**，且**不入** superseded 表（该表的成员规则是"被 Verifier 绑定并报告过"，而 P2-B **没有** verifier 绑定——`p2-verification.md` 无 P2-B 行）。
+3. **模板强制拆分（替换原"未触发"段）**：原段说"P2-A-r1 未重生成模板，故两条主张无需拆分"——那对 P2-A 仍为真，但 P2-C **触发了**该 contingency。新段以**六行表**并列两组身份（P1 钉 O2/O0/linked vs P2-C 自产 O2/O0/linked，全六值 2026-10-14 从磁盘重测），并写明三条后果：**钉无重建路径（D091）故只能按字节保存、且绝不能靠"重建"来验证**；**+196/+660/+644 B 全是那**一个头**的调试行列表，指令流 diff 0、1677 条描述符调用逐字节相同，早先的 cache-mode 归因**已被探针撤回**（附两条披露限制：比较是再发射 IR、O0 差分 NOT_RUN）；**Late 正向行必须消费自带模板的 bundle**，指向 `build/bin` 或 symlink 化的 `bin/` 是**待写的 false-FAIL**。§0 引言那句"本表刻意不复制任何值"也加了**唯一例外**说明（六值只有这一个家）。
+4. **结构段**：把原段**限定为两个 P2-A bundle**（其"恰好两个模板"与 31,206,796/27,695,180 两个字节数都是**P1 钉的字节**），并新增 **P2-C 结构子段**：无 symlink（B3/B4 论证原样成立）；**`bin/` 只有 `bishengir-compile`，没有 `bishengir-opt`**（与 P2-A/B bundle 不同，别在此处找这个文件）；**`lib/` 是三个文件不是两个**（多 `…O2.bc.linked.bc`）；以及下一条。
+
+### 六、两处**新实测发现**（本次编辑过程中得到）
+
+**(1) 暂存编译器是硬链接，smoke 臂与它共享 inode。** `stat -c '%i %h'` 给出 inode **161332346**、**link count 7**；`find <全证据根> /home/s00653124/workspace/AscendNPU-IR-1/build -inum 161332346` 返回**恰好 7 条**，另 6 条是 `impl/scratch/p2c-smoke/{run-…005154Z,late-…005231Z,late-…005329Z}/{C,D}/bin/bishengir-compile`。两个结论：**(i) 与构建树无硬链接**（构建树里那个是还原后的 `c6838fc0…`），共享面**限于证据根内部**；**(ii) 硬链接不破坏 `../lib` 论证**（`real_path` 只解 symlink），但**七条路径同属一个 inode**，任一处原地写/改权限会**同时**改变记录产物 —— `SHA256SUMS.txt` 是检测器，**引用 `812c5cb1…` 前必须重跑它**。清洁修法（把编译器**拷贝**而非链接进臂）**记录而不执行**：臂是 implementor 的 scratch，且当前字节校验通过。
+
+**(2) 掩码在**两个方向**上都会改写文本（新 **D092**；本段的更正见追加 60 §一）。** 我在测一个**无关**成员（`build/lib/meta_op.mix.aiv.c310.O2.bc.linked.bc`）时，`sha256sum` 的输出被渲染成**含占位符的摘要**（`PHONE_` 家族，与 D082 的 `SECRET_` **不同族**）。两次判别实验：
+
+- **出向（我发出的命令文本）也会被改写**：把该占位符做成一个连写的字符串字面量并打长度，解释器收到的是 **11** 字符；同一串由**片段拼装**则为 **18** 字符，二者 `==` 为 **False** —— **连写的字面量没有原样到达解释器**。
+- **入向（工具输出）**：那次渲染保留的头部 20 个与尾部 33 个十六进制字符**确为真摘要的子串**（分组重测比对为真），故真值中有 **11** 个字符被一个 **18** 字符的占位符替换 —— 占位符**不保宽**，删掉它只剩 **53** 字符（不是 64），**不可反推、不可"修"**；真值只能**重测**。
+- 该现象**不可复现**：同一文件 **8** 次全新直读（5 次单文件、3 次整目录）全部渲染为**未掩码**且**等于独立计算的摘要** —— 文件完好，且"再跑一次同样的命令"**不能**用来检测它。
+- **落笔前必须有的对照（已执行）**：把 `docs/p2-binary-abi.md` 里全部 **22** 个不同的 64 位十六进制值用**分组渲染**读回，与**新测**值逐一比对 —— 全部一致，六个模板拆分值全中。故 §0 的编辑**未被掩码破坏**。
+
+**规则（D092）**：身份值**绝不**从单次未分组的读数落笔（**两个方向皆然**）；落笔后须**读回**并与**独立复算**的值比对。
+
+### 七、未做
+
+本追加写作与 §0 编辑期间：**未构建、未跑编译器、未执行任何 ninja**；**未**编辑 verifier/implementor 拥有的文件；**未**动 `build/bin`、`build/lib`；未改权限；未推送；未改任何 remote。磁盘新增仅：**`docs/status.md` 本追加**、**`docs/p2-binary-abi.md` 的四处编辑**（我的文件）、**`docs/decisions.md` 入册 D092**、以及 v3 清单的重跑产物。登记表现状：**92 行**（D001–D092），其中 D092 为 **4 格**（直方图 `{2:10, 3:7, 4:67, 5:7, 6:1}`，偏离 4 格者仍 **25 行**）。
+
+### 八、下一步（等 verifier）
+
+等 verifier 宣布**冻结**（身份：runner 路径 + sha256 + 字节数 + `base_dir`），随后 P2-C 的 §6.2/§6.3 行才可执行：bitcode 身份门 B1–B8 与负例 N1–N4、§6.3 的 C1–C11 ABI 判据、D069/D070、D075 的 `a5-compile` 行（**须有 verifier 自有的消费者**）、trace A4 的"恰好一次 Late"计数。**在冻结落地前，这些行一律 NOT_RUN。**
+
+## 2026-10-14 第 23 轮（§25 追加 60）：**追加 59 §六(2) 的更正** —— 我自己把**掩码占位符**当成了真值写进记录（D082 的绝对禁令）；两次判别实验的完整数据；对**今日全部落笔身份**执行**读回对照**（15/15 逐字复现，1 例为我自己的缩写体例）；入册 **D092**
+
+### 一、更正（errata；含我在原处**一次已披露**的中和）
+
+追加 59 §六(2) 的原文如下（逐字，**唯其中的占位符字面量已在本引用中删除**，理由见第 1 条）：
+
+> **(2) 掩码会击中哈希串**内部**（新 **D092**）。** … 判别实验：同一文件把摘要**每两字符分组**重哈希，打印出未受损的 64 位值 `5933a120b3b862869b8a[占位符字面量，已删除]e00182b2fb5c35a209722b99dae2e114f` —— 文件**完好**，只有**渲染**被改。**该渲染不可反推**：它保留了真值的前 20 字符与后 31 字符，中间被替换的宽度与占位符长度**不相等**，去掉占位符只剩 **51** 个十六进制字符（不是 64）…
+
+**三处错误，逐条：**
+
+1. **我把一个掩码占位符与真值的首尾拼接起来，并把该串标为"未受损的 64 位值"。** 这句话**自相矛盾**（串里就含着占位符），且**违反 D082 的绝对禁令** —— 掩码占位符不得进入持久记录。后果**不是文体问题**：那个串**看起来就是**该文件的摘要，后人若据此引用，会得到一个与真值不符的"身份"，进而触发一次**假的篡改告警**。这是 D082 立规要防的正是这一类。
+2. **两个数字是我手数的，且数错了。** 正确的是：渲染保留的尾部是 **33** 个字符，非占位符字符共 **53** 个（不是 31 与 51）。真值 64 字符，被替换掉 **11** 个，占位符宽 **18** —— 占位符**不保宽**，去掉它**回不到** 64 位摘要，故"改回去"不可能，只能**重测**。
+3. **我漏了更强的一点：掩码不止作用于工具输出。** 见 §二 EXP1。
+
+**我做了什么（披露，不静默）**：对该段做了**唯一一次就地（非追加）改写** —— 删去被转录的占位符字面量（换成说明性标记）、把两个数字换成**实测**值、并补上"出向"实验与"读回对照"。**历史不丢**：原文在本条 §一 逐字保留（占位符除外，删除理由即第 1 条）。**这是我第一次对 `docs/status.md` 做非追加式改写**，理由是：**留在原处的假身份是活的危害，不是历史证据**。若 Challenger 在 **goal §8 步骤 8** 认为该改写不当，我接受裁定并按其要求补正式 errata。
+
+### 二、两次判别实验（命令与数字，可重跑）
+
+**EXP1 —— 出向（我发出的命令文本）**：一个 python 单行里，把该占位符做成**连写**的字符串字面量并打印其长度，解释器收到 **11**；同一串由**片段拼装**（`'{'+'{'+'PHONE'+'_'+'w3tijzae'+'}'+'}'`）为 **18**，二者 `==` 为 **False**。
+→ **结论：掩码会改写我发出的命令文本本身。** 直接含义：**经工具"写入"的值可能在途中被改**，所以任何经工具落笔的身份都必须**读回核对**（§三）——这正是 D092 的强制动作。
+（机制未进一步判别：是掩码层改写还是别的环节吞掉，本实验不区分；能确定的只是**连写字面量未原样到达解释器**。）
+
+**EXP2 —— 入向（工具输出）**：同一文件 **8** 次全新直读（5 次单文件 `sha256sum`、3 次整目录 glob）**全部**渲染为**未掩码**的 64 位值，且**全部等于**在进程内独立计算的摘要。
+→ **不可复现**。故"再跑一次同样的命令"**不能**当检测器；检测只能靠**分组渲染重读 + 独立复算**。
+
+**EXP2b —— 子串关系（分组比对）**：那次渲染的头部 **20** 与尾部 **33** 个十六进制字符**确为**真摘要的子串（`startswith`/`endswith` 皆为真）。真值 64 = 20 + 11 + 33，占位符 **18** 字符替换了 **11** 字符 → 不保宽、不可反推。
+
+### 三、读回对照（**已执行**，不是承诺）—— D092 的强制动作
+
+对**今天**由我落笔的**每一个**身份，做"分组读回 + 独立复算"比对。**16 例**：
+
+| # | 身份 | 落笔处 | 逐字复现 |
+|---|---|---|---|
+| 1 | P2-C 产物 `bin/bishengir-compile` `812c5cb1d29cb3b8879593ea77d08ebdae274cc943d41523c7c4bab739cbf455` | `p2-binary-abi.md` §0（64 位，**1 处**）；`status.md` 追加 59（**仅前缀 3 处**） | **全值 1/1 复现**；status 侧为我的缩写体例，**非**掩码 |
+| 2 | v3 清单自身 sha256 `5b2f10407b639ffb6edcbdad6a29aa373c4d35af42f19fe8125549d69baea369` | status 追加 59 | ✅ |
+| 3 | v3 生成器 sha256 `691471d98621426239fbcb51e420c297ea4a2c06231bb81a12adc825da039faa` | status 追加 59 | ✅ |
+| 4 | `base..HEAD` diff sha256 `25b14f326ec028191ff0e2026e8e91e415c0636e38c3c54d39876d9f5d85c090` | status 追加 59 | ✅ |
+| 5–9 | 五个 HEAD 文件 sha256（`470b44f3…` / `9f52d10d…` / `3034c54d…` / `8ecbfc00…` / `4b089427…`） | v3 清单 | ✅ 5/5 |
+| 10 | `p2-binary-abi.md` 自身 sha256 `45704ed5299a94815e716fd0dc2b1bde8e0592667ec3ae2ff0427d391f139a02` | status 追加 59 §五 | ✅（且该文件自我编辑后**未被再次改动**） |
+| 11–16 | 六个模板拆分值（P1 `5e7ccae2…`/`0a34be87…`/`1b356045…`；P2-C `3807eb3d…`/`b8c68dcb…`/`cbd56bd9…`） | `p2-binary-abi.md` §0 六行表 | ✅ 6/6 |
+
+**结果：15/15 的"全值"引用逐字复现；唯一"未命中"是 #1 在 status 侧的**前缀**引用，系我自己的体例**，与 §0"每个值只有一个家"一致（全值只有 §0 一个家）。**没有一处落笔身份被掩码改写。** §0 的编辑因此得到**独立控制**，不再是"看起来对"。
+
+### 四、D092 入册（4 格）
+
+规则：**身份值绝不从单次未分组的读数落笔（两个方向皆然）；落笔后须读回，并与独立复算的值比对。** 掩码**不保宽、不可反推、不可复现、不可被"再跑一次"检出**。
+
+### 五、未做 / 六、下一步
+
+本追加写作期间：**未构建、未跑编译器、未执行任何 ninja**；未动 `build/bin`、`build/lib`；未编辑 verifier/implementor 拥有的文件；未改权限；未推送。磁盘改动仅：`docs/status.md`（本追加 + §六(2) 的一次已披露改写）、`docs/decisions.md`（D092）。下一步同追加 59 §八：**等 verifier 宣布冻结**（runner 路径 + sha256 + 字节数 + `base_dir`），冻结前 P2-C 的 §6.2/§6.3 各行一律 **NOT_RUN**。
+
+## 2026-10-14 第 23 轮（§25 追加 61）：本窗口**树在我测量期间继续移动**（D079 家族事件）—— 逐项独立复测；**冻结前仍存活的一处 false-FAIL**（`A5_KEY` 前缀无关，第二次修法要求）；09:28 对**密封 bundle 内部**的两处追加写 + 由此产生的**裁定 R3**；三处证据卫生；一处**未行使的守卫**
+
+### 一、我自己的记录更正（先记，因其使一处已引用值作废）
+
+`docs/p2-binary-abi.md` 现为 **41,473 B**，sha256 `8d384b28c217e844e8633dea35edea989f2ebd9837547c8bf244fc97a28e0433`。追加 60 §三引用的 **41,042 B / `45704ed5…`** 取自 §0 item-3 重写**之前**（即树移动前的读数），已被我本次编辑取代；编辑者是我，内容与理由见 §0 结构项 3。
+
+### 二、树在本窗口继续移动（实测时间戳，D079 家族）
+
+以 `find -newermt '2026-10-14 09:00'` 实测，09:13–09:28 之间证据树下新增/改动：verifier `verify/p2c-freeze/a5_marker_count.py` **09:15:14**；implementor `impl/scratch/p2c-smoke/o0-*` 09:15:27–34；`impl/scratch/p2c-template/s1b-*`（含 `s1b-run.NOTE.txt`）09:17:30–09:19:57；`impl/scratch/p2c-build/s7-*` 09:20:48–09:21:21；`s6-restore-build-bin.{sh,log}` 09:22:19–28；`s5-break-bundle-bin-hardlink.{sh,log}` 09:23:53–59；`s5-bundle-bin-identity.txt` 09:24:18；`s2-identity-readback.*` 09:26:44–09:28:31；**bundle 内两文件 09:28:08 / 09:28:19**；`p2c-template-probe/TEMPLATE-PERFILE-REBUILD.txt` 09:28:41。
+
+**后果（本追加的取证纪律）**：我在 09:16 前后的读数（尤其 bundle 组成、inode、verifier runner 字节数）**不得**作为"当前事实"引用。本追加所有数字均为 **09:28–09:29** 之间重测；上一窗口的读数一律视为历史。
+
+### 三、**冻结前仍存活的一处 false-FAIL**（`A5_KEY` 前缀无关——我在 09:16 报过，09:15:14 版**未修**）
+
+verifier 的 runner 现为 `verify/p2c-freeze/a5_marker_count.py`，**8473 B**，sha256 `9df1d6437abc09f7d074265310f908cd59959d154f31da5267967d05b6136d7d`（09:15:14，较我上一窗口读到的 7912 B 已增长）。该修订**新增**了 `MARKER_PREFIX` 抽取（第 38、48–62 行）与路由三分类 `classify()`（65–84），但**计数键未变**：
+
+- 第 45 行 `A5_KEY = "a5-compile entry=runHIVMCCompileA5"`（**仍无前缀锚**）
+- 第 83 行 `a5 = stream.count(A5_KEY)`
+- 第 174 行 `if a5 == 1: PASS`；第 183–185 行 `a5 != 1` 即 **FAIL**（"expected exactly once"）
+
+**这是我在 09:16 实测报告过的同一根因**：一次**正确**的 Late 运行会同时打印两条含该子串的标记 —— `[P2-C-GATE] a5-compile entry=runHIVMCCompileA5 route=late`（`BiShengIRCompileMain.cpp:624`）与 `[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5`（`HIVMCMainA5.cpp:952`，即实现方 smoke 流中的第 10、11 行）。前缀无关的计数因此得 **2**，而判据要 **1** → **正确的 Late 正向行会被判 FAIL**。第 176–177 行的注释（"function-entry site covers both callers"）解释的是**为什么边界标记只出现一次**，恰恰说明计数必须锚定前缀，否则两个不同站点被合成一个数。
+
+**最小判别式修法（第二次，按"同一根因至多两次"纪律）**：
+
+1. 计数键锚定前缀：`A5_KEY_BOUNDARY = "[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5"`，`a5 = stream.count(A5_KEY_BOUNDARY)`；
+2. **另外**单独记录 `[P2-C-GATE] a5-compile entry=runHIVMCCompileA5` 的计数（路由入口站点），并**分别**给出期望值 —— 两个站点两个数，不合成；
+3. 期望值必须**实测**得出，而非沿用 P2-B 的 1：对**参考 Late 流**（实现方 smoke run 的 stderr）实测两个键各自的计数，把测得值写进 runner 的期望，并注明测得自哪一个文件；
+4. 补**双向对照**：合成流（两条标记各一次）必须 **PASS**；边界标记出现两次的合成流必须 **FAIL**。
+
+若第二次仍未通过，按规则升级为独立 Challenger 复核（同一根因两次修法为止）。**冻结前必须落地**：冻结后的 runner 若带此缺陷，P2-C 的第一条真实 Late 正向行将得到 false-FAIL。
+
+### 四、S2 读回控制（D092）—— 我独立复跑，通过
+
+我在 `/tmp` 下以 `python3 -I impl/scratch/p2c-build/s2-identity-readback.py`（不落任何文件）独立复跑：**6 身份 × 8 读数全部 OK，RC=0**，与 `s2-identity-readback.log`（**2370 B**，`c9c364363e923f02859fe6432211fa3c4ab59b5ef1e18aa53e3af386e75f85fc`）一致；分量渲染（`sha256sum | cut -c1-64 | fold -w2 | paste -sd' '`）与 python `hashlib`（另一实现）两条独立路径**加上**记录值三方相等。`s2-identity-readback-negatives.log`（**544 B**，`99b3b0ae7bfe3b8d304ca4dba50a2cb04eda25421891a3a260b7b4816694b858`）5/5 判别：C0→0、C1→1、C2→1、C3→1、C4→**3**。我并**逐字节**比对主日志与 `…-postaddendum.log` → **完全相同**（即 bundle 散文追加后重跑，值未动 —— 做法正确，是这个场景该有的形状）。该控制**不能**证明的部分见 §七。
+
+### 五、09:28 对**密封 bundle 内部**的两处写（附加式）—— 实测后果与**裁定 R3**
+
+- `impl/stage-p2c-r1/TEMPLATE-IDENTITY.txt` 09:28:08，现 **5716 B**，sha256 `9def87708f2491c91c2fce031cbecd47af484bae311cabb12f640b3eb47ebd47`。新增材料自第 **54** 行起（`ADDENDUM` 块）；第 1–52 行是我 09:28 前读到的那六行身份值、推导段与"诚实限制"段，**字符串未变**（附加式，非改写）。
+- `impl/stage-p2c-r1/SHA256SUMS.README.txt` 09:28:19（**新文件**），**4924 B**，sha256 `12cdb74b17c648c5ed0678605742b32218464ac56f9a9d7eb70895d300f6f5f6`。
+- **不使任何已记录身份失效（实测，非论证）**：从其**自身 base** 重跑 `sha256sum -c SHA256SUMS.txt` 仍 **4/4 OK**（覆盖集未变）；bundle 组成实测 `bin/` 恰 1 个文件、`lib/` 恰 3 个，四个文件**全部 `links=1`**，inode `161332350 / 161332341 / 161332342 / 161332343`；且**在本追加落笔之前**，`docs/*.md` 对 `TEMPLATE-IDENTITY.txt`、`SHA256SUMS.README.txt`、`TEMPLATE-PERFILE-REBUILD.txt`、`s2-identity-readback` **零命中**（`grep` 实测）—— 即控制文档从未引用这四个文件**自身的** sha。
+
+**裁定 R3（verifier 冻结清单必含，冻结前落地）**：bundle 内已有文件自述 "NOT covered by SHA256SUMS.txt and **free to be amended**"。若 §6.2 的"编译期模板常量"比对，其**期望值**存放在一个可自由改写的文件里，则对该文件的任何后续改写都会**静默改变验收判据** —— 这正是"不得在失败后修改 oracle"所禁止的形状。因此：冻结清单必须登记 **`SHA256SUMS.txt` 与 `TEMPLATE-IDENTITY.txt` 各自的 sha256 + 字节数**作为**锚**（今日实测 `9def8770…`/5716 B、`12cdb74b…`/4924 B），验收时**重测两者**，任一不符即 FAIL，不得以"散文文件可改"为由放行。理由：值的可复现性已由 §四的读回证明（记录 == 工具 == hashlib），唯一还缺的是**记录文件本身**的不可变性，而它只能由 bundle **外部**承担。
+
+### 六、三处证据卫生（不改内容，只请改字面/时间）
+
+1. **未来时间三例**（当前本地时间实测 **09:29:14**）：`s5-bundle-bin-identity.txt` 头写 "~09:35"（mtime 09:24:18）；`TEMPLATE-IDENTITY.txt` 的 ADDENDUM 写 "09:55"（mtime 09:28:08）；`SHA256SUMS.README.txt` 的 ADDENDUM 写 "10:00"（mtime 09:28:19）。**规则**：证据头里的时间必须**实测**（`date`）并与 mtime 对齐 —— 猜测时间等于在记录里放一个不复现的标签（D081 家族）。
+2. **标签强于其证据**：`TEMPLATE-IDENTITY.txt` 的 ADDENDUM 称 S1(a) 把模板输入 "rewritten **wholesale**"，而其引用的 `TEMPLATE-PERFILE-REBUILD.txt`（**6780 B**，`cd5165e83cb23e11128e6840348249cdab1c4d51aada0d95fbc9d98e7f8f1bf5`）§1 明确写 "whether their **CONTENT** changed is **NOT MEASURED**"（实测到的只是 108/108 的 mtime 落在 S1(a) 窗口）。请收紧为 mtime 级陈述（该文件 §3 自己的 "path precision" 段正是这个纪律的好例子）。
+3. **注释与检查不一致**：`s2-identity-readback-negatives.sh` 头注释 C4 写 "expect 1"，而代码 `check C4 3` 与日志均为 **3**。检查本身正确（记录行无对应文件 → 3），陈旧的是注释字面量（"字面量也是检查的一部分"家族）。
+
+### 七、一处**未行使的守卫**（D042 家族）与两处工程细节
+
+- `artefacts()`（marker 扫描）**从未被证明能触发**：C3 把记录值换成 `{{MASKED_TOKEN}}`，但该突变**同时**使"记录 ≠ 工具"的相等性判据为假 —— 即便 marker 扫描整个失效，C3 仍返回 1。因此 `SHA256SUMS.README.txt` 里 "a marker scan that would catch a placeholder inside the hex" 这句目前**没有对照支撑**。**请补单元级对照**：对同一函数分别喂入含 `{{` 的串（期望**非空**）与合法 64-hex 串（期望**为空**）——两侧都断言，证明它**能**触发**且**该静默时静默。
+- Pyright 诊断（`s2-identity-readback.py`，实现方文件）：**87:36** 与 **93:55** 两处 `reportArgumentType`（`q(path)` 传入 `pathlib.Path` 而签名声明 `str`；运行时因函数体内 `str(s)` 而无害）、`label` **113:17** 与 `_src` **130:22** 未使用。
+- 证据树内新增两处 `__pycache__`（`impl/scratch/p2c-build/` 09:27:03、`impl/scratch/p2c-template/` 09:17:34）：非证据、却会进入任何目录级普查；建议删除，后续以 `-B` / `PYTHONDONTWRITEBYTECODE=1` 运行。
+
+### 八、未做 / 下一步
+
+**未做**：任何构建、任何 `ninja`、任何对 `build/bin` 或 `build/lib` 的写、任何物理 NPU 运行、任何 push；亦未运行 P2-C §6.2/§6.3 的任一行。
+**下一步（同追加 60 §六）**：等 verifier 宣布冻结（runner 路径 + sha256 + 字节数 + `base_dir`，**外加 R3 要求的两个锚**），并在冻结前完成 §三 的 runner 修法与对照。冻结前 P2-C 的 §6.2/§6.3 各行一律 **NOT_RUN**。随后按 §8 步 7–9 收口，完成后**停在 P3 门禁**并向用户提交最终结果。
+
+## 2026-10-14 第 23 轮（§25 追加 62）：独立探针 —— 暂存二进制**内嵌**的身份常量实测（P2-C 值 ×1、P1 钉值 ×0）；由源码定位到 `BiShengIRCompileMain.cpp:376-379`；**A5 两前缀各 1 次**（追加 61 §三 的修法由此获二进制支撑）；源码自带的 **O0 不可达**披露；三份 S4/S7 receipt 质量判定
+
+### 一、探针设计与结果（值不经命令行 → D092 安全）
+
+我在 `/tmp` 写了一个只读探针（**不落证据树**，避免再次 `__pycache__` 污染）：**在进程内**用 `hashlib` 重算五个候选文件的 sha256，再分块扫描 `impl/stage-p2c-r1/bin/bishengir-compile` 的**原始字节**，统计每个字面量出现次数；**只打印布尔/计数**，任何摘要值都不经过我的命令行文本。
+
+二进制 **205,469,200 B**，进程内重算 sha256 前 16 hex `812c5cb1d29cb3b8…`（与 `SHA256SUMS.txt` 行一致）。实测出现次数（`full-digest` 为完整 64 hex 的 ASCII；`12-hex-prefix` 为前 12 hex）：
+
+| 字面量 | 次数 | | 标记/键 | 次数 |
+|---|---|---|---|---|
+| full-digest P2C O2（`3807eb3d…`） | **1** | | `[P2-BOUNDARY] a5-compile` | **1** |
+| full-digest P2C O0（`b8c68dcb…`） | **1** | | `[P2-C-GATE] a5-compile` | **1** |
+| full-digest P2C linked（`cbd56bd9…`） | 0 | | `late-route` | 1 |
+| full-digest P1pin O2（`5e7ccae2…`） | **0** | | `ordinary-regbase-pipeline` | 1 |
+| full-digest P1pin O0（`0a34be87…`） | **0** | | | |
+| 12-hex-prefix 三行同型（P2C O2/O0 = 1、linked = 0、两 P1 钉 = 0） | — | | | |
+
+### 二、由此确立的四件事
+
+1. **§6.2 的"期望值"确实内嵌在二进制里，且是 P2-C 的值、不是 P1 钉。** 我据源定位到 `bishengir/lib/Tools/bishengir-compile/regbase/BiShengIRCompileMain.cpp:376-379`：`kP2TemplateShaAivC310O2 = "3807eb3d…"`、`kP2TemplateShaAivC310O0 = "b8c68dcb…"`（注释 348-375 说明它们是**编译期常量**、理由是"运行期读文件的期望值会退化恒真"，与 R1 一致）。因此 §6.2 的常量比对是一条**能判别**的检查：把 bundle 的 `lib/*.bc` 换掉即失配。**verifier 的 §6.2 行须写成"重算 bundle lib 的 sha256 并断言等于二进制内嵌字面量"，并给出反向对照（换文件 → 失配）**，不得只报"文件存在/编译 exit 0"。
+2. **A5 两前缀在二进制中各 1 次。** 结合实现方 smoke 流中的第 10、11 行（一次运行的 stderr 同时含两条），可独立确认：**锚定前缀后每个站点的期望值是 1**，而**前缀无关**的计数在正确的 Late 流上是 **2**。故 09:15:14 版 runner 的 `if a5 == 1: PASS`（`a5_marker_count.py:174`，键在第 45 行）会把**正确**的 Late 正向行判 FAIL —— 追加 61 §三 的第二次修法要求，由此获得来自**二进制**（而非仅流）的独立支撑。
+3. `late-route` ×1 与 `ordinary-regbase-pipeline` ×1 说明 `classify()` 用的两把键都确实存在于二进制（ordinary 键服务于控制记录，不是 A4 的 Late 主张）。
+4. **源码自带一条可达性披露（348-375）：O0 常量今天不可达。** Late 的 argv 阶段把 `--enable-optimized-metaop` 钉为 true（`LatePipeline.cpp` 的 kPinnedTrue，`applyPin` 在用户未指定时注入、指定异值则拒绝），故 `resolveTemplateBitcodeOptLevel` 恒取第一支，门禁记录 `level=O2 level-reason=flag`；O0 常量只是为"未来不再钉该 flag 的入口"保持映射完备，"**NOT exercised coverage today**"，并由 `level-reason` 字段显形。**因此 §6.2 的"O0/O2 选择"行只能由"实测流含 `level=O2 level-reason=flag`"+ "O0 臂按设计不可达、其常量不作为今日覆盖"两段构成**；任何"已测 O0"或"O0 亦通过"的写法都是假的。
+
+### 三、三份 S4/S7 receipt：我读过并判定为合格
+
+- `impl/scratch/p2c-build/s4-pre-build-state.CORRECTION.txt`（1644 B，mtime 09:12:40）：行 [5] 的 `BiShengIRCompileMain.cpp` 值 `1985862c…` 只真于 **08:49:24 那一刻**；08:52:54 的第二次编辑（run-D 修复：无条件哈希已解析的模板，使"可读文件却打印 (unreadable)"不再可能）后真值为 `9f52d10d…`，第二次构建 S4-2 由该内容编译。行 [1]–[4] 与 [5] 的另两行不受影响。**原文件未改、以并存更正件说明** —— 正确的形状（D089 家族）。
+- `impl/scratch/p2c-build/s7-head-vs-staged-binary-provenance.txt`（3988 B，09:12:51）：「HEAD 的树就是暂存二进制所由构建的状态」建在**行为**证据上 —— r1（005231Z）与 r2（005329Z）相隔 **58 秒**，arm D 的 `observed-sha256` 由 `(unreadable)` 变为 `3807eb3d…`，而两次运行之间**唯一**的源码改动正是 08:52:54 那次、其主题恰为该日志字段。该文件并自陈限度：mtime 只证序、未做逐字节重放、**不主张位可复现**。这正是我在 P2-B 记下的 `pre-build-snapshot-does-not-describe-the-next-build` 所要求的形状。
+- `impl/scratch/p2c-build/s7-instrument-validation.log`（985 B，09:09:45）：对**检查器本身**做了双向对照 —— pristine `rc=0`；注入一个未使用局部变量 → **`rc=0` 但打印 `-Wunused-variable` 警告**（因此实测出 s7 语法检查的 `-Werror` **不覆盖**该警告类别，与 s7 日志里那句自陈一致）；注入语法错误 → `rc=1`；恢复后 sha 与 pristine 相同。**能触发 / 该静默时静默两侧都断言，且明确测出盲区** —— D042 家族的要求已满足。
+
+### 四、未做 / 下一步
+
+**未做**：任何构建、任何 `ninja`、任何对 `build/bin` 或 `build/lib` 的写、任何物理 NPU 运行、任何 push；未运行 P2-C §6.2/§6.3 的任何一行（本节全部为**只读**探针与阅读）。
+**下一步**：同追加 61 §八（等 verifier 冻结；冻结前一律 NOT_RUN），并加一条：冻结后，§6.2 的常量比对行须按本节 §二 的形状书写（重算 bundle lib → 断言等于二进制内嵌字面量 + 反向对照 + O0 不可达的显式陈述），"O0/O2 选择"行不得出现任何未被实测覆盖的措辞。
+
+## 2026-10-14 第 23 轮（§25 追加 63）：O0 不可达由**实测**三臂坐实（`o0-selection.log`）；四臂 smoke 的**逐臂实测数**入册；两处措辞边界（smoke 非验收；正向行的 fixture 出处类别）
+
+### 一、O0 不可达：source 注释之外，已有一条**实测**收据
+
+`impl/scratch/p2c-smoke/o0-selection.log`（3677 B，mtime 09:15:34）三臂，同一 fixture、同一目标、同一 `--input-ir-stage=late-hivm`，只在 flag 上不同：
+
+- **a（默认）**：`rc=0`，`[P2-C-GATE] template-select … level=O2 level-reason=flag --enable-optimized-metaop (occurrences=1)`；`template-resolve` 行 `resolved=…/lib/meta_op.aiv.c310.O2.bc exists=yes observed-sha256=3807eb3d… expected-sha256=3807eb3d… verdict=PASS`；`kernel.o 4448B`。
+- **b（`--enable-optimized-metaop=false`）**：`rc=1`，`[ERROR] Late mode rejects the invocation: option --enable-optimized-metaop was given 'false' but is pinned to true in Late mode; the requested value is not silently overridden, it is rejected.`，**无** level/identity 行、**无** artifact。
+- **c（`=true`）**：与 a 逐字相同。
+
+**结论（已实测，非仅源码推断）**：Late 下 flag 被钉住且**显式拒绝**异值，故 `resolveTemplateBitcodeOptLevel` 不可能落到 O0 分支 —— 即 `kP2TemplateShaAivC310O0` **今天不可达**，与源码注释 348–375 的自陈一致。**因此 §6.2"O0/O2 选择"行的正确形状是：实测流含 `level=O2 level-reason=flag`；O0 臂按设计不可达；O0 常量非今日覆盖。**（另记：这条实测同时是"钉住的值不可被静默覆盖"的**反面**对照 —— b 臂证明拒绝而非覆盖。）
+
+### 二、四臂 smoke 的逐臂实测数（`SMOKE-VERDICTS.txt`，5226 B，mtime 09:13:04）
+
+run of record `late-20261014T005329Z`（`smoke-late-r2.log`），bundle 二进制 `812c5cb1…`：
+
+| arm | substrate（`../lib`） | rc | P2-C 行 | gate verdict | attach | a5-compile | artifact |
+|---|---|---|---|---|---|---|---|
+| A | bundle 自己的 `lib/`（P2 模板） | 0 | 9 | **PASS** `observed==expected==3807eb3d` | 4 | 1 | `kernel.o` **4448 B** |
+| B | `build/lib` = P1 钉 `5e7ccae2…` | 1 | 3 | FAIL `sha256-mismatch` | 0 | 0 | ABSENT |
+| C | 空 `lib/`（二进制为硬链接） | 1 | 3 | FAIL `template-absent` | 0 | 0 | ABSENT |
+| D | `../lib` 是指向含同一 `3807eb3d…` 模板的目录的**符号链接** | 1 | 3 | FAIL `resolved-outside-expected-path` | 0 | 0 | ABSENT |
+
+- A 臂 artifact：`ELF 64-bit LSB executable, *unknown arch 0x1029*, statically linked, not stripped`，sha256 `2c4247c3b2ce11f79ad15415eb06d4ce1d5523a0c19c91ad3743bc08e7b8c4c9`；四臂 stdout **均为 0 B**（instrumentation 只写 stderr）。
+- D 臂是**最强**的负例：找到的文件**内容正确**（observed == expected）却仍被拒绝，理由是解析路径不在 `../lib` 之下 —— 与 D090 的 fail-closed 一致。
+- 三负例均呈 **fail-closed 三连**：无属性附加、未进入 A5 lowering、无 artifact，且给出具名理由与全部四个值。
+- 两个 `a5-compile` token 的**逐臂实测**：`[P2-C-GATE] … route=late` 在 A=1、B/C/D=0；`[P2-BOUNDARY] a5-compile entry=…` 在 A=1、B/C/D=0。文件自己注明：两者**只按行首**匹配，且 `a5-result` 行故意不以该 token 开头。**与我在追加 62 §一 从二进制测得的两前缀各 1 次一致**（二进制存在性 ⊗ 流内计数，两个方向互证）。
+- P2-B 路由标记逐臂：`late-route=1`、`ordinary-regbase-pipeline=0`、`retry-loop=0`（四臂一致）—— 门禁不回落到 ordinary 路由。
+
+### 三、两处措辞边界（写给后续引用者）
+
+1. **该 smoke 不是验收证据**（文件第 3–6 行自陈）：它是变更作者自跑、四臂手工挑选 substrate、单一 fixture。**A 臂的 PASS/kernel.o 一律不得写成任何 suite 行或 §7 的 PASS**；验收仍须 verifier 自己的冻结消费者。
+2. **A 臂用的 fixture 是 `verify/tests/negatives/vadd_late_p1v2.mlir`**（sha256 `d1023ac1fdfd22c8d7f2aed5c71241fdd83039744b383e43b19255d10a31f36b`），即取自**负例目录**的 Late 载体。因此任何以它为输入的"正向"行，必须显式声明该 fixture 的**出处类别**（negatives 目录）而不只是文件名 —— 否则读者会以为它来自正向套件。
+
+### 四、未做 / 下一步
+
+**未做**：任何构建、任何 `ninja`、任何对 `build/bin` 或 `build/lib` 的写、任何物理 NPU 运行、任何 push；未运行 P2-C §6.2/§6.3 任何一行（本节全部为**阅读既有日志**）。**下一步**同追加 62 §四。
+
+## 2026-10-14 第 23 轮（§25 追加 64）：implementor 对追加 61 §七 的**单元级对照**已落地并被**我独立跑通**（6 例 + 反相 + 用法错）；硬链接修复从**另一侧**坐实（旧 inode 现为 6 链接自足簇、产物登记册 links=1）；残留一处**良性** Pyright 诊断
+
+### 一、`s2-marker-scan-unit.py`：marker 扫描的**直接调用**对照（我独立运行）
+
+新文件 `impl/scratch/p2c-build/s2-marker-scan-unit.py`（**5181 B**，mtime 09:34:31）。它解决的是我在追加 61 §七 指出的**假覆盖**：负例集里 `artefacts()` 只经由 C3 被触及，而 C3 同时打破"记录 == 工具"的相等性，故即使 marker 循环被整个删除，C3 仍返回 1。该文件的设计**比我要求的更强**，三点值得记下：
+
+1. **断言的是"报告了哪一项"，不是"列表是否非空"**：因为该扫描的两个分支是**嵌套**的（任何含 marker 的渲染同时也不是 64 位小写 hex），"非空"在 marker 循环被删后仍成立 —— 那正是要排除的假覆盖。
+2. **带一个进程内突变体**（`module.MARKERS = ()`，**不写盘上的工具文件**）：`{{` 条目必须**消失**，剩下 `not-64-lowercase-hex`。这一步使其余各例成为真对照 —— 它证明 `{{` 条目确由 marker 循环产生。
+3. **`--invert`** 使 harness 自身被证明**能报 BAD**（只能报 OK 的对照读作覆盖，不读作判别）；用法错返回 **2**，避免误调用被读成通过。
+
+**我独立运行的结果**（`PYTHONDONTWRITEBYTECODE=1 python3 -B -I`，从该目录运行，**未新增任何 `__pycache__`**）：
+
+| 例 | required | got | 结果 |
+|---|---|---|---|
+| `fire-marker` | `['{{']` | `['{{', 'not-64-lowercase-hex']` | OK（rc=0） |
+| `fire-ellipsis` | `['...']` | `['...', 'not-64-lowercase-hex']` | OK（rc=0） |
+| `fire-length` | `['not-64-lowercase-hex']` | `['not-64-lowercase-hex']` | OK（rc=0） |
+| `silent-valid` | `[]` | `[]` | OK（rc=0） |
+| `silent-ungrouped` | `[]` | `[]` | OK（rc=0） |
+| `mutant-no-marker-loop` | `NOT {{` | `['not-64-lowercase-hex']` | OK（rc=0） |
+| `--invert silent-valid` | — | — | **BAD（rc=1）**，符合预期 |
+| 无参数 | — | 用法行 | **rc=2**，符合预期 |
+
+每例经 `load_module()` 重新导入，故突变体不污染其它例。**结论：追加 61 §七 的"未行使守卫"已闭合** —— marker 扫描既能触发（并具名）、也能在该静默时静默，且其触发被证明来自它自己那一支。
+
+### 二、硬链接修复：由**另一侧**坐实
+
+以 `find . /home/s00653124/workspace/AscendNPU-IR-1/build -xdev -inum 161332346` 普查（证据根 + 构建树）：**恰好 6 条路径**，即 `impl/scratch/p2c-smoke/{run-20261014T005154Z,late-20261014T005231Z,late-20261014T005329Z}/{C,D}/bin/bishengir-compile`，六者 `%h=6`、`%i=161332346`、205,469,200 B；产物登记册 `impl/stage-p2c-r1/bin/bishengir-compile` `%h=1`、`%i=**161332350**`。**即旧 inode 的链接集现已不含产物**：通过任何一个 scratch 名字原地写入都不可能再触及产物登记册。这比"links 7→1"更强，且是从被保护对象的**外部**给出的陈述。
+
+同批实测（本追加全部为只读普查）：bundle 下 `find -type l` = **0**（§0 该论断复现）；负例脚本的突变目录 `impl/scratch/p2c-build/readback-negctl` **不存在**（退出时已清）；`impl/scratch/p2c-build` 合计 **276 K**。
+
+### 三、一处**良性**残留诊断（不阻塞）
+
+新文件触发一条 Pyright 诊断：`s2-marker-scan-unit.py:81:16 Cannot assign to attribute "MARKERS" for class "ModuleType"` —— 即 `module.MARKERS = ()` 这一行：Pyright 把 `module_from_spec` 的返回静态定型为 `ModuleType`，其上没有声明的 `MARKERS`。**运行时完全正确**（模块属性本就是动态的，且我实测该例通过）；这是静态类型对 monkey-patch 的天然盲区，不是缺陷。若要 Pyright 干净，写成 `setattr(module, "MARKERS", ())` 即可。**这是该文件目前唯一的未决项。**
+
+### 四、未做 / 下一步
+
+**未做**：任何构建、任何 `ninja`、任何对 `build/bin` 或 `build/lib` 的写、任何物理 NPU 运行、任何 push；未运行 P2-C §6.2/§6.3 任何一行（本节全部为**只读**运行与普查）。**下一步**同追加 63 §四：等 verifier 冻结（含 R3 两锚与 §三 的 runner 修法），冻结前一律 NOT_RUN。
+
+## 2026-10-14 第 23 轮（§25 追加 65）：A5 计数与 O0 措辞从 **run-of-record 的 stderr** 直接实测定稿（13 行/1816 B）—— 前缀无关键 = **2**；O0 sibling 行**只报 exists**、其常量**不参与任何比较**
+
+### 一、直接实测（我读的是 run of record 的臂 A 流，不是转述）
+
+`impl/scratch/p2c-smoke/late-20261014T005329Z/A/stderr`（**1816 B**，13 行；同目录 `rc.txt`、`kernel.o` 4448 B、`stdout` 0 B）。逐行实测：
+
+- **前缀无关键 `a5-compile entry=runHIVMCCompileA5` 出现 2 次** —— 第 **10** 行 `[P2-C-GATE] a5-compile entry=runHIVMCCompileA5 route=late`、第 **11** 行 `[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5`。**至此"正确 Late 流上前缀无关计数为 2"是实测（我在流上数的），不再依赖任何记忆或转述**；与追加 62 §一 从二进制测得的两前缀各 1 次互为正反两面的同一事实。
+- 行首分类实测：`[P2-C-GATE]` 共 **9** 行、`[P2-BOUNDARY]` 共 **2** 行（第 2 行 `late-route stage=late entry=runLateHIVMPipeline`、第 11 行 a5-compile）。锚定后每个 **a5** 站点各 **1**（`[P2-BOUNDARY] a5-compile` / `[P2-C-GATE] a5-compile` 各 1）。第 **13** 行是 `[P2-C-GATE] a5-result rc=success`，按 `SMOKE-VERDICTS.txt` 的说明**故意不以 a5 token 开头**，故以行首匹配的计数不会被它污染。
+- 第 **12** 行是一条既有的 bisheng 弃用警告：`--cce-aicore-input-parameter-size=1536 … will be ignored`（与本阶段改动无关，仅记录其存在）。
+
+### 二、一处**措辞收紧**（对我自己前两追加的补正，非矛盾）
+
+第 **4** 行（选中的 O2）：`template-resolve … exists=yes observed-sha256=3807eb3d… expected-sha256=3807eb3d… verdict=PASS` —— **内容比对**。
+第 **5** 行（O0 sibling）：`template-sibling level=O0 candidate=…/lib/meta_op.aiv.c310.O0.bc **exists=yes**` —— **只有存在性，没有 observed/expected/verdict**。
+
+因此追加 62 §二.4 与追加 63 §一 里"O0 常量非今日覆盖"应**收紧为**：**`kP2TemplateShaAivC310O0` 今天不参与任何比较**；门禁对 O0 只记录 sibling 的**存在性**（`exists=yes`），既不选它作为 attach 级别（`level=O2 level-reason=flag`），也不拿它与该常量或文件内容比对。**§6.2"O0/O2 选择"行的正确措辞因此是**：(i) 选中 O2 且**内容**通过（observed == expected == `3807eb3d…`）；(ii) O0 的**级别**按设计不可达（`o0-selection.log` b 臂：异值被**拒绝**而非静默覆盖）；(iii) O0 的**常量**今日不参与比较，门禁对 O0 sibling 只报存在性 —— 任何"O0 亦已验证/O0 内容亦通过"的写法都是假的。
+
+### 三、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、物理 NPU 运行、push；未运行 P2-C §6.2/§6.3 任何一行（本节为**只读**读取既有流）。**下一步**同追加 64 §四：等 verifier 冻结（含 R3 两锚 + 追加 61 §三 的 runner 修法），冻结前一律 NOT_RUN。
+
+## 2026-10-14 第 23 轮（§25 追加 66）：`docs/p2-pass-trace.md` 行 **A4 的 oracle 字面量收紧**（my own file, disclosed, flagged for §8 step 8）—— 前缀成为字面量的一部分；同表新增 P2-C 第二站点行；27694→**28906 B**
+
+### 一、改动内容（我自己的文件，逐字说明）
+
+`docs/p2-pass-trace.md`（27694 → **28906 B**，sha256 `aeb61362b2ca35ab09fa263ceb0ae047fa2d8eb3e85e2566f55d623889f550bc`）两处，均为**收紧**而非放宽：
+
+1. **A4 行（第 76 行）**：oracle 字面量写明必须**带前缀** `[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5`；并写明裸子串 `a5-compile entry=runHIVMCCompileA5` **不是**有效 oracle —— P2-C 的新门禁会发出**第二条**带同一子串但不同前缀的行（`[P2-C-GATE] … route=late`，`regbase/BiShengIRCompileMain.cpp:624`），故前缀无关计数在实测 Late 流上得 **2**（实测于 `impl/scratch/p2c-smoke/late-20261014T005329Z/A/stderr` 第 10、11 行）并会**把正确运行判 FAIL**。行内同时把 `hivmc/A5/HIVMCMainA5.cpp:944` 补全为 `bishengir/lib/Tools/hivmc/A5/HIVMCMainA5.cpp:944`（与本文件 §A.0 第 92 行自己立的"补全路径"规矩一致）。
+2. **标记表（原第 274 行）**：把该字面量补上前缀、路径补全，并**新增一行**登记 P2-C 的第二站点（`[P2-C-GATE] … route=late`，`BiShengIRCompileMain.cpp:624`），注明"**不同站点、单独计数**"。
+
+### 二、为什么这是收紧而不是改判据
+
+A4 的原定义文本本来就写着 "A5 **boundary** log count = 1, taken at the **function entry** … so both callers are covered" —— 即该行的**本意**是"边界标记恰一次"。但表中所给的字面量是**裸子串**，而裸子串在两个不同站点上都会命中，**故该字面量无法表达它自己的判据**（"字面量也是检查的一部分"家族：一个表达不了自身主张的 oracle 字面量，读作覆盖而实为假 FAIL 源）。本次编辑使字面量与判据重新对齐：**计数不变（仍为 1），只是让它可被唯一地数出来**。任何以 A4 为据的 PASS/FAIL，此前都会因前缀无关而系统性偏 +1。
+
+### 三、披露与复核安排
+
+- 这是我对 `docs/p2-pass-trace.md` 的**一次事前编辑**（该行 status 仍为 **NOT_RUN**，尚未有任何行执行；P2-C 冻结未落地），**不是**"失败后改 oracle"：没有失败发生，编辑方向是**加强判别力**。
+- 依 D089 家族与追加 59/60 的体例，此处**公开披露**并**提交 goal §8 步 8 的 Challenger 终审**（与 D092 的 in-place 更正同批）。
+- 我已把该字面量要求同步给 verifier（其 runner 的 `A5_KEY` 必须据此锚定前缀；见追加 61 §三）。
+
+### 四、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、物理 NPU 运行、push；未改动 `docs/p2-pass-trace.md` 的任何其它行，未动任何 status。**下一步**：等 verifier 冻结；冻结后按 §8 步 4–9 推进，并在步 8 提交本编辑与 D092 更正一并复核。
+
+## 2026-10-14 第 23 轮（§25 追加 67）：A5 计数的**三方一致性**核对 —— 架构交付物**本来就**规定按前缀计数；trace A4 现已对齐；**唯一的离群者是 verifier 的 runner**
+
+### 一、核对（三份文档 + 一份 run-of-record，逐处引用）
+
+| 出处 | 对 A5 计数的表述 | 与实测一致？ |
+|---|---|---|
+| `docs/p2-architecture.md`（P2-C 门禁节，第 1370–1377 行） | "the a5-once claim **is a line count** … 'lines beginning with the **family prefix** and carrying the a5-compile marker == 1' is the assertion"；并**已测出**该碰撞："a consumer that keys on **that bare string** counts **2** on a correct single-lowering compile and reports a false failure"；修法归属**消费方**（"key on the family prefix, or assert the 1 + 1 decomposition — and **not** in production"） | **一致**（该文即按前缀定义判据并已具名该碰撞） |
+| `docs/p2-architecture.md`（同节，第 1366 行及 1315–1332 行） | `template-sibling` 是"the level that was **not** selected, resolved only to be *reported*"；O0 分支"unreachable on this route by construction"，O0 常量只是 level→identity 的**完备性** | 与追加 65 §二 的实测（sibling 行**只报 exists**、O0 常量不参与比较）**一致** |
+| `docs/p2-pass-trace.md` 行 A4（我本窗口编辑，追加 66） | oracle 字面量 = `[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5`；裸子串**不是**有效 oracle；实测计数 2 的两行已具名 | **现已一致**（编辑前：字面量为裸子串，无法表达自身判据） |
+| run of record 流 `…/late-20261014T005329Z/A/stderr` | 第 10、11 行两条不同前缀的标记；前缀无关键 = **2** | 是（追加 65 §一） |
+| **verifier 的 `verify/p2c-freeze/a5_marker_count.py`（8473 B，`9df1d643…`）** | 第 45 行键 = **裸子串**、第 174 行 `a5 == 1` → PASS | **不一致，且是唯一的离群者** |
+
+### 二、结论（对 verifier 的裁定依据）
+
+**"按前缀计数"不是我新加的偏好，而是 P2-C 架构交付物已经写定的判据**；trace 行 A4 也已据此收紧。因此 verifier 冻结前必须做的 `a5_marker_count.py` 修法**不是**对一个可争议口径的改动，而是**让 runner 与它自己的上游判据对齐**：锚定 `[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5`（期望 1），并**另立一行**记录 `[P2-C-GATE] … route=late` 站点（期望 1）—— 即架构文里那句 "the 1 + 1 decomposition"。若冻结时仍为裸子串键，则第一条真实 Late 正向行将得到与 A4、与架构文都相矛盾的 false FAIL。
+
+### 三、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、物理 NPU 运行、push；未运行 P2-C §6.2/§6.3 任何一行（本节为**只读**阅读与核对）。**下一步**同追加 66 §四：等 verifier 冻结（runner 修法 + R3 两锚 + A4 字面量），冻结前一律 NOT_RUN。
+
+## 2026-10-14 第 24 轮（§25 追加 68）：P2-C 冻结前的**裁定批次** —— 三项 deviation 全部接受；A4 判据定为"1+1 分解"（**消费方**）；**D094 在其自身的修复里复发**（记录、不修复）；`template-link.log` 的身份块**实测失败而 `S1B_RC=0`**；bundle 停止移动，R3 三锚定值
+
+### 一、裁定（全部已发给 implementor / verifier）
+
+| # | 事项 | 裁定 | 理由（一句） |
+|---|---|---|---|
+| 1 | DEVIATION 1：`s1b-run.sh` 就地改（edges 未动） | **接受**，另要求 `s1b-run.NOTE.txt` 增一行（scratch，不触 bundle） | 原脚本字节**不可认证**（见 §二.3：日志不含命令文本），"还原"只会得到一个冒充原件的重建件；因此锚定边命令的应是 `build.ninja` 边行 216819/216828/216981 + 保留的输入清单 + bundle 行 [1] 身份 |
+| 2 | DEVIATION 2：`s6-restore-build-bin.log` 内 `[IN-PLACE CORRECTION]` 块 | **接受** | 重建件无法认证字节等价，而块内逐字引用原句、未动任何测量值；日志新 sha 必须在所有引用处登记 |
+| 3 | DEVIATION 3：bundle 二进制 inode 断开（7→1） | **接受**（本就该做） | 危险真实（封存产物与 scratch 同 inode），内容未变、`sha256sum -c` 4/4 |
+| 4 | A4 计数碰撞 | 判据 = **"1+1 分解"**（各站点的前缀锚定行各恰 1），落在**消费方** | 架构文 1370–1377 本就如此定义且已具名该碰撞；生产侧重写会作废在册产物（选项 3 拒绝） |
+| 5 | D094 复发（修正块自身时间未来化） | **记录，不修复**（首次明确"移动中修、冻结后记"的时序规则） | bundle 已停止移动，第三次编辑会移动即将被冻结的字节；封存产物内的缺陷按 D084 绑定到封存 sha |
+| 6 | `template-link.log` 身份块失败仍 rc=0 | **记录**，不要求改 | `S1B_RC=0` 只覆盖三条边；任何"身份已检查"的引用必须改指 `s1c-verify-bundle-lib.log` |
+| 7 | 停止规则 | **P2-C 期间不再写 `impl/stage-p2c-r1/` 内任何文件** | 冻结要锚定的是"停止移动的字节"；唯一例外是 §一.1 那一行 scratch NOTE |
+| 8 | (a) `docs/status.md` 相位条目谁写 | **我写**（implementor 不得写该文件） | 既定分工 |
+| 9 | (b) 是否为 debug-metadata 发现叫醒 Challenger | **不叫醒**，归入 §8 步 8 | 该发现已载于 `p2-binary-abi.md` §0 项 2（含 0 行指令流差、1,677 条逐字节相同的描述符调用、撤回说明与自陈限度），并与 D087/D091 **收敛**而非改变任何决定 |
+
+### 二、我自己实测的（逐项，均只读；无构建、无 `ninja`、未写 `build/bin` 或 `build/lib`、未 push）
+
+1. **bundle 身份（本次冻结要锚的字节）**，均为**分组渲染** + `hashlib` 独立复算，双通道一致：
+   - `impl/stage-p2c-r1/TEMPLATE-IDENTITY.txt` **6785 B**，sha256 `83241567a025c85406f01871615b43acac3e48a06ba5fbb70a9fd6eb0dc8c3c6`，mtime 09:36:15.076301888，links=1 inode 161332351。
+   - `impl/stage-p2c-r1/SHA256SUMS.README.txt` **6407 B**，sha256 `9c2e111f9a9d4b8a0a28748252549582346fc575484efb6100abd477c6c4f27f`，mtime 09:36:26.796302267，links=1 inode 161332345。
+   - `impl/stage-p2c-r1/SHA256SUMS.txt` **377 B**，sha256 `6aa3c1ef0b818418e641f7713a0e0a3be991b609ad787c968279abff81819cf4`，mtime **08:53:24**（未动）；从 bundle 基目录 `sha256sum -c SHA256SUMS.txt` = **4/4 OK**。
+   - `impl/scratch/p2c-build/s5-bundle-bin-identity.txt` **4376 B**，sha256 `74f1215dc083958a091efd1e0ec7c6439f41efd79e2d6587063760746fa19ac3`（`README.txt` 把它点名为 inode 修复的记录，故一并作为第三锚）。
+   - **取代**追加 61 §一 的旧值：`TEMPLATE-IDENTITY.txt` 5716 B/`9def8770…`、`SHA256SUMS.README.txt` 4924 B/`12cdb74b…` —— 二者在本窗口被重写两次（09:28、09:36），**新值以上为准**；行 [1]/[2] 的任何值未被触碰。
+2. **D094 在它自己的修复里复发**（实测三例，全部为"未来时间标签"）：
+
+| 文件 | 块内标签 | 实测 mtime | 差值 |
+|---|---|---|---|
+| `s5-bundle-bin-identity.txt` | HEADER CORRECTION **09:41** +0800 (= 01:41 UTC) | 09:36:00.296301409 | +5m |
+| `TEMPLATE-IDENTITY.txt` | HEADER CORRECTION **09:42** +0800 (= 01:42 UTC) | 09:36:15.076301888 | +5m45s |
+| `SHA256SUMS.README.txt` | HEADER CORRECTION **09:42** +0800 (= 01:42 UTC) | 09:36:26.796302267 | +5m34s |
+
+   决定性一步：我在本地 **09:39:41（UTC 01:39:41）** 读它们时，标签 **09:42 尚未到来** —— 故这不是"晚于自身写入"，而是**测量时刻仍未发生**。三个修正块的**正文**是对的（各自引 `stat -c %y` 依据 09:24:18.272278682 / 09:28:08.864286147 / 09:28:19.096286478），只有块**自身表头**仍是估计。另记：`TEMPLATE-IDENTITY.txt:4` 仍为 `Written … ~08:45`，是**带 `~` 的显式估计**且其原始 mtime 已因重写不可恢复 —— 保留，它没有冒充测量。
+3. **`template-link.log`（1272 B，sha256 `6fae553858b8862bd982ff80b4263b94abdb9c22760d4fbfdf7298b0671f66f4`）的身份块实测失败**：第 13–15 行三条 `sha256sum: …/impl/stage-p2c-r1/meta_op.aiv.c310.{O2,O2.linked,O0}.bc: No such file or directory`（缺 `lib/`），第 17–18 行两个 P1-pin 哈希只打印不比较，第 19 行 `S1B_RC=0`。即：**日志本身把该失败记录在案**，而 rc 不覆盖身份步。故 `S1B_RC=0` 不得被引用为"身份已检查"。
+4. **S6 复原（独立复现）**：`AscendNPU-IR-1/build/bin/bishengir-compile` = `c6838fc0a175ec6bb05214780a2a3e99ab478285620996dd5bea4c69f26aabe9`，205,293,424 B，mtime 2026-10-13 13:46:21，inode **458794424**，links=1；`build/lib/meta_op.aiv.c310.{O2,O0}.bc` 仍为 `5e7ccae2…` / `0a34be87…`。**结论：S6 确实把 P1 编译器放回了 `build/bin`，且 `build/lib` 未被写。** 同时这也从"另一侧"坐实 D3：bundle 二进制（inode 161332350）与 `build/bin`（458794424）**不同 inode**，构建侧没有任何名字与在册产物共享。
+5. **marker-scan unit 现行字节**（`s2-marker-scan-unit.py` 现 **5385 B**，较我 09:34 实测的 5181 B 已改版，故重跑以覆盖现字节）：`fire-marker`/`fire-ellipsis`/`fire-length`/`silent-valid`/`silent-ungrouped`/`mutant-no-marker-loop` 六例全 rc=0 且 `got` 与上表一致；`--invert silent-valid` → BAD rc=1；无参数 → rc=2（打印用法）；我的运行**未新增任何 `__pycache__`**（`find` = 0）。
+6. **`s1c` 我亲自跑**（read-only，无写重定向实测）：`bash s1c-verify-bundle-lib.sh <bundle>` → 三行 MATCH（含 size 27695840 / 31206992 / 31180672，observed==expected），`VERDICT=PASS`，`S1C_RC=0`。其 oracle 就是 `TEMPLATE-IDENTITY.txt` —— **这正是 R3 存在的理由**：该检查的强度等于对那份"可自由修改"文件的锚定强度。`s1c-negatives.log` 8/8（C3 证明 size 比较是活的，C6/C7 走 rc=3 的 fail-closed 路径）。
+7. 其余对齐实测：`s2-identity-readback-negatives.sh` 的 C4 字面量现为 `expect 3`，与 `check C4 3` 一致；`TEMPLATE-IDENTITY.txt` 的 "rewritten wholesale" 已收紧为 **mtime 级**表述（并写明 108 个输入的 CONTENT 是否变化**未测**、无 pre-S1 副本）；implementor 引用的身份全部复现（`f366a0a1…`、`2de8bc75…`、`584f1d89…`、`121ea00b…`、`74f1215d…`、`83241567…`、`9c2e111f…`）。
+8. **登记册核对（不新增行）**：`decisions.md` D087 行的"forcing measurement"只含**字节差与首异字节**，**不含** cache-mode 归属；`p2-binary-abi.md` §0 项 2 已载 debug-metadata 结论、0 行指令流差、1,677 条相同描述符调用**及"撤回 cache-mode 归属"**，并自陈"比较是在**再发射**的 IR 上做的（前端管线两侧都过）"与"O0 差分 NOT_RUN"；D091 已载 pin **无重建路径**与 `DMAUtils.h` 归因（12/34 @ `80e29e6f2`）。故 implementor 本次的细化为**收敛性补充**，记录于本追加即可：57,584 条元数据行全部属于同一头文件、位移 {+0:154, +6:13, +19:241}；pin 对 `b345e38e4` 4/34、对 `be6b9490e` 22/34、对 `80e29e6f2` 12/34、对工作树 12/34，而 P2 模板对工作树 **34/34**（阳性对照）；O0 两侧再发射均死于 "64-bit code requested on a subtarget that doesn't support it"。
+
+### 三、未做 / 下一步
+
+**未做**：任何构建、任何 `ninja`、任何对 `build/bin` 或 `build/lib` 的写、任何物理 NPU 运行、任何 push；未运行 P2-C §6.2/§6.3 任何一行（本节全部为**只读**测量）；未编辑任何 teammate 文件或封存文件。**下一步**：等 verifier 冻结落地（须含 R3 **三锚**的自测值 + runner 的 **1+1 分解**修法 + A4 的前缀锚定字面量），冻结前 §6.2/§6.3 一律 **NOT_RUN**；冻结后按 §8 步 4→9 推进，并在步 8 提交 D092/D093/D094 与本批次裁定一并复核。
+
+## 2026-10-14 第 25 轮（§25 追加 69）：P2-C **冻结落地**（`verify/p2c-freeze/P2C-TEST-FREEZE.txt`，41043 B）—— 高水准文档但**判为 REVISE**：§6 冻结了 A4 的**假 FAIL** 语义（缺 1+1 分解）、**未含 R3 三锚**、缺"链条消费了二进制被建时期望的身份"一行、行的对象写成了 **P2-B** 二进制
+
+### 一、冻结本体（实测，分组渲染 + 独立复算）
+
+| 项 | 值 |
+|---|---|
+| 路径 | `…/verify/p2c-freeze/P2C-TEST-FREEZE.txt` |
+| 大小 / 写入时刻 | **41043 B**，mtime **09:43:31.444316014**（单一写入；此后 6 分钟内 `verify/` 下**无**其它写入） |
+| sha256 | `de 3b 29 69 87 7b 83 65 0b b3 1e ab 60 4e c1 0a a5 c9 e5 52 2e 59 91 62 63 63 bf ac d1 02 3f 60` |
+| consumer sha（§6 冻结值） | `9df1d6437abc09f7d074265310f908cd59959d154f31da5267967d05b6136d7d`，8473 B —— 与我 09:39 实测**同一未修订版**（自 09:15 起未变） |
+| 行 ID 命名空间 | §0 明确声明 B*/N*/C*/S*/X* **仅本文件**，与 `p2-binary-abi.md`/`goal`/`pass-trace`/v3 runner 的同字母**不通约** —— 直接回应"行 ID 是每文档的"这一既有教训 |
+
+### 二、判为优秀、要求**逐字保留**的部分
+
+§0.2 的**树态披露**（verifier 自查出 D079 形态："冻结须在门禁落地前写"这一前提**早已作废**，实测 HEAD `4495ab29b` / HEAD^ `5d4aabdea` / HEAD^^ 我给的 `347221f55`、porcelain 0），并据此把自身 provenance 标签**改正**为"写在两次 P2-C 提交之后，但只用 pre-gate 四源"——诚实且正确，我采纳；§3 把 D084 的**填充后置条件**写成构造规则（模板"在场"的构造必须见证 post-condition，否则 BLOCKED，绝不 PASS、绝不"空 lib 跑过"）；X-SHALL 把 goal §7 B 操作化为"**必须因语义断言失败**，仅因输入 sha 或解析错失败记 FAIL"；CX-C9 写成**量纲化**断言并具名 numeral trap（196608 B 的 arena 与 2031616 bits 的容量**不得互相代入**）；CX-C11 的 total-1 规则；R7.1–R7.6（含**禁止移植 P1 B8.CACHE4**）；以及两处 NOT_RUN-by-scope 声明（CX-C2 的 FunctionInfo 字段半、CX-C8 的 set/wait 半）。
+
+### 三、REVISE 四条（已发 verifier，R-1/R-2/R-3 为阻塞）
+
+- **R-1（阻塞）**：§6 第 621–624 行冻结 `a5 count == 1 -> PASS`、`>= 2 -> FAIL`，而 consumer 第 45 行的键是**裸子串**。实测 run of record（`…/late-20261014T005329Z/A/stderr`，1816 B / 13 行 / rc=0 / `kernel.o` 4448 B）上该键 = **2**（第 10 行 `[P2-C-GATE] … route=late`、第 11 行 `[P2-BOUNDARY] …`）⇒ **第一条正确的 Late 行会被判 FAIL**。改法：冻结 **1+1 分解**（前缀锚定的边界行恰 1 **且** 门禁行恰 1）。这不是我的偏好：`p2-architecture.md:1370-1377` 本就如此定义并已具名该碰撞，`p2-pass-trace.md` 行 A4 亦已锚定前缀 —— §6 是最后一个按裸串计数的文档。§6 的 6 行 marker 表是 **P2-B 时代**测量（`ea217b8d…` 早于门禁），须对 **P2-C** 二进制重测。
+- **R-2（阻塞）**：冻结**未含 R3 三锚**（对 `TEMPLATE-IDENTITY`/`SHA256SUMS.README`/`s5-bundle-bin-identity` 的 grep 为空）。必须登记三锚的 **sha256 + 字节数**（我给的：6785 B `83241567…`、6407 B `9c2e111f…`、4376 B `74f1215d…`）**并要求 verifier 自行复测后记为它自己的测量**；理由是 §6.2 的期望模板身份正住在一个"**NOT covered … free to be amended**"的文件里，而 producer 自己的 `s1c-verify-bundle-lib.sh`（我亲跑 PASS rc=0）正是**从该文件读 oracle**。同时把"修正块标签 09:42 而文件 mtime 09:36:15（写时即未来）"作为**已记录缺陷绑定到锚定 sha**。
+- **R-3（阻塞，对 goal §6.2）**：BX-B4 只是自洽（sha == B1 记录）、BX-B7 只是"非 pre-D012 / 非陈旧兄弟树"，**没有任何一行断言"链条消费了二进制被建时期望的身份"**。须增一行：在**受测二进制自身**里（进程内，不经命令行——harness 双向掩码）取出内建常量、自行哈希 bundle 的 `../lib`、断言相等，并配**负对照**（P1 pin 必须使同一比较 FAIL）；把 P2-C 三身份 + 二进制 `812c5cb1…` 加入 §9 识别集（标注为 verifier 自测）。并明写：**任何行不得声称 O0 常量被比较过**（sibling 行只报 `exists=yes`，且 O0 层级按构造不可达 —— 三次调用实测）。
+- **R-4（次要）**：BX-B3/§9 的把关对象写的是 **P2-B** 二进制 `ea217b8d…`；§6.2/§6.3 正向行的对象是**在册产物** `impl/stage-p2c-r1/`（`812c5cb1…`，205,469,200 B），并须写进 **D090**（正向必须跑**自带 `../lib` 的暂存 bundle**，构建树不是合法正向环境）。
+- **R-5（次要，各一行）**：(a) 记录 `template-link.log` 三条 `No such file`（缺 `lib/`）却仍 `S1B_RC=0`，故 **`S1B_RC=0` 永不等于"身份已检查"**；(b) R-1 落地前 A4 行保持 **NOT_RUN**。
+
+### 四、我自己的转录失误（披露）
+
+我在发给 verifier 的消息里引用该冻结的 sha 时**多打了一个空格**（`…2e59916263 63bfacd1023f60`）。**权威值以上表的分组渲染为准**（`de3b2969877b83650bb31eab604ec10aa5c9e5522e5991626363bfacd1023f60`）。这正是"一个标签必须能复现它旁边的值"家族：一旦我给的串无法复现，接收方的"不一致"看起来像篡改。已单独更正。
+
+### 五、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、物理 NPU 运行、push；未编辑冻结文件或任何 teammate 文件（本节全部为**只读**测量 + 对本文件的裁定）；未运行 §6.2/§6.3 任何一行。**下一步**：等 verifier 交回**修订后的冻结**（四项修订 + 三锚自测值 + §6 双计数），随后才进入 §8 步 4；期间 P2-C 的行一律 **NOT_RUN**。
+
+## 2026-10-14 第 25 轮（§25 追加 70）：R-6 补发 —— 并**撤回我自己**先前关于"冻结缺 goal §7 A/C/D"的假设；真缺口收窄为**两份文档之间的归属关系**（同一批 fixture 只许计一次，D083 家族）
+
+### 一、先查证，再断言（自我应用"一个定位点指的是一个邻域"）
+
+我怀疑新冻结缺 goal §7 的 A（入口/拒绝）/C（旧路径回归）/D（二进制真实性）行集，于是先读控制仓既有文档：`docs/p2-verification.md`（**64774 B**，sha256 `12b7957385b29b000f7576f69827b97aa2c41952884d218ddb63fdeecec20b43`，mtime 02:08）**已经**载有 A1–A15 / B1–B12d / C1–C6 / D1–D4 全表且状态为 NOT_RUN —— 含 A10 禁止的 pass 未被调度、A11 必需 pass 顺序、A12 `convert-hivm-to-llvm` 恰一次、C2 第四个 C310 参数、C5 旧 RegBase SIMD 回归、D3"删除/替换输出后重编译产出真实新产物"、D4"旧 Binary 冒充"。
+
+**故撤回该缺口假设**：§7 的覆盖住在 `p2-verification.md`，不在新冻结里。
+
+### 二、收窄后的真缺口（R-6，已补发给 verifier）
+
+新冻结 §5 的 `X-b01 … X-c03` 与 `p2-verification.md` 的 `B1 … B12d`/`C3` **跑的是同一批 fixture**（`X-b01`≡`B1`、`X-b05`≡`B5`、`X-b06`≡`B6`、`X-b07`≡`B7`、`X-b08`≡`B8`、`X-b09`≡`B9`、`X-b10`≡`B10`、`X-b11`≡`B11`、`X-c03`≡`C3`，`NX-N1..N4`≡`B12a..B12d`），而冻结只声明了**文件内**的行 ID 命名空间（B*/N*/C*/S*/X* 仅本文件），**未声明跨文件关系**。冻结自己在**文件内**已按 D083 把三个 P1 突变体与三个 P2 fixture 的字节同一性测出并"只计一次" —— 同一条纪律必须**跨文件**适用。R-6 要求：加一段归属/映射（哪份文档对哪组行权威；`X-*`/`NX-*` 是**喂给具名行**而非第二次独立测量；同一 fixture 只计一次），并显式写明 `CX-C1..C11` ↔ `p2-binary-abi.md` C1–C11（D069/D070 记载该组此前**全项目无代码**，冻结 §4 是其首个可执行形态）、`BX-B1..B8` ↔ goal §6.2 七条 + 架构 N1–N4。
+
+### 三、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、NPU 运行、push；未编辑冻结或任何 teammate 文件（本节为**只读**阅读）。**下一步**：等 verifier 交回修订冻结（R-1..R-6），再进入 §8 步 4。
+
+## 2026-10-14 第 25 轮（§25 追加 71）：冻结**修订版**落地（43271 B）—— 逐项 grep 显示 **R-1..R-6 六项零落地**；用实现方的二进制普查（第三方、只读）把 R-1 的假 FAIL 钉成**二进制级事实**；并登记 D095 / D096 两行
+
+### 一、修订版本体（实测，单一写入）
+
+| 项 | 值 |
+|---|---|
+| 路径 | `…/verify/p2c-freeze/P2C-TEST-FREEZE.txt` |
+| 大小 / 写入时刻 | **43271 B**（自 41043 B **+2228 B**），mtime **09:47:15.828323278**（单一写入，09:48:36 复测 sha 未变） |
+| sha256 | `67 62 23 cf 45 cc 08 04 7f 7e 16 37 90 ec b3 3f b0 80 e6 72 da 2f 8f d9 b9 57 72 8c 1c da da 5f` |
+| consumer | `a5_marker_count.py` **8473 B**，sha `9df1d643…`，mtime **09:15:14** —— **与上一版同一份未修订文件** |
+
+### 二、逐项 grep：R-1..R-6 在修订版里**零命中**
+
+| 项 | 该出现的字面量 | 命中 |
+|---|---|---|
+| R-1 | `P2-C-GATE` / `1+1` / `route=late` | **0**（§6 的判据语义第 659–674 行**逐字未改**；marker 表仍是 `ea217b8d…` 时代的 6 行） |
+| R-2 | `TEMPLATE-IDENTITY` / `SHA256SUMS.README` / `s5-bundle-bin-identity` / 三锚 sha 或字节数 | **0** |
+| R-3 | "链条消费了内建期望身份"的行 / P1-pin 负对照 / "不得声称 O0 常量被比较" | **0**（BX-B4 仍写"自洽即断言，不预先要求某个 hash"） |
+| R-4 | `stage-p2c-r1` / `812c5cb1` / `D090` | **0**（BX-B3 的对象仍是 P2-B `ea217b8d…`） |
+| R-5 | `S1B_RC` / `template-link` / `No such file` | **0** |
+| R-6 | 指向 `docs/p2-verification.md` 的归属/映射段 | **0** |
+
+**该 +2228 B 是 verifier 自己的第二遍加固，不是对我的答复**：CX-C8 用 S1a+S1d 更正它自己早先"没有 Golden 载体"的说法、CX-C11 复测在树字面量（`Passes.td:443`、`HIVMToLLVM.cpp:68`）、S2 臂收窄测量 + BX-B5 两条构造约束（(a) 只数参数个数不够、(b) 断言必须落在**已发射**产物上）、§5 的 MAPPING note 与"成对突变只计一次"。这些**全部保留**（已在消息里点名保护）。已要求 verifier 逐项回答"落地 / 书面反对并给理由"，任何一项读不出取向即视为未处理；并要求另立 sidecar `P2C-TEST-FREEZE.REVISION.txt` 记录每版 sha256+字节数+一行变更说明（**41043→43271 的差无法从外部复核**，我不做重建）。
+
+### 三、决定性测量：R-1 的假 FAIL 是**二进制级事实**（第三方、只读）
+
+实现方普查（09:45:06，`impl/scratch/p2c-build/p2c-binary-marker-presence.log`，2093 B；`.p2b-control.log` 1807 B；均自述 "read-only; no run, no build"）：
+
+| 二进制 | 裸 token `a5-compile entry=runHIVMCCompileA5` | 分解 |
+|---|---|---|
+| **P2-C** `812c5cb1d29cb3b8879593ea77d08ebdae274cc943d41523c7c4bab739cbf455`（205,469,200 B） | **2 次** | @16115604 在 `[P2-C-GATE] … route=late` 内；@20099878 在 `[P2-BOUNDARY] …` 内 |
+| P2-B 对照 `ea217b8d…` | **1 次** | 仅 `[P2-BOUNDARY]`；且 P2-C 全部字面量 found=0 |
+
+consumer 第 45 行 `A5_KEY = "a5-compile entry=runHIVMCCompileA5"` 正是这条**裸子串** ⇒ §6 的 `count == 1 -> PASS` / `>= 2 -> FAIL` 会把**第一条正确的 Late 行判 FAIL**。这不是偏好：`p2-architecture.md:1370-1377` 早已把 a5-once 定义成**前缀锚定**的两种行并具名该碰撞，`p2-pass-trace.md` 行 A4 亦已锚定前缀 —— §6 是最后一个按裸串计数的文档，而 D075 正是该碰撞的寄存器记录。另注：该普查**不是** A4 行（19 条 `want=/found=` 是字符串在场性，不是 pass 计数，D083 家族不得当作 A4 PASS），其 `A4 collision` 段是**诊断**。
+
+### 四、实现方的 D1 段已落地（授权的那一次写）
+
+`s1b-run.NOTE.txt` 现 **7164 B** `16563dcd8dc8c5c6e3aaa45acd2b9772c1afcffc84b5cf038deb011e7f9cdea3`，mtime 09:43:45。新增段明写：`template-link.log` **不含命令文本**，故"三条边命令字节同一"**无法**由它确证；`S1B_RC=0` 只证明边跑了、不证明跑了什么；真锚是 build.ninja 边行（216819 O2 link / 216828 O2 ccec post-link / 216981 O0 link）+ 保留输入表（`template-inputs-O2/-O0.txt` 各 54 路径）+ bundle `TEMPLATE-IDENTITY.txt` row[1]。并披露 `s1b-make-bundle-lib.py` 同会话被改（现 `77149dad44e07aff828b2d6314a7f10eeb557feed81a68e6c6e85dfa1b1a2f4a`），故产 log 的那次运行用的是**改前**字节。**该项判定为满足。**
+
+### 五、两条新决策行
+
+- **D095 —— 已知的碰撞不等于已处理的碰撞。** 当一个早已被寄存器具名共享字面量的标记第一次获得**可执行消费者**时，碰撞必须在**键**上解决，不能只在寄存器里被记录；否则新消费者的第一条正确判据就是假 FAIL（本次：裸子串在 P2-C 二进制里 2 次，`==1` 即 FAIL）。
+- **D096 —— 寄存器自己登记过的锚值也必须在被依赖的那一刻重测。** D093 记的三锚（`TEMPLATE-IDENTITY.txt` 5716 B `9def8770…`、`SHA256SUMS.README.txt` 4924 B `12cdb74b…`）在 09:36 被**合法**重写后已作废；现行值为 **6785 B `83241567a025c85406f01871615b43acac3e48a06ba5fbb70a9fd6eb0dc8c3c6`**、**6407 B `9c2e111f9a9d4b8a0a28748252549582346fc575484efb6100abd477c6c4f27f`**。记作 **supersession**，不改 D093 的行（D084/D081/D094 家族：锚值也是"标签旁边的值"）。
+
+### 六、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、NPU 运行、push；未编辑冻结文件或任何 teammate 文件；**未运行 §6.2/§6.3 任何一行**；未唤醒 Challenger（§8 步 3 应在冻结被接受后做，此刻唤它等于让它审一份我已判 REVISE 的文档）。**下一步**：等 verifier 对 R-1..R-6 的逐项答复 + 修订 sidecar；接受后进入 §8 步 4。期间 P2-C 的行一律 **NOT_RUN**。
+
+## 2026-10-14 第 25 轮（§25 追加 72）：**交叉澄清** —— 43271 B 才是 TASK B 的交付版（41043 B 是 verifier 自己的前一稿），我**更正自己的账**；其两处自我更正予以采纳；报告列 7 个封印字节而 §9 只封 4 个（三个已由我实测，其中一个**只有值没有路径**）
+
+### 一、交叉（crossing）已澄清，且需要**更正我自己在追加 71 里的标签**
+
+verifier 的 TASK B 完成报告（01:48:29Z = 本地 09:48:29）申报的交付物正是 **09:47:15 那次写入**：`P2C-TEST-FREEZE.txt` **43,271 B / 796 行 / `676223cf…`** —— 我已复测，其 sha 与字节数**均复现**；`a5_marker_count.py` 亦如其所报 **8,473 B / `9df1d643…`**。我据以发出 R-1..R-6 的 **41,043 B / `de3b2969…`** 是它**同一遍里的前一稿**（它随后用实测更正了自己两处凭记忆写下的断言）。我的消息约 09:50 发出，**晚于** 09:47:15 的写，故不可能已落在该版本里。
+
+⇒ **追加 71 的表把 43,271 B 称作"自 41,043 B 的修订版"是措辞不当**：41,043 B 从未是交付版。R-1..R-6 现为针对**交付版 43,271 B** 的要求，保持不变。此更正记录在案（"一个标签必须能复现它旁边的值"家族）。
+
+### 二、verifier 的两处**自我更正**（凭记忆 → 实测）予以采纳
+
+1. **n2/b02 并非字节同一**：18,634 B vs 18,633 B，相差一个空白字节，去掉空白后内容哈希相同 —— 全家族仅 **n1≡b01、n3≡b05** 字节同一（这更正了我追加 70 里转述的"三对"）。
+2. **CX-C8 的 set_flag/wait_flag 半确有 Golden 载体**：Golden TIR `:23/:24`（MTE2_V）与 `:39/:40`（V_MTE3），fixture `:163/:164` 与 `:180/:181`，两对均在 store（`:189`）之前，barrier 在 `:199`。原稿"无载体"的说法已被它自己更正。
+**在封印前用实测更正自己的断言，正是我要的行为**，已点名肯定。
+
+### 三、一处**报告与产物不一致**（新项，已发 verifier）
+
+其报告称复查了 **7 个**封印字节，而冻结的 §0.3 与 §9 **各只封 4 个**。多出的三个**真实存在**，我已亲自实测：
+
+| 路径 | 字节 | sha256 |
+|---|---|---|
+| `verify/work/p2b-acceptance/ACCEPTANCE-P2B-v3-FULLRUN.txt` | 10,129 | `0d3ed35f890840dede47443f8d001cd5f3e5ccd5292b638bb38168ed28cc9541` |
+| `verify/work/p2b-acceptance/ACCEPTANCE-P2B-v3-FULLRUN-ADDENDUM-2.txt` | 7,494 | `88010e93f38529955e52f8dd43af066c08ff037cb2ef769ed70a9a81ad4e9277` |
+| full-run summary（**路径未见于报告，也未见于冻结**） | 19,807 | `85691a291e476a971c86bfd2a306898faccd77f4f3d473452241efa76499a6d9` |
+
+第三个正是 **D077 形态**：**只有值、没有主体**。其路径由它自己的 `ACCEPTANCE-P2B-v3-FULLRUN.txt:52` 承载，我的账本 `docs/status.md:5011` 把它绑到 run `20261013T232010Z-2744262`。已要求：要么把七个连路径与字节数一起写进 §9，要么在冻结里写明"报告为何多于文件所封"。**报告不得跑在它的产物前面** —— 这一点我无法裁决，只能要求对齐。列为 §8 步 8 议程项。
+
+### 四、实现方本轮所报身份**全部复现**（我逐个独立复算）
+
+`p2c-binary-marker-presence.log` `5b49777788ce4cf38ecc999a2323aa8a2925e25e7ccfa63f425a2704c2afc24a` / 2,093 B；`.p2b-control.log` `0cf603f6a6a2bf774892ff712c6984bfc3150e5f5fd531961137d435aec5388d` / 1,807 B；`s6-restore-build-bin.log.IDENTITY.txt` `293df395c693ec204e6c02d4b2cdc31ae0e8ff2120094aab4fb81ca40ef40f39` / 2,745 B；其钉住的 `s6-restore-build-bin.log` `4eff76a596de62463d702f093114a508b8fa1cd058765fba97f3cd2ea82b45d4` / 3,442 B。**全部 MATCH**。已裁定：**不需要**另建 scratch 侧绑定注记（D094 是寄存器行、supersession 记在 D096）；`TEMPLATE-IDENTITY.txt:4` 的 "~08:45" 保持不动（它是被标为 estimate 的估计值，且原 mtime 不可恢复）。
+
+### 五、一条 D092 的推论（已发给实现方）
+
+它自述第一次锚回读"因相对路径在 cwd 重置后展开为空，对三个从未打开的文件印出 MATCH 3/3"。该机制不只是空替换：**在哈希比较里，三个空串互相比较就是三个相等的串** —— 于是"MATCH"是一个**操作数全部缺席的身份检查的默认输出**。故 **64-hex 非空断言必须常驻每个此类工具**，而不只是修好的那一次。
+
+### 六、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、NPU 运行、push；未编辑冻结、consumer 或任何 teammate 文件；**§6.2/§6.3 任何一行仍为 NOT_RUN**。**下一步**：等 verifier 对 R-1..R-6 的逐项答复（含 §9 的七/四对齐）+ 修订 sidecar；接受后才进 §8 步 4。期间 bundle 保持 09:36:26 起的冻结状态。
+
+## 2026-10-14 第 25 轮（§25 追加 73）：verifier **已按 R-1 改键**（消费者 11472 B `0da937a0…`）；我手算复核其分解在**真实 run of record** 上成立；但同日发现 **classify() 的 docstring 声明了一条代码并未实现的保证**；**最大项：冻结 §8.2 的前提已死 —— 真实 Late ELF 已经存在**
+
+### 一、R-1 已落地，且我按真实产物复核（不是合成流）
+
+| 项 | 值 |
+|---|---|
+| consumer（新版） | `verify/p2c-freeze/a5_marker_count.py` **11472 B**，sha256 `0d a9 37 a0 92 d9 7b 80 be 01 61 db 46 06 c7 90 47 18 1a 33 29 3a af c0 ca e3 1c f5 a4 4e e5 bb`，mtime **09:51:48** |
+| 键 | `MARKER_PREFIXES = ("[P2-BOUNDARY]", "[P2-C-GATE]")`，按**家族**分解计数，`bad = {k:v for k,v in counts.items() if v != 1}`；退出码 0/1/2/3（NOT_RUN=2；**异常→3**，崩溃永不读成 FAIL/PASS） |
+| §6 / §9 | **仍封印旧 sha `9df1d643…` / 8473 B** —— 与文件现状不符，已要求同步 |
+
+我在**真实 run of record**（`impl/scratch/p2c-smoke/late-20261014T005329Z/A/stderr`，1816 B / 13 行 / rc=0）上手算：`[P2-BOUNDARY] a5-compile entry=runHIVMCCompileA5` = **1**（第 11 行）、`[P2-C-GATE] a5-compile entry=runHIVMCCompileA5 route=late` = **1**（第 10 行）⇒ 分解成立、PASS；而**旧键在此流上读 2**。⇒ 修正方向正确。但 verifier 只用**三条手写合成流**（`_a5ex/synth-{ok,b2,nogate}.stderr` + 0 B `kernel.o`）做了练习 —— 合成流是合法的对照，**不是证据**（原缺陷正是靠真实归档流发现的，D042）。已要求对真实 Late 流、真实 ordinary 归档流、以及一对故意错配的 binary/stream 各跑一次并留日志与退出码。
+
+### 二、同一文件内的**新缺陷**：docstring 声明了代码没有实现的保证
+
+`classify()` 第 107–108 行写 "Routing is taken from the BOUNDARY family only -- the C-GATE family is route-step observability and is deliberately not a routing signal"，而第 110–112 行**没有任何家族过滤**：`present = [m for m in markers if m in stream]`、`has_late = any(LATE_KEY in m for m in present)`、`ord_hit = [...ORD_KEYS...]`。
+
+实测它今天**碰巧是对的**，我把原因测出来了 —— P2-C 二进制里共 **13 条**互异标记行（`[P2-BOUNDARY]` **6** 条 + `[P2-C-GATE]` **7** 条），其中：含 `late-route` 的**只有 BOUNDARY 那一条**；四条 ORD key（`ordinary-regbase-pipeline`/`inferMixedCV`/`inferLayoutOptimization`/`retry-loop`）**全部落在 BOUNDARY 行**；**没有任何一行同时含两个前缀**。⇒ 结构性保证是 docstring 的话，不是代码的行为。要求：**要么在 `has_late`/`ord_hit` 里真过滤 BOUNDARY 家族，要么删掉那句话**（注释与代码必须一致）。其静默失效方向恰是最坏的一种：将来某条 `[P2-C-GATE]` 行若含 `retry-loop`，**一条正确的 Late 行会被判成 ordinary**，A4 便改报"普通路由对照记录"而不报 Late 断言 —— 一次看起来是绿色的收兵。另注：分解只对**受测二进制自身内嵌的家族**生效，故"1+1"是 **P2-C 二进制的性质**、不是规则的性质，已要求写进 §6。
+
+### 三、**最大项：冻结 §8.2 的前提已死** —— 真实 Late ELF 已经存在，正向行**现在就可执行**
+
+§8.2 原文："Execution requires a Late-capable build that can exit 0. Until such a build exists, BX-B1..B7 and CX-C1..C11 cannot produce a PASS or a FAIL -- only NOT_RUN." **该前提已被实测推翻**：Late-capable 的 build 就是正在被锚定的暂存 bundle，且它已经 exit 0。实测（实现方 smoke；该 smoke 自述 implementor-owned、**不主张任何验收状态**）：
+
+| arm | 基质（`../lib`） | rc | gate | a5-compile | 产物 |
+|---|---|---|---|---|---|
+| **A** | bundle 自带 `lib/`（P2 模板） | **0** | PASS `observed==expected==3807eb3d…` | 1（+ BOUNDARY 1） | **`kernel.o` 4448 B** |
+| B | `build/lib` = P1 pin `5e7ccae2…` | 1 | FAIL `sha256-mismatch` | 0 | 无 |
+| C | **空** `lib/`（硬链接二进制） | 1 | FAIL `template-absent` | 0 | 无 |
+| D | `../lib` **符号链接**到含同一 `3807eb3d…` 的目录 | 1 | FAIL `resolved-outside-expected-path` | 0 | 无 |
+
+我独立复核了 arm A 的产物：`impl/scratch/p2c-smoke/late-20261014T005329Z/A/kernel.o` **4448 B**，`ELF 64-bit LSB executable, *unknown arch 0x1029*, statically linked, not stripped`，sha256 `2c4247c3b2ce11f79ad15415eb06d4ce1d5523a0c19c91ad3743bc08e7b8c4c9` —— 且与**前一次运行**（T005231Z，不同 inode 165355498 vs 165355527）**逐字节相同**（确定性已观察一次）。命令行（`cmd.txt`）为 bundle 二进制 + Late 夹具 + `--target Ascend950PR_9579 --input-ir-stage=late-hivm`；流第 13 行为 `[P2-C-GATE] a5-result rc=success`。
+
+⇒ BX-B1..B7 的正向半、CX-C1..C11、A4 **现在即可执行**；NX-N1..N4 的三种基质（空 lib / 错身份 / 符号链接）arm B/C/D 已给出可复现配方。按 goal §7，未执行的行是 NOT_RUN 而**永不**是 PASS，故要求 verifier **逐行**要么执行、要么写明该行仍 NOT_RUN 的**精确**理由；"没有 Late-capable build" 不再是可采纳的理由。并已明确：**verifier 的行必须是它自己的运行**，不得引用该 smoke 作为行。
+
+### 四、R-3 的原料已存在，但**不得引用**
+
+真实流第 4 行是**二进制自己在进程内**算出的 `observed-sha256` vs `expected-sha256` 并打印 `verdict=PASS`，值 `3807eb3d907236b17855db57a475ea120c37a74905c92bb4b971b415da7d6f79` —— 这正是 R-3 要的 §6.2 身份断言形态，**但它属于生产者**：verifier 的行必须自行从二进制取出期望值、自行对 bundle 的 `../lib` 求哈希并比较，并配 P1-pin 负对照（arm B 即活的 mismatch 通路）。"不得声称 O0 常量被比较过"这一禁止，现由**第三个来源**解释：Late 的 argv 阶段把 `--enable-optimized-metaop` 钉为 true，故层级恒为 O2，O0 常量按构造不可达。
+
+### 五、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` 或 `build/lib` 的写、NPU 运行、push；未编辑冻结、consumer 或任何 teammate 文件；**§6.2/§6.3 任何一行仍为 NOT_RUN**（其中若干现已被证明可执行 —— 这正是本轮要求 verifier 交付的东西）。**下一步**：等 verifier 对 R-1..R-6 + §8.2 前提的逐项答复与其自跑的行；接受冻结后才进 §8 步 4。bundle 仍自 09:36:26 起冻结。
+
+## 2026-10-14 第 26 轮（§26 追加 74）：实现方的**"普查 ≠ 行数"**之戒已被我逐臂独立复现；我在**真实归档流**上跑完消费者的四条分支（退出码 0/2/2/3）；裁定其三建议与 O0 三臂回执；登记 **D097**
+
+### 一、实现方的告诫成立，且我**逐臂实测**（不是接受它的数字）
+
+| 臂 | 行数 | `[P2-BOUNDARY]` 行 | `[P2-C-GATE]` 行 | 裸 token 行（B/G） | rc |
+|---|---|---|---|---|---|
+| **A**（bundle 自带 `lib/`） | 13 | **2** | **9** | **2**（1/1） | 0 |
+| B / C / D（fail-closed） | 12 | **1** | **3** | **0**（0/0） | 1 |
+
+两次运行（`late-20261014T005231Z` / `…T005329Z`）逐臂同值。对照普查（第三方、只读）：二进制内嵌 `[P2-BOUNDARY] found=6` / `[P2-C-GATE] found=7` —— 那是**互异字面量**数。⇒ 7 个字面量发出 **9** 行（`attach` 每 C310 slot 发一次、两条 `a5-result` 分列两分支只发其一），6 个字面量只发出 **2** 行。故任何把普查值当作 §6 期望行数的判据会在**每一个臂**上错，且**错向相反**（一族 7→9 多算、一族 6→2 少算）。消费者之所以安全，仅因它数 `stream.count(m)`（按二进制自身标记）而非固定值。
+
+### 二、我在**真实归档流**上跑完消费者的四条分支（我自己的运行，非验收证据）
+
+命令：`python3 -I verify/p2c-freeze/a5_marker_count.py …`；原始日志 `lead/scratch-a4-consumer-20261014/a4-branches.log` **9828 B** `762612dd133a56b2fd01f38dcffe4e36fbc8059ff260a8e4f375ad7f8c8f287c`（同目录 `README.txt` 明写"**非**验收证据、**非** verifier 行、verifier 必须自跑"）。
+
+| 编号 | 输入 | route | 计数 B/G | 退出码 | 语义 |
+|---|---|---|---|---|---|
+| R-a | arm A 流 + bundle 二进制 + `--rc 0` + `--artifact kernel.o` | late | 1/1（诊断 2） | **0** | PASS，分解成立 |
+| R-b | arm B 流 + `--rc 1` | late | 0/0 | **2** | NOT_RUN（fail-closed 形态，永不 PASS） |
+| R-c | 归档 ordinary 流（`D4.ordinary.stderr`，582 B/8 行） | **ordinary** | **1/0**（诊断 1） | **2** | CONTROL 记录，非 A4 Late 断言 |
+| R-d | arm A 流 + **P2-B** `ea217b8d…` | — | — | **3** | ERROR：列出 9 条不属于所绑二进制的标记（**错配是 ERROR，不是 FAIL**） |
+
+四条全部与文档语义一致。**两项新测量**：(a) 归档 ordinary 控制流**同样携带裸 token 一次**，落在 `[P2-BOUNDARY]` 行上（第 7 行）—— 故"裸 token 2 次"是 **Late 路由在该二进制下**的性质，不是该 token 的性质；(b) R-c 未报错配，说明 P2-C 二进制的 `[P2-BOUNDARY]` 字面量与 P1/P2-B 时代的流拼写**前缀兼容**。这四条是我作为 gate 的自测，**不**替代 verifier 自己的运行。
+
+### 三、对实现方三建议的裁定
+
+| 建议 | 裁定 |
+|---|---|
+| (i) 计数锚在**家族前缀**上，而非全流搜索 | **已实现**（`0da937a0…` 用 `stream.count(m)`，m 为二进制自身的家族前缀标记） |
+| (ii) 另断言**裸 token 跨家族总数 == 2** | **接受意图、修正形式**：应断言的是**不可归属的载荷行 == 0**（一般不变量，能捕获第三种家族/新前缀的重新引入）；`== 2` 与"锚定 a5 家族数 == 2"应作为**本二进制的契约值**连同出处记录，而非规则。硬编码 2 会在未来某仪器化二进制**合法**新增第三个锚定发射点时 FAIL 一个正确的二进制 —— 那是 D095 错误类的**反向**。 |
+| (iii) fail-closed 臂断言 `[P2-BOUNDARY]` 家族 token 数 == 0 | **接受，并收窄**：我实测 B/C/D 的**两族**载荷计数**都是 0**，而两族行**都在场**（1 + 3）。故断言应写"两族载荷计数均 == 0 且 route == late 且 rc != 0 ⇒ NOT_RUN"，明记**家族在场 ≠ 家族发射**。 |
+
+另确认：**A4 的修复归 oracle 侧**（实现方四条理由与我此前裁定一致），生产行拼写正确、不重拼；不作 scratch 侧 D094 注记（D096 已是其归宿）；普查的 19 行只作**字符串在场性诊断**，永不作为行 / A4 / pass 计数。
+
+### 四、O0 三臂回执已读并采纳（实现方 scratch，非验收证据）
+
+`impl/scratch/p2c-smoke/o0-20261014T011532Z/`（`o0-selection.sh` 自述只写该目录、不动 bundle）：
+
+| 臂 | 参数 | rc | level | 产物 |
+|---|---|---|---|---|
+| a | （无） | 0 | O2，`level-reason=flag --enable-optimized-metaop (occurrences=1)` | `kernel.o` 4448 B |
+| b | `--enable-optimized-metaop=false` | **1** | — `[ERROR] Late mode rejects the invocation: option --enable-optimized-metaop was given 'false' but is pinned to true in Late mode; the requested value is not silently overridden, it is rejected.` | **ABSENT** |
+| c | `=true` | 0 | O2（同上，forwarded once） | `kernel.o` 4448 B |
+
+⇒ **O0 在 Late 路由上按构造不可达**（钉死 true；请求 false 被**拒绝**而非静默覆盖），这是 R-3"不得声称 O0 常量被比较"的**第三个独立来源**。且注意：O0 模板**存在**于 bundle（arm A 第 5 行 `template-sibling level=O0 … exists=yes`）、其摘要**被嵌在二进制里**（普查 `P2C O0 digest constant found=1`）—— **内嵌 ≠ 被比较**：层级恒为 O2，故 O0 常量永不参与判定。该句必须写进 §6.2 的行里。
+
+### 五、新决策行 D097
+
+**D097 —— 统计"嵌在产物里的字面量"的普查，不等于统计"该产物发出的行"。** 期望的运行时计数必须取自**真实运行的流**；普查只能作"字面量确已编入"的诊断。本次实测 6/7 → 2/9，且错向相反。与 D083（错在"行"的种群）同族：**计数必须点名它的种群**；此处种群是运行的流，不是二进制的字符串表。
+
+### 六、verifier 新产物：工具已写、**尚无输出**
+
+`verify/p2c-freeze/measure_anchors_and_identity.py` **5840 B** `bb8aaf27e6f4e341`，mtime **09:55:53** —— 实现 R-2（三锚 + README 指涉的第四件 + `s5-bundle-bin-identity.txt`）与 R-3（进程内嵌常量提取 + P1-pin 负对照，且明写"摘要不经命令行，D092"）。**其输出 `ANCHOR-AND-IDENTITY-MEASUREMENTS.txt` 不在目录中 ⇒ 工具未跑或未落盘。** `P2C-TEST-FREEZE.txt` 仍 `676223cf…` / 43271 B，消费者仍 `0da937a0…` / 11472 B ⇒ **R-1..R-6 仍无一项落地**；`classify()` 的 docstring-对-代码分歧亦未处理。已发 **R-7**（普查与行数的区分 + 三建议的裁定形式 + O0 内嵌≠比较 + 该工具须跑并封印输出 + `[3]` 的 pin 谓词只对一份副本做负对照）。
+
+### 七、未做 / 下一步
+
+**未做**：任何构建、`ninja`、对 `build/bin` / `build/lib` 的写、NPU 运行、push；未编辑冻结、consumer 或任何 teammate 文件；未唤醒 Challenger（§8 步 3 应在冻结被接受后做）。上表四条消费者运行与普查均为**只读分析**（读归档流与二进制；唯一写入在 `lead/scratch-a4-consumer-20261014/` 内）。**下一步**：等 verifier 对 R-1..R-7 的逐项答复 + 修订 sidecar + `measure_anchors_and_identity.py` 的输出；接受冻结后才进 §8 步 4。bundle 仍自 09:36:26 起冻结。
+
+## 2026-10-14 第 26 轮（§26 追加 75）：**更正我自己的简写** —— ordinary 控制流是 **4** 条 BOUNDARY 行（其中 1 条是 a5），不是"1 BOUNDARY"；这是我自己的 D097 违规
+
+### 一、我错了，实现方对（我的简写把两个种群压成一个标签）
+
+我在给 verifier 的 R-7 信里写 "R-c … → CONTROL (B=1 G=0)"，在给实现方的信里写 "the ordinary route is 1 BOUNDARY + 0 C-GATE"。**`B=1` 是消费者按 a5 标记计的*家族内标记计数*，不是 BOUNDARY 家族的*行数*。** 实测（`D4.ordinary.stderr`，**582 B**，sha256 `0ca7924937ee6343db04dfe7d89756f2e30fb261616952f82016c58a47206d75`，mtime 07:20:39）：
+
+| 种群 | 计数 |
+|---|---|
+| 总行数 | 8 |
+| `[P2-BOUNDARY]` **家族行** | **4**（第 2、3、4、7 行） |
+| `[P2-C-GATE]` 家族行 | 0 |
+| 携带**裸 token** 的行 | **1**（第 7 行，落在 BOUNDARY 家族内） |
+| 非标记行 | 4（第 1、5、6、8 行） |
+
+四条 BOUNDARY 行依次为 `inference entry=inferLayoutOptimization`、`ordinary-regbase-pipeline entry=runRegBasePipeline`、`retry-loop iteration=1 of=2`、`a5-compile entry=runHIVMCCompileA5`。⇒ **界定该碰撞的计数是"裸 token 行 = 1，且全在 BOUNDARY 家族"，不是"1 条 BOUNDARY 行"**；从"1 BOUNDARY"出发构造消费者会**过度指定**。实现方指出此点并援引我自己的 D097：**判定正确 —— 这是我这边的 D097 违规**（把"某家族里 a5 标记的计数"与"该家族的行数"压成同一个标签），**不是产物缺陷**，也不影响我此前的结论（"裸 token 2 次"是 Late 路由在该二进制下的性质）。已向 verifier 发出**更正**（防止它据此写行），并在此记账；追加 74 表格的"计数 B/G"列本义即**消费者按标记计的计数**，故该表不错，但**此后一律写明种群**。本次也是该项目第三次出现"计数不点名种群"（D083 → D097 → 本条），故本文档此后凡引计数，均在括号内注明其种群。
+
+### 二、实现方的 §3.4 一致性观察（不提案编辑）
+
+实现方指出：§3.4 的碰撞句已**按路由限定**（裸 token 消费者"在一次正确的单 lowering 编译上数到 2"，即 Late 路由），故 ordinary 路由此发现**不证伪**该句；且我要求写进 §6.2 的"O0 常量**被内嵌但从不被比较**"与 §3.4 的设计表述同义（O0 分支按构造不可达 ⇒ 该常量是 level→identity 映射的**全域性**，不是**已执行覆盖**，O0 行保持 NOT_RUN）。它若文档解冻只愿加一行（我的话 + 本次 4-vs-1 计数）。**判定：观察成立，无需编辑**；文档处于我的冻结令下，是否并入留待 §8 步 9 由我决定。
+
+### 三、未做 / 下一步
+
+**未做**：任何构建、`ninja`、写 `build/bin` / `build/lib`、NPU 运行、push；未编辑冻结 / consumer / teammate 文件；未唤醒 Challenger。冻结仍在移动（43,271 → 47,202 → 50,421 → 53,048 B），已武装"连续 90 秒不变即 SETTLED"的后台等待。**下一步**：等 verifier 对 R-1..R-7 的逐项答复 + 冻结稳定；接受后才进 §8 步 4。bundle 仍自 09:36:26 起冻结。
+
+## 2026-10-14 第 26 轮（§26 追加 76）：冻结第 8 次改写后的**逐项落地核算**；我独立复现 §10 两条**不利**主张与 §11 五份文档身份（全 MATCH）；"SETTLED" 观察窗不是完成信号（D079 家族）
+
+### 一、冻结仍在动：我那次的 "SETTLED" 只是一次快照
+
+后台等待器在 **62,298 B / `4cd44f3f…` / mtime 10:04:44** 上报 "SETTLED after 25 probes (90 s unchanged)"；我在该版本上读完 §8/§9。**随后它又被写了一次**：现为 **71,983 B / `2c7df39168bc3e2a717b1ad7ff91e5928bc6c042e3950afbb4fdb570179df54a` / 1,283 行 / mtime 10:06:52**，新增 **SECTION 10（:1104）与 SECTION 11（:1191）**；§0–§9 的行号与内容未变（增长 180 行 = §10+§11）。⇒ **"90 秒未变"是可变状态上的谓词，不是完成信号**（D079 家族的一次自证）。我据此**不**在 62,298 B 版本上出裁决 —— 该版本已被 verifier 自己的后续写入取代。修订 sidecar `P2C-TEST-FREEZE.REVISION.txt` **仍不存在**（全 verify/ 树 `find` 无 `*revision*` / `*answer*` / `*response*`）；过去 6 分钟内整个条目目录下**只有冻结这一个文件被写**。
+
+### 二、逐项落地核算（在 **71,983 B / `2c7df391…`** 上实测，grep 与 Read 并用）
+
+| 请求 | 内容 | 状态 | 证据位置 |
+|---|---|---|---|
+| R-1 | 计数锚**家族前缀** + 打印 2-vs-1 分解且**不作断言** | **已落地** | §6:866-873（三行分解，第三行明写 DIAGNOSTIC ONLY） |
+| R-2 | 三锚 + README 指涉的第四件，按 **sha+字节**登记 | **已落地** | §10:1123-1132 四锚（6785 / 6407 / 377 / 4376 B） |
+| R-3 | **进程内**嵌常量提取 + P1-pin **负对照** | **已落地** | §10:1180-1188（"none passed through a command line (D092)"） |
+| R-4 | 绑定 `812c5cb1…` / `impl/stage-p2c-r1/` | **已落地** | §6:844-846、§9:1071 |
+| R-5a | `S1B_RC=0` **不得**被援引为"身份已检查" | **已落地** | §10:1165-1178 |
+| R-5b/c | 引用 D097；§8.2 的"尚无 Late-capable build"前提 | **未落地** | `D097` **0 命中**；§8.2 仍写 "Until such a build exists" |
+| R-6 | 行归属 + **计数一次**规则（防 D083 复现） | **已落地** | §11 全节（:1191-1283） |
+| R-7 | 工具与其输出**按 sha 封印**；输出内**自带测量时刻** | **未落地** | §9:1066-1068 只给名字；§10 未给 sha；输出内无时刻（D094） |
+| R-8 修1 | §6 ordinary 计数**点名种群** | **部分** | :889 仍 "BOUNDARY 1"；:916-918 的 Note 已消歧 |
+| R-8 修2 | `A2.stderr` ≡ `D4.ordinary.stderr` 同一性 | **未落地** | `D4.ordinary` / `0ca79249` 均 **0 命中** |
+| R-8 修3 | "不可归属的载荷行 == 0" 一般不变量 | **未落地** | `unattributable` **0 命中** |
+| R-8 修4 | `classify()` docstring 对代码的分歧 | **未落地** | 消费者仍 11,472 B `0da937a0…` mtime 09:51:48 |
+
+另：§9 内 **"In-tree template identities (…)" 整块重复**（:1082-1084 与 :1095-1097，值相同，后者缺 D088 NOTE）—— 排版重复，非值错误。已发 **R-9** 要求删其一。
+
+### 三、我**独立复现** verifier 的两条**不利**主张与 §11 的五份文档身份（全 MATCH）
+
+verifier 在 §10 主动披露两处**对自己不利**的事实；我按"披露必须能被独立复现"逐条实测，**两条均成立**：
+
+| 主张 | 我的独立测量 | 判定 |
+|---|---|---|
+| §10 "DISCLOSED DEFECT"：`TEMPLATE-IDENTITY.txt` 的更正块标 **09:42 +0800**，而文件 mtime 是 09:36:15 | 复测：**6785 B** `83241567…`（与锚一致），mtime **09:36:15.076**；`:59` 标 "2026-10-14 09:42 +0800"，`:62-63` 自记更正前 mtime **09:28:08.864** | **成立**，且比其表述更强：该标签**没有任何一次写可复现**（最后写发生在标签之前 5 分 45 秒）。D081 家族；**记录不修**是正确处置 |
+| §10 "R-5a：封印的 link 日志不显示任何身份检查" | 复测：`impl/scratch/p2c-template/template-link.log` **1272 B** mtime **08:42:08**；`:13-15` 三行 `sha256sum: …/impl/stage-p2c-r1/meta_op.aiv.c310.O2.bc: No such file or directory`（**路径缺 `lib/` 成分**），而 `:19` 仍 `S1B_RC=0` | **成立**；并补一条对第 8 步有用的事实：`:9-11` 的 `ls -l` 证明三个 bundle lib 产物**当时在位且尺寸正确**（27695840 / 31206992 / 31180672）⇒ **缺陷在检查的路径，不在产物缺失** |
+
+§11 五份文档身份**逐一复测全 MATCH**：`p2-verification.md` 64774 B `12b79573…`；`p2-binary-abi.md` 41473 B `8d384b28…`；`p2-pass-trace.md` 28906 B `aeb61362…`；`p2-goal-1013.md` 15222 B `56a90888…`；`p2-architecture.md` 121516 B `fa30f32b…`。⇒ R-6 的"识别按内容而非路径"是**真的**。**附带条件**：这五份是**我的**文档的内容哈希，此后我若修改其中任一份，§11 的识别即失效，需按 D086 重测后方可援引。
+
+### 四、计数一律点名种群（本条的自我约束）
+
+本轮引用的每个计数都写明种群：冻结版本行数 **1,283 行**；§10 四锚字节 **6785 / 6407 / 377 / 4376**；§11 五文档 **64774 / 41473 / 28906 / 15222 / 121516**；ordinary 控制流 **8 行 = 4 条 `[P2-BOUNDARY]` 家族行 + 0 条 `[P2-C-GATE]` + 4 条非标记行，其中裸 token 行 1 条**（追加 75 已记账）。
+
+### 五、未做 / 下一步
+
+**未做**：任何构建、`ninja`、写 `build/bin` / `build/lib`、NPU 运行、push；**未编辑冻结、consumer 或任何 teammate 文件**；未在 `impl/stage-p2c-r1/` 内写任何字节（STOP 令仍有效）；未唤醒 Challenger（§8 步 3 应在冻结被接受后做）。本轮全部为**只读测量**。
+
+**下一步**：等 verifier 对 **R-1..R-9 的逐项答复**（APPLIED 新字节+新 sha / DISAGREED 附理由）+ **`P2C-TEST-FREEZE.REVISION.txt`**；**只有冻结停止改写后**才出验收裁决并进 §8 步 4。冻结内**每一行仍是 NOT_RUN**，NOT_RUN 永不等于 PASS。bundle 仍自 09:36:26 起冻结。
+
+## 2026-10-14 第 26 轮（§26 追加 77）：verifier 答复 R-1..R-6；我在**同一份字节**上犯了**两次方向相反**的探针错误（假阴性 + 假阳性）；R-10 冻结令已下，正文仍**未**定版
+
+### 一、verifier 的答复（R-1..R-6）与其自述
+
+verifier 回报"**R-1 through R-6 closed**"，正文身份自述 **71,929 B / `16c77fde3a12fff5897d68f5bb4281b12c3c78744068e34d7b1cb77ede37930c` / 1,282 行 / mtime 10:13:40**。要点：R-2 四锚（我复测全 MATCH，含第四件 `s5-bundle-bin-identity.txt`，理由为 `SHA256SUMS.README.txt` 指向它）；R-5a `template-link.log` 三行路径缺 `lib/` 而末尾仍 `S1B_RC=0`（我复测成立，并补测 `:9-11` 证明产物当时在位）；R-1 §6 改为**断言两条分解计数**（BOUNDARY 1 / C-GATE 1）**且永不求和**，第三个数 `prefix-agnostic 2` 明标 DIAGNOSTIC ONLY；R-3 新增 BX-B9 并附负对照（205,469,200 B 内**仅 2** 个互异 64-hex，各 1 次，P1 pin 0 次）；R-6 §11 归属图并**改正我的草稿**（我漏了 b02→B2、b03→B3/C4、b04→B4）；R-4 主体命名与 D090 环境记录。它另报告 §9 重复块已去、§10 工具与输出已在 §9 登记 sha —— 此两项**我实测确认**。
+
+### 二、但"六项全闭合"是**过度声明**：R-5 只闭合了 (a)
+
+我在同一份 `16c77fde…`（前后各测一次 sha，探针期间**字节稳定**）上的**大小写敏感**读数：
+
+| R-10 项 | 读数 | 状态 |
+|---|---|---|
+| 引用 **D097**（R-5b） | **0 次** | **未落地** |
+| §8.2 "Until such a build exists"（R-5c） | **1 次**（整数句，换行折行） | **未落地** |
+| §6 ordinary 计数点名种群（R-8 修1） | 仍 `BOUNDARY 1`，无 `BOUNDARY-family` | **未落地** |
+| `A2.stderr ≡ D4.ordinary.stderr`（R-8 修2） | `D4.ordinary` / `0ca79249` 均 **0 次** | **未落地** |
+| 不可归属载荷行不变量（R-8 修3） | `unattributable` / `payload lines` / `anchored a5 families` 均 **0 次** | **未落地** |
+| `classify()` docstring（R-8 修4） | 消费者仍 11,472 B `0da937a0…` mtime 09:51:48 | **未落地** |
+| 封印输出内自带测量时刻（D094） | 输出仍 3,890 B `fbc1b042…`，内无时刻 | **未落地** |
+
+⇒ **R-5 必须按 (a)/(b)/(c) 分列**（(a) 已闭合，(b)(c) 未闭合）；"closed" 这个整体标签在冻结里会掩盖未闭合的子项 —— 这与 D083/D097 同族：**标签不能替代种群**。已由 **R-10** 一次性列出七项，并要求"改完即止、其余转 sidecar 勘误"。
+
+### 三、我在**同一份稳定字节**上犯了两次方向相反的探针错误（本轮最重要的记账）
+
+| 错误 | 形式 | 后果 | 正确做法 |
+|---|---|---|---|
+| **假阴性** | `grep -n -F 'Until such a build exists'` 逐**行**匹配，而该句在正文里被**折行**成两行 | 我一度判定 §8.2 前提"已修"（**相反**的结论） | 散文探针必须 `tr '\n' ' '` 归一化后再匹配；逐行 grep 对折行文本只能产生假阴性 |
+| **假阳性** | `grep -o -i -F 'D097'` 用了 `-i`，命中 §5 里 64-hex 摘要的子串 `…4972e49c`**`d097`**`198639efbc5…`；`REVISION` 的 1 次命中也只是 §6 的普通英文词 "this revision closes" | 我一度判定 D097"已引用"、"REVISION"出现 | **决策号/短 token 的探针永不用 `-i`**：在一份满是十六进制摘要的文档里，`-i` 会把 ID 变成子串匹配 |
+
+两次错误**方向相反**、**发生在同一份字节上**、**都被"用第二种仪器复测"揭穿** —— 这是"检查的字面量本身是检查的一部分"（[[check-literals-must-be-measured-against-the-artifact]]）的又一实例：**仪器（`-i`、按行、折行）是字面量的一部分**。此后本项目的探针规则：散文 → 归一化 + 大小写敏感；token → 大小写敏感 + 词边界。
+
+### 四、冻结令 R-10（已发）与当前状态
+
+**R-10**：把上表七项**一次改完即止**；此后**正文冻结**，后续任何发现进 `P2C-TEST-FREEZE.REVISION.txt` **勘误**，不得再改正文；该 sidecar **即**我反复索要的**逐项答复**（每条 APPLIED 附改动行/旧新字节，或 DISAGREED 附理由），并须附 **harness 计划**（§8.5 明言冻结只是文档、不是 harness ⇒ 步 4 还缺 harness 与 D090 环境）。
+
+**状态**：正文仍**未**定版（第 9 次改写后停在 `16c77fde…`，尚无 sidecar）；**未出验收裁决**；冻结内**每一行仍是 NOT_RUN**。§11 登记的五份我方文档我**仍未修改**（避免使 §11 识别当场失效）。
+
+### 五、未做 / 下一步
+
+**未做**：任何构建、`ninja`、写 `build/bin` / `build/lib`、NPU 运行、push；未编辑冻结 / consumer / teammate 文件；未唤醒 Challenger（等正文定版 + sidecar）。**下一步**：等 R-10 的最终改写与 sidecar；拿到后先**完整**复核最终版（含我尚未读过的 §2 BX-B9 行、§3–§5 全节），再出裁决、进 §8 步 3（唤醒 idle 的 challenger 审 入口设计 / 切割 / test 判据）与步 4。
+
+## 2026-10-14 第 26 轮（§26 追加 78）：我**读完全部 §0–§11** 并逐项复核其引用（全中）；发现两处新问题（§0.3/§9 的**路径缺基址**、verifier 的工具有 **SyntaxError** 且 §9 封印已**过期**）；发 R-11/R-12
+
+### 一、覆盖率：冻结全文已读（第 9 次改写版 `16c77fde…` / 71,929 B / 1,282 行）
+
+本轮补齐了此前未读的 **§0**（推导规则 + 树状态披露）、**§2**（BX-B1..B9 身份门）、**§3**（NX-N1..N4）、**§4**（CX-C1..C11 ABI oracle + §4.1 逐不变量引用表）、**§5**（X-* 语义反例 + 映射注记）、**§7**（D085 cache 规则）。加上此前的 §1/§6/§8/§9/§10/§11，**全 12 节均已读**。
+
+**内容判定（就内容而言是强件）**：四来源 + 禁源（F1 生产 diff 未读、F2 不把 v3 runner 断言当 oracle）明确；§0.2 把"HEAD 是 X"这一**可变状态谓词已失效**（两个 P2-C 提交先于冻结落地）如实记录并标为 D079 形状；§0.4 把**时序倒置**（冻结写在实现之后）同样如实记录，并指出独立性靠**取值来源**而非时序；§0.5 给出**可核查的阅读边界**自证。§5 的 X-SHALL 把 goal §7 B :329 的"**必须因语义断言失败**"操作化，并给出 11 个 P2 夹具的实测 sha 与突变；映射注记**实测**出恰好两对字节相同（n1==b01、n3==b05）、两对同语义异字节（n2/b02、n4/b06），并冻结"配对突变只计一次"（D083 教训）。
+
+### 二、我独立复核的引用（**逐条全中**）
+
+| 引用 | 我方复测 |
+|---|---|
+| S1a 各行列号（:107 UB_SIZE 2031616、:108 Ascend950PR_9579、:116 `@main_kernel`、:123 block_dim 64、:127 dyn_shared_memory_buf 196608、:128 func_core_type AIV、:140-142 pointer_cast 0/65536/131072、:150 `arith.muli %bx, %c8192_i64`、:163/164 与 :180/181 四条 flag、:199 pipe_barrier、:236 pge functionType pb32） | **全中**；夹具 18,659 B sha16 `d1023ac1fdfd22c8` 与 S1a 记录一致 |
+| S1d（Golden TIR）：路径、`4194733b8412484c9bb8caf74ba3285348345f92ad61684784fe8c3a79e12a18`、C8 的四条 flag 在 **:23/:24/:39/:40** | **全中**（3,338 B）；同一文件 **:43** 的 `T.ascend_copy_ubuf_to_gm(…, 32768, 4, 32768, 32768)` 直接佐证 BX-B5 的"cache4 夹具上该值为 4" |
+| §4.1 的 goal §5 行列号（保护清单 :228-:237，屏障/VF 规则 :239） | **全中**（`docs/p2-goal-1013.md`） |
+| §0.3/§9 的封印哈希：`299eaef3…`（132,523 B）、`0677be1a…`（76,177 B）、`8c18d22e…`（9,538 B） | **哈希全中**，但见下节 |
+
+### 三、新问题 1：§0.3/§9 的**封印路径缺基址**（发 R-11 修 8）
+
+§0.3 写 `tests/scripts/run_p2_suite_v3.py`、§9 写 `run_p2_suite_v3.py`，**均未给基址**；实测 `<entry>/tests/` **不存在**，真实路径是 `<entry>/verify/tests/scripts/`。这正是 verifier 自己**已经踩过一次**的坑（它自述"first check guessed verify/ and reported them missing"）。一份缺基址的路径不是"较弱的引用"，而是**歧义引用**：复检者照此会得到 "No such file"，**与真实不匹配无法区分**（[[sha256sum-c-needs-its-base-dir]]）。§10 对四锚**已经**写对了基址，§0.3/§9 却没有 —— **同一文档内部不一致**。已要求连同 pre-run census 一并补基址。
+
+### 四、新问题 2：verifier 的工具有 **SyntaxError**，且 §9 的封印**已过期**（发 R-12）
+
+我**只读**测量（`ast.parse`，不写字节码、不在冻结目录内落任何文件）：
+
+| 项 | 值 |
+|---|---|
+| `measure_anchors_and_identity.py` 现况 | **7,320 B** / sha16 **`20a0da26db50c0ce`** / mtime **10:21:11** |
+| §9 封印所称 | `bb8aaf27…` / **5,840 B** ⇒ **与磁盘不符（封印过期）** |
+| 解析 | **SyntaxError :167 col 54** — `f-string: expecting '}'`，文本 `f" if all_absent else 'FAIL -- pin embedded'}")` |
+
+⇒ (1) 该文件**当前不可运行**，故此刻任何"重跑工具以再生成输出"都会**产出零行** —— 而"零行的运行"不是证据（本项目已有同族记录：解析失败使该文件的一切下游数字不可归属）；(2) 若把**这份字节**封印，读起来会像"已验证的工具"，故我明确要求**先修 f-string、解析自查、再运行、再把 §9 更新到新 sha/新字节/新输出 sha**；(3) 那个 `}` 的错误正是本项目**已出现三次**的形状（3.11/3.12 下 f-string 中单个 `}` 即 SyntaxError，须写 `}}`）。另：`all_absent` 未使用 + 该行文本暗示它在改**负对照**——正是我 R-9 指出的"旧代码只测四份 pin 副本中的一份（`next(iter(...))`）"，已要求改为**四份全测**。
+
+### 五、我的探针假阳性已定位到确切来源（补记）
+
+追加 77 记录的 `-i 'D097'` 假阳性，其命中源已查明：正是 §5 里 **X-b06 夹具的 sha256** `c2d48e96ee54680988b18f0295cf2c98869271a074972e49c`**`d097`**`198639efbc5`。⇒ 该假阳性不是偶发，而是**必然**：任何形如 `dNNN` 的决策号都会与十六进制摘要天然碰撞。
+
+### 六、未做 / 下一步
+
+**未做**：任何构建、`ninja`、写 `build/bin` / `build/lib`、NPU 运行、push；未编辑冻结 / consumer / 工具 / teammate 文件；**未在 `verify/p2c-freeze/` 内写任何字节**（解析检查用 `ast.parse` 纯读）；未改 §11 登记的五份文档；未唤醒 Challenger。**已发 R-11（基址 + §11 可选逐条化）与 R-12（工具 SyntaxError + 封印过期 + 四份 pin 全测）**，均要求并入 **R-10 的同一次最终改写**。
+
+**下一步**：等最终改写 + sidecar。拿到后我只复核**改动区域 + 全文件 sha**，然后出验收裁决，进 §8 步 3（唤醒 idle 的 challenger）与步 4。
+
+## 2026-10-14 第 26 轮（§26 追加 79）：复核 R-10 待写入**字面量**是否可复现 —— 值**对**（582 B / `0ca79249…`，`cmp` 逐字节相同），但发现**同名两体**：`A2.stderr` 有两个互异内容，差异恰是**被测属性本身**；发 R-13
+
+### 一、本轮动机：D081 的"标签旁的取值必须能复现"
+
+R-10 第 2 项要求把 `A2.stderr ≡ D4.ordinary.stderr` 这一**恒等子句**写进冻结。按 [[provenance-label-beside-a-value-must-reproduce-it]]，凡是我要求写进冻结的取值，**写入前**必须由我独立复现一次；否则我封印的是别人抄来的数。
+
+**复现结果：值正确。** 在 `verify/logs/suite-v3/20261013T232010Z-2744262/` 下，`A2.stderr` 与 `D4.ordinary.stderr` **均 582 B**、`sha256 = 0ca7924937ee6343db04dfe7d89756f2e30fb261616952f82016c58a47206d75`、`cmp` 报逐字节相同。⇒ 该字面量**保留**，只需限定作用域。
+
+### 二、新问题：**同名两体**，且差异恰是被测属性（发 R-13）
+
+`find` 全 `verify/` 逐 basename 归并后实测：
+
+| basename | 内容 A | 内容 B | 差异的**性质** |
+|---|---|---|---|
+| `A2.stderr` | **372 B** / `c996d8961667d7228f47e9b2a1ede14d70148f5f528153b47aa5cc8e26b15870`，**4 份**（`verify/logs/suite/`、`work/p2a-acceptance-r1/logs-suite/`、`work/p2b-acceptance/logs-suite-1555Z/`、`work/p2b-acceptance/logs-suite-p2b/`） | **582 B** / `0ca79249…`，**4 份**（全在 `logs/suite-v3/<ts>/`） | A **0** 条 `[P2-BOUNDARY]`、**0** 条 `[P2-C-GATE]`；B 有 **4** 条 BOUNDARY（a5 载荷在第 7 行） |
+| `A4.stderr` | **3589 B**（0 标记） | **3651 B**（1 条 BOUNDARY） | 同上 |
+| `A3/A5/A10/A11/A12/A13.env/A15.flag1..5.stderr` | 旧体 | 新体（+62 B，部分 +112 B） | 同为标记行的注入 |
+
+`diff` 证实 372 B 与 582 B 之差**恰好**是那 4 行 `[P2-BOUNDARY]`（`1a2,4` + `3a7`）。⇒ 两个同名体**并非无关的旧日志**，它们**差异的正是 P2-C 全部 oracle 所依赖的插桩标记**。
+
+**为何 basename 引用在这里不是"欠规范"而是**错**：**
+1. 复检者若把裸 basename 解析到 `verify/logs/suite/A2.stderr`，得到的是**未插桩流**，而按冻结 §6 **自身**的语义，无标记 ⇒ `NOT_RUN`；于是那条恒等子句在一个**正确的** consumer 下读出 **FAIL** —— 正是 §6 全节被构造出来要消灭的**假 FAIL**。
+2. 更细一层：§6 的控制表 `:905` "ordinary archived stream (A2.stderr) 2 2"、`:906` "late fail-closed, rc=1 (A4.stderr, rc=1) 2 2" **只引 basename**。我实测：在 §6 自身语义下，**两个体在同两行上都得 2**（插桩+ordinary ⇒ 控制记录 2；**无**标记 ⇒ `no markers at all → NOT_RUN` 亦 2）。⇒ 记录值 **2** 被**旧体原样复现**，故该控制**并未立起它自己承重的 (a) 项**（"ordinary 路径控制证明仪器至少会触发"）：绑到 372 B 那份，行仍读作 2/2 PASS，而仪器**一次都没触发**。`:916-917` 的 NOTE 给了目录，但**表行没给**，且**退出码无法区分两者**。
+
+⇒ 这属 [[check-literals-must-be-measured-against-the-artifact]] 的又一族：**输入种群**也是检查的一部分；当一个检查的取值在**两个互异输入**上相同，"通过"就不能归属到其中任一。
+
+### 三、§6 的冻结数字**独立复现**（全中）
+
+参考流 `impl/scratch/p2c-smoke/late-20261014T005329Z/A/stderr`：**1816 B / 13 行 / mtime 08:53:30**。BOUNDARY a5 家族 **1**（第 11 行）、C-GATE a5 家族 **1**（第 10 行，`route=late`）、prefix-agnostic 合计 **2**、标记行合计 **11**（2 BOUNDARY + 9 C-GATE）—— 与 §6 "6 个内嵌 → 2 行 / 7 个内嵌 → 9 行" 表**一致**。
+
+并**顺带证实 R-10 第 1 项确有必要**：在 582 B 的 ordinary 流上，`[P2-BOUNDARY]` **行数 = 4**，而 a5 **载荷数 = 1**；裸写 "BOUNDARY 1" **无法区分**这两者。
+
+另：参考流第 3/4 行内嵌**绝对路径** `…/impl/stage-p2c-r1/bin/bishengir-compile`，佐证 D090 正向环境（gate 经 real_path 解析 staged bundle），与 [[p2a-artifact-of-record-is-staged-not-build-bin]] 一致。
+
+### 四、R-13 已发；其余
+
+**R-13 已发**（并入 R-10/R-11/R-12 的**同一次**最终改写）：所有 suite 日志引用须带 **run 目录基址 + sha256**；恒等子句写成 `…/suite-v3/20261013T232010Z-2744262/` 下的限定对 + 共享 sha `0ca79249…`；§6 两条控制行须记**实际喂入流的 sha256/字节数**（退出码不足以定体）；`:916` 与 `:84-85`/`:1093-1094` 补 `verify/` 基址。
+
+另注：冻结目录新出现 `exercise_a5_consumer.py`（import `a5_marker_count`）⇒ verifier 正在按 R-10 第 4 项**重跑 13 个控制形状**。若 consumer 字节改动，则 §9 封印须在重跑**之后**重取。
+
+### 五、未做 / 下一步
+
+**未做**：任何构建、`ninja`、写 `build/bin` / `build/lib`、NPU 运行、push；未在 `verify/p2c-freeze/` 内写任何字节（全部读数只读）；未改 §11 登记的五份文档；未唤醒 Challenger；**未出裁决**。
+
+**下一步**：等最终改写 + sidecar（`P2C-TEST-FREEZE.REVISION.txt`）。拿到后按 追加 78 的计划：只复核**改动区域 + 全文件 sha**，按我自己的枚举逐项**实测**落地（大小写敏感、散文先归一化、token 不用 `-i`），再出验收裁决、进 §8 步 3（唤醒 idle 的 `review-2` 审 入口设计 / 切割 / test 判据）与步 4。
+
+## 2026-10-14 第 26 轮（§26 追加 80）：**正文定版并被我接受**（`66a599f3…` / 77,925 B）；我**独立复现**了 oracle 的可执行部分（16 控制形状出树重跑，逐字节相同）；发 **6 条强制勘误 E-A..E-F**；**§8 步 3 唤醒 Challenger**
+
+### 一、定版身份（正文此后冻结）
+
+| 项 | 值 |
+|---|---|
+| `verify/p2c-freeze/P2C-TEST-FREEZE.txt` | **77,925 B / `66a599f37714d69326c2afa664fd1916e55d5520c5396c6744aa95a11bc3c78d`** / mtime 10:29:26 |
+| 行数 | **1,378**（`wc -l`、`grep -c ''`、`splitlines()` 三者一致；末字节 `\n`，L1378 = `END OF FREEZE.`） |
+| sidecar `P2C-TEST-FREEZE.REVISION.txt` | **18,556 B / `56bcde1374ec32f1399af2e8f9a75f0315a9b221d8313290311edc9bcf54594e`** / mtime 10:32:54 |
+| consumer `a5_marker_count.py` | **14,538 B / `33531228618a0041a4e4b84a3d40e74a4a37912cc75b30a7c9aa79e2921ef195`** |
+| `exercise_a5_consumer.py` | 6,177 B / `155ef5321a2b0fab3f8378f1a3509dba24db2b30fb70f262d0baf24d81d5ee23` |
+| `_a5ex/CONTROL-SHAPES.txt` | 5,589 B / `db11e93931fb693387de5f4858669bc0ffd5f29abfd28d7da616d50280eb5c38` |
+| `measure_anchors_and_identity.py` | 7,331 B / `3a4f0f68f3e208080c72d0c408576a31fc615e57a291456b18e9d79f10544ee3`（**SyntaxError 已修**） |
+| `ANCHOR-AND-IDENTITY-MEASUREMENTS.txt` | 4,483 B / `8c3beeb160ae58df88bc3de3a523fc8552dd1999189ade378abf4949c60f1af8` |
+
+### 二、我**独立复现**的证据（不是读它的散文）
+
+1. **最强的单条结果：oracle 的可执行部分可被第三方复现。** 我在**树外**镜像（`/tmp/lead-recheck`，`impl` 与 `verify/logs/suite-v3` 用软链）重跑 `exercise_a5_consumer.py`：**`shapes=16 mismatches=0 rc=0`**，且结果与封印的 `CONTROL-SHAPES.txt` **仅在归一化基址路径后逐字节相同**。16 行是 16 次互异调用（无 D083 塌缩）。**冻结目录内未写一个字节。**
+2. §9 的五个封印 sha **全部与磁盘相符**；四条外部锚重新哈希（6,785 / 6,407 / 377 / 4,376 B）**全中**；从 bundle 基址 `sha256sum -c` **rc=0，4/4 OK**。
+3. §11 的五份文档身份**全部复现**（`12b79573…`、`8d384b28…`、`aeb61362…`、`56a90888…`、`fa30f32b…`）—— 且我**仍未修改**这五份，故该识别有效。
+4. §6 冻结数字全中（参考流 1,816 B / 13 行；BOUNDARY a5 家族 1 @L11；C-GATE a5 家族 1 @L10 `route=late`；prefix-agnostic 2；标记行 11）。ordinary 流种群（L983-985：8 行、BOUNDARY @2,3,4,7、0 C-GATE、1 条裸载荷 @L7）**逐条复现**。
+5. consumer 源码**通读**：BOUNDARY-only 过滤器（L121）、`unattributable_payload()`（L133-144）、其 PASS 前置断言（L276-282）、异常包裹（L304-310）、`strings -a`、前缀子集检查 —— **均为实装，非声称**。缺陷 (v) 的"不改变任何真实流的 route"经我对三条真实流手工验算**成立**。
+6. D094：输出第 3 行 `measured at : 2026-10-14T02:22:25Z`，文件 mtime 10:22:28（+0800）= **晚 3.26 s**，可复现。
+
+### 三、发 6 条强制勘误 E-A..E-F（正文不动，全部进 sidecar）
+
+| 编号 | 内容 | 严重度 |
+|---|---|---|
+| **E-A** | **D094 修复本身引入的新问题**：§9 以 sha `8c3beeb1…` 封印的测量输出，现在**内嵌了时钟读数**（第 3 行）⇒ **重跑封印工具永远无法复现封印字节**。而 §10 说 P2-C 验收要"re-measures both"，最自然的仪器**就是那个工具**。冻结既封印了一个**不可复现的输出**，又**没有定义验收比对**。 | **material** |
+| **E-B** | R-13 实质：§6 两条控制行（L954 `A2.stderr`、L955 `A4.stderr`）**只引 basename**，而这两个 basename **各有两个互异内容**（A2：372 B / `c996d896…` **0 标记** vs 582 B / `0ca79249…` 4 条；A4：3589 B / 0 标记 vs 3651 B / 1 标记）。按 §6 **自身**语义两体在该两行**都得 2** ⇒ 记录值不钉种群；绑到无标记那份，仪器**一次都没触发**，该行**未立起它自己承重的 (a) 项**。我**已找到一步之外的钉**（封印的 `exercise_a5_consumer.py` L22-24 硬编码了 run 目录），故这是勘误而非阻断。 | **material** |
+| **E-C** | R-11 修 8 **未落地**：`:84-85` `tests/scripts/…`、`:974` `logs/suite-v3/` 仍**无基址**（§10 的四条路径**给了** base_dir，故无问题）。缺基址是**歧义引用**：复检者得到 "No such file"，与真实不匹配**无法区分**。 | minor |
+| **E-D** | sidecar **自身的行号有 6 处过期**（实测）：L862-864→**875-877**；L868-870→**881-882**；L996-997→**1002-1003**；L1256-1266→**1246-1254**；L1268→**1256**；L1244-1252→**1277-1283**；L1270-1278→**1260-1273**。（§6/§8.2/§9/§11 与 L800/L1144 锚**是准的**。） | minor |
+| **E-E** | sidecar §(a) 称正文 **1,379 行**，实测 **1,378**；1,379 是 `read().split('\n')` 的**幻影尾元素**。它自己的括注 "(last line: 'END OF FREEZE.')" 只在 1,378 下为真 ⇒ **自相矛盾**。 | minor |
+| **E-F** | E4 称 `CONTROL-SHAPES.txt` "deterministic by construction … re-running reproduces the same bytes"。实测仅在**原地**成立 —— 而原地重跑会**毁掉你要比对的那份文件**；我的树外重跑只因 consumer 在四条错误行里回显绝对路径而与封印件不一致，归一化后才逐字节相同。须补此caveat。 | minor |
+
+**建议性**（记录即可）：L1256 `FAILOSURE RULE` 为 `fail-closed` 的拼写错误；L965-966 第 16 行的措辞 "carries an ordinary key" 与封印脚本实际构造的形状（`[P2-C-GATE] retry-loop iteration=`，即把 BOUNDARY 家族标记放在 C-GATE 行上）不符，`CONTROL-SHAPES.txt` L37 的措辞才准确。
+
+### 四、裁决与门禁
+
+**裁决：正文 `66a599f3…`（77,925 B）作为 P2-C 冻结测试 oracle 予以接受，附 6 条强制勘误**（须在**任何** P2-C 结果被报告**之前**写入 sidecar）。理由：oracle 的内容与可执行部分均经我独立复现；剩余缺陷全部是**证据链/引用**层面，**没有一条会让任何行错误地 PASS** —— 且冻结内**每一行仍是 NOT_RUN**（BX-B1..B9、NX-N1..N4、CX-C1..C11、TRACE A4、X-*）；verifier 已执行的（16 控制形状、§10 字节测量）**不是编译器行**，我未将其计为行。
+
+**§8 步 3 已启动**：唤醒 idle 的 `review-2`（challenger），只审**入口设计 / PASS 切割 / 测试判据**三问，要求 APPROVE/REVISE/BLOCK，并明确要求它把**负面结论也留档**。它与上述勘误**互相独立**，故并行。
+
+### 五、未做 / 下一步
+
+**未做**：任何构建、`ninja`、写 `build/bin` / `build/lib`、NPU 运行、push；未在 `verify/p2c-freeze/` 内写任何字节（`_a5ex` 的重跑在 `/tmp/lead-recheck` 镜像内完成）；未改 §11 登记的五份文档；未改正文。
+
+**下一步**：等 (a) 勘误写入 sidecar，(b) Challenger 的 §8 步 3 裁决。两者到齐后：若 Challenger 为 APPROVE 或 REVISE（非 BLOCK），则进 §8 步 4（P2-A 执行）——但**步 4 仍缺 harness 与 D090 环境**，据 §8.5/harness 计划，写 harness 是**紧随其后**的独立步骤，须先由我批准其范围。
+
+## 2026-10-14 第 26 轮（§26 追加 81）：**勘误更正** —— 我 追加 80 记的 sidecar 身份（18,556 B / `56bcde13…`）是 **10:32:54 版**，verifier 在 **10:35:52** 又改了一版；**E-D/E-E 已被它自己修掉**（早于我的裁决抵达），剩余 **4 条**；正文 `66a599f3…` **未变**
+
+### 一、身份更正（我自己的记账错误，按 D079/D094 纪律显式更正）
+
+| 项 | 追加 80 所记（我 10:33 读到的） | 现况（verifier 报告 + 我复测） |
+|---|---|---|
+| `P2C-TEST-FREEZE.REVISION.txt` | 18,556 B / `56bcde1374ec32f1399af2e8f9a75f0315a9b221d8313290311edc9bcf54594e` @10:32:54 | **18,671 B / `c3fc59d1f260e1f42ec68c1a0e329c5cfc5a0c7c2fdd895e0596a17085a0e5c5` @10:35:52** |
+| `P2C-TEST-FREEZE.txt`（正文 = oracle） | 77,925 B / `66a599f3…` | **不变** ✔ |
+
+⇒ 我读的是 **10:32:54 版**，verifier 在 **10:35:52** 重写了 sidecar（**早于**我的裁决送达），故我基于 10:32:54 版提出的两处问题**它已独立自修**。**sidecar 按"修订版"记账，不按"最终版"** —— 正式勘误写入前它仍会动。
+
+### 二、两条已被修掉（我复测确认，非采信其散文）
+
+- **E-E 已解决**：现 §(a) 作 `lines : 1,378 (last line: "END OF FREEZE."; 1,378 newlines, file ends with a newline)` —— 数字对，且**加了限定**。
+- **E-D 已解决**：我按**被引正文行**逐条复核，**全部落地**：L875 = P2-B 取代句、L879 = `MEASURED COUNTS`、L1002 = `STATUS: TRACE A4`、L1246 = `DISCLOSED DEFECT`、L1256 = 停止规则、L1275 = `WHAT THE §10 TOOL ACTUALLY ESTABLISHED`、L1260 = `R-5a`、L1169-1170 = P2-C identities 块。另抽查 L574 的**大写** `NUMERAL TRAP` 确在。（我**只抽查了 42 条中的 6 条**，非全验。）
+
+verifier 自述其初稿有**九处估计行号**、现已从冻结正文重新推导全部 42 条。我只抽到 6 条，与"9"不矛盾（抽样口径不同）。
+
+### 三、剩余 4 条（已发更正，要求并入 sidecar）
+
+| 编号 | 内容 | 状态 |
+|---|---|---|
+| **E-A** | **material 且仍最重要**：§9 以 `8c3beeb1…` 封印的输出**内嵌时钟读数**（第 3 行）⇒ 重跑封印工具**永远无法**复现封印字节；而 §10 说验收要"re-measures both"，仪器就是它。冻结**未定义验收比对**。（verifier 的 E4 已为该**形状**作了披露，但 D094 使它**不可复现的是这一个文件**，不是 CONTROL-SHAPES。） | 未闭 |
+| **E-B** | **material**：正文 L954/L955 仍只引 basename；A2.stderr 有 372 B/`c996d896…`/**0 标记** 与 582 B/`0ca79249…` 两体，A4.stderr 有 3589 B/0 标记 与 3651 B/1 标记两体。§6 **自身**语义下两体同得 2 ⇒ 记录值不钉种群，绑错体则仪器**从未触发**，该行未立起其承重的 (a) 项。钉在**一步之外**（封印脚本 L22-24），故为勘误非阻断。 | 未闭 |
+| **E-C** | 正文 L84-85、L974 仍无基址（§10 的四条**给了** base_dir）。 | 未闭 |
+| **E-F** | sidecar E4（L238-241）"re-running reproduces the same bytes"**仅原地成立**，而原地重跑会毁掉被比对的文件；我的树外重跑仅在归一化绝对基址后逐字节相同。 | 未闭 |
+
+**建议项**：正文 L1256 `FAILOSURE` 拼写；L965-966 第 16 行措辞与脚本实构形状（`[P2-C-GATE] retry-loop iteration=`）不符。
+
+### 四、对 verifier 直接提问的答复
+
+它问"是否宁可删掉那句 docstring"。**答复：保留已实装的过滤器，不要删句。** 删句是**取消主张**而非**使主张为真**；该分支已被单元形状**实测触发**，正是 D042 所要求。此处唯一的毛病是**正文对形状的转述**（一行建议项）。
+
+### 五、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；未改正文（oracle）与 §11 五份文档。
+
+**下一步**：(a) 等 E-A..E-F 写入 sidecar 并报**新 sha**（此后 sidecar 才可在记账里按"含勘误版"引用）；(b) 等 Challenger 的 §8 步 3 裁决（APPROVE/REVISE/BLOCK）。两者到齐后再进 §8 步 4；步 4 仍缺 harness 与 D090 环境，写 harness 是紧随其后的独立步骤、须先经我批准范围。
+
+## 2026-10-14 第 26 轮（§26 追加 82）：Challenger 的四条 CLI 主张我**逐条实测** —— **1/2/4 成立，3 被证伪**；E-A..E-F 逐条复现 —— **E-B/C/D/E/F 关闭，E-A 被它自己的替代封印重新打开（差 1 字节）**；新增 **E-G/E-H/E-I**；正文 `66a599f3…` **未变**
+
+### 一、Challenger 四条主张：我自己在 CLI 上重做（每条都在 `/tmp/lead-falsepass`，冻结目录内未写字节）
+
+| # | 主张 | 我的实测 | 判定 |
+|---|---|---|---|
+| 1 | 省略 `--artifact` ⇒ rc=0 PASS | 13 个二进制标记、`route : late`、两家族各 1、`PASS: …trace row A4 satisfied`、**rc=0**；对照 (1b) 给 `--artifact /tmp/lead-falsepass/nope.o` ⇒ `FAIL: rc=0 but no artifact`、**rc=1** | **成立** |
+| 2 | 两家族标记放在**同一行** ⇒ PASS rc=0 | 同一行同时含 BOUNDARY 与 C-GATE 家族 ⇒ `route : late`、两计数各 1、**rc=0**；而 §6 冻结断言要求"exactly one **line beginning** [P2-BOUNDARY] … AND exactly one line beginning [P2-C-GATE]"（一行不能以两者开头） | **成立** |
+| 3 | 单家族二进制 ⇒ PASS 0 | **证伪** —— 见 §二 | **不成立** |
+| 4 | Late 流另带 `[P2-BOUNDARY] retry-loop iteration=` ⇒ `route: ordinary`、rc=2 | `route : ordinary`、`CONTROL: ordinary-routed… Not the A4 Late claim.`、**rc=2** | **成立** |
+
+### 二、主张 (3) 我没有复现 —— 是我的夹具错，不是工具错（**不得据未复现的主张记账**）
+
+我第一版"单家族"夹具只嵌了 a5 载荷标记，而流里带着 `late-route`，工具正确地回了
+`ERROR: stream carries markers absent from the bound binary (wrong binary?)`、**rc=3** —— 是**我的夹具**不自洽。
+
+夹具修正后（二进制与流都只含 BOUNDARY 家族的两条：`late-route` + `a5-compile`）⇒ PASS **rc=0**，但这是**合法 PASS**：绑定二进制锚定的那个 key 在流中**恰好出现一次**。
+
+真正会误报的是**空真**情形，而我实测**它被显式挡住**：
+- 二进制只嵌 `late-route`（**无任何 a5 载荷标记**）+ 同形流 ⇒ `NOTE: the bound binary embeds no a5-compile marker in either family -- nothing to count` ⇒ `FAIL: …nothing was counted, so A4's exactly-once claim is not satisfied`、**rc=1**（带 `--artifact` 亦 rc=1）。
+- 反向亦成立：流缺该 key（0 次）⇒ rc=1；该 key 出现 2 次 ⇒ rc=1。
+
+⇒ "exactly once per anchored family" 阶梯是**实装且双向有效**的；`contract value … recorded, NOT asserted` 那行是**求和级诊断**，其"不主张求和总量"正是 §6 的设计意图，不是漏洞。**主张 (3) 撤销。**
+
+### 三、E-A..E-F 逐条复现（不采信散文，D081）
+
+| 条 | 内容 | 我的复现 | 状态 |
+|---|---|---|---|
+| **E-B** | 两条控制行的两个 basename 各有两体 | A2：`c996d896…`/372 B **×4**、`0ca79249…`/582 B **×4**；A4：`42f31844…`/3589 B **×4**、`ef6b965d…`/3651 B **×1**。全中；并给出**全限定**流 `verify/logs/suite-v3/20261013T232010Z-2744262/{A2,A4}.stderr`。 | **关闭** ✔ |
+| **E-C** | 无基址路径；census 定位 | `verify/work/p2b-acceptance/d057c-pre-run-census.txt` 存在、**15,929 B / `6ecdbfd5…`** 与所称一致；六个基线已补。 | **关闭** ✔ |
+| **E-D** | 它自己的行号 | 与我 追加 81 的发现一致（我的 E-D 是对 **18,671 B/`c3fc59d1…`** 快照所测）。 | **关闭** ✔ |
+| **E-E** | 行数 1,378 | 与我所测一致。 | **关闭** ✔ |
+| **E-F** | `CONTROL-SHAPES.txt` 树外不可复现 | **恰四条**载绝对路径：**L20、L28、L30、L34** —— 逐行核到，与所称完全一致。 | **关闭** ✔ |
+| **E-A** | 封印输出内嵌时钟 ⇒ 不可复现 | **未关闭，被它的替代封印自己重新打开** —— 见 §四 | **重开（较窄）** |
+
+### 四、E-A 的修复件**自己带一个差 1 字节的缺陷**（这是本轮最重要的发现）
+
+它给的**比对规则**是"Exclude lines 3, 4 and 5 … Compare the remaining 60 lines byte-for-byte"，并给出内容分区的**新封印**：`d64a6640…` / **4,274 B**。
+
+我在磁盘上按**所写的规则**复现：`sed '3,5d'`（等价于按字节跨度删除第 3-5 行）⇒ **4,275 B / `35d3a6c9f748f395167e3b9fe0121d41d623dc612015bad80f1fed92a392de99`**。**不是**它的值。
+
+成因已钉死（不是猜测）：该文件以换行结尾，`split('\n')` 末元素为空串；`'\n'.join(lines[:2] + lines[5:])` 会**丢掉末尾换行** ⇒ **4,274 B / `d64a6640…`** —— 与它的封印**逐字节相同**。即：它的封印与它**进程内**的算法自洽，但与它**写在纸上的规则**不自洽。
+
+- 它的"remaining **60** lines"是对的（磁盘 64 个元素 = 63 行 + 末尾空串；63−3 = 60）。
+- 后果：复检者按**写下的规则**用 `sed`/`awk` 得到**另一个 sha**；而 sha 不符**读起来就是篡改**（这正是 E-A 原本要消除的那种"无法区分"）。
+
+**修法（二选一，都在可修订的 sidecar 内）**：把规则写成精确算法（"60 行以 `\n` 连接、**不含**末尾换行"），或把封印值改为磁盘口径 **4,275 B / `35d3a6c9…`**。建议**两者都写**。
+
+### 五、新增三条消费者勘误 **E-G / E-H / E-I**（正文不动，进 sidecar）
+
+- **E-G（material）**：§6 冻结阶梯含"artifact present"合取项，而消费者 `a5_marker_count.py:265-271` **只在调用方给了 `--artifact` 时**才求值 ⇒ 不给就 PASS（我实测 rc=0）。注意代价：`exercise_a5_consumer.py:63-64` 的**形状 2 明确期望"不给 `--artifact` 也 rc=0"**，故修它会**同时移动消费者封印与 `_a5ex/CONTROL-SHAPES.txt` 封印** —— 这是冻结级决定，不是补丁。
+- **E-H（material）**：正文说"exactly one **line beginning** [P2-BOUNDARY]"，实装是 `stream.count(m)`，即**子串**计数 ⇒ 一行同时承载两家族即得双 1（我实测 PASS rc=0）。冻结内参考流两家族在不同行，故**不影响已记录值**；属调用方可控的潜在缺陷。
+- **E-I（material，且正中 TRACE A4 的立意）**：A4 行的自述理由是把计数放在 A5 函数入口"so that both callers are covered（regbase/BiShengIRCompileMain.cpp **retry loop**；hivmc/HIVMCMain.cpp）"。但 `ORD_KEYS` 含 `retry-loop`，而 `classify()` 从 **BOUNDARY 家族**取路由 ⇒ 一条 Late 流只要**另带** `[P2-BOUNDARY] retry-loop iteration=` 就被判 `ordinary` ⇒ **rc=2**（我实测）。即：**A4 行在它自己点名要覆盖的那个 caller 上永远无法 PASS**。冻结从未证明 Late 路径不可能发出该标记；控制形状只测了**反方向**（把 BOUNDARY 标记放在 C-GATE 行上）。
+
+### 六、对 E-D 直接提问的答复
+
+它问是否宁可用我更窄的定位符。**答复：保留它现在的块区间**（L879-883、L1256-L1258、L1275-L1283）。理由：定位符指向的是**邻域**而非单点，块区间比单行更不易随修订漂移；且它已把两种口径都写明。
+
+### 七、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push、未改 `build/bin` `build/lib`；**未在 `verify/p2c-freeze/` 内写任何字节**（全部落在 `/tmp/lead-falsepass`）；未改正文 `66a599f3…`；未改 §11 登记的五份文档；未改 staged bundle `impl/stage-p2c-r1/`。
+
+**下一步**：(a) 把 E-A 重开 + E-G/E-H/E-I 发给 `verify`，并把我对四条主张的判定（含"主张 3 撤销"）发给 `review-2`；(b) 仍等 Challenger 的 §8 步 3 三问裁决（APPROVE/REVISE/BLOCK）—— 它自述"checking criteria conflicts and pass-cut evidence before full three-question verdict"。二者到齐后才进 §8 步 4。
+
+## 2026-10-14 第 26 轮（§26 追加 83）：**E-I 我自行降级为 advisory** —— 小判别实验证明 Late 路径**结构上不可能**发出 retry-loop 标记；覆盖该 caller 的是 **A3**，且 A3 设计正确；A4 行过宽的只是**理由句措辞**
+
+追加 82 §五把 E-I 记为 material。我在等裁决期间做了**一个小的判别实验**（只读源码，无构建），结论**推翻我自己的严重度判定**，故按 D081 显式降级，而非等第三方来纠。
+
+### 证据（四路独立，互相印证）
+
+1. **发射点**：`AscendNPU-IR-1/bishengir/lib/Tools/bishengir-compile/regbase/BiShengIRCompileMain.cpp:701`，位于 `runRegBasePipeline`（同文件 L638 起）**函数体内**。
+2. **分派**：`regbase/Driver.cpp:74` 为 `return runLateHIVMPipeline(module, config, originalCLArgs);` —— 是 **`return`**，故同文件 L92 的 `runRegBasePipeline(module, config)` 在 Late 路由下**不可达**。`BiShengIRCompileMain.cpp:620` 另注明该函数内**没有**其它 `runRegBasePipeline` 调用。
+3. **源码自述**：L695-699 注释明言 "A3 reads 0 on a Late run because the Late branch **returns before** the ordinary pipeline, and this loop **lives inside it**." —— 与 1、2 完全一致（非过期注释）。
+4. **经验佐证**：参考 Late 流（`verify/logs/suite-v3/…/A2.stderr`，BOUNDARY=4、a5 载荷 1 @L7）**不含** retry-loop 标记 —— 否则 `classify()` 必判 `ordinary`，而它判的是 `late`。
+
+### 结论（对 E-I 的最终读法）
+
+- `ORD_KEYS` 含 `retry-loop` 是**正确设计**，不是缺陷：在一条**自称 Late** 的运行里见到 retry-loop，正是"你其实不在 Late 模式"的**正面证据**，把它判成 ordinary 恰恰是对的行为。
+- 真正覆盖 retry loop 这个 caller 的是 **TRACE A3**（"zero iterations in Late mode"，计数而非布尔 —— 源码注释说得很清楚），**A3 的设计是对的**。
+- 因此 **E-I 由 material 降为 advisory**：唯一的问题在 **A4 行理由句**措辞过宽（"both callers are covered（regbase/BiShengIRCompileMain.cpp retry loop；hivmc/HIVMCMain.cpp）"）—— 在 Late 路由下 retry loop 根本不可能是 caller。**不阻断、不需改架构、不必动消费者**（动消费者将连带移动 `a5_marker_count.py` 与 `_a5ex/CONTROL-SHAPES.txt` 两个封印，代价与收益不成比例）。
+
+**已发 `verify` 降级通知**，以免它按 material 处置。E-G、E-H 的严重度**不变**（二者与路由无关，是纯粹的合取项/计数口径分歧）。
+
+### 未做
+
+无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 或 staged bundle 内写字节；正文 `66a599f3…` 未变；§11 五份文档未改。
+
+## 2026-10-14 第 26 轮（§26 追加 84）：**记录物完好性独立复核**（进 §8 步 4 前必须成立的前提，由我亲自测）
+
+冻结 churn 之后，**记录物（staged bundle）未被任何本轮工作触碰**：
+
+| 检查 | 结果 |
+|---|---|
+| `sha256sum -c SHA256SUMS.txt`（**在 bundle 基址内执行**，非仓库根 —— 基址错会打出无法与真不匹配区分的 FAILED） | `bin/bishengir-compile`、`lib/meta_op.aiv.c310.O2.bc`、`…O0.bc`、`…O2.bc.linked.bc` **全 OK，rc=0**（4/4） |
+| 停止规则（09:36:26 之后是否有写入） | `find -newermt '2026-10-14 09:36:27'` **空** ⇒ 停止规则成立 |
+| 最新文件 | `SHA256SUMS.README.txt` 6,407 B @09:36:26（= 侧车 RE-VERIFIED 段所称同一值） |
+| 记录物二进制 | `812c5cb1d29cb3b8879593ea77d08ebdae274cc943d41523c7c4bab739cbf455`，205,469,200 B，**nlink=1** |
+
+**nlink=1 值得记**：共享 inode 的 staged 件会以"普通文件 + 链接数 7"的形式存在，内容哈希**察觉不到**通过另一个名字发生的写入；此处链接数为 1，即封印端**不存在**别名写入路径。
+
+⇒ §8 步 4 的两项前提之一（记录物真实且未被本轮污染）**已独立成立**；另一项（harness 与 D090 环境）仍缺。
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；正文 `66a599f3…` 未变；§11 五份文档未改。
+
+## 2026-10-14 第 26 轮（§26 追加 85）：**架构门禁 BLOCK 成立** —— Challenger 指出的两处冻结内部冲突，我逐条读原文确认；这是**执行前**的不可实现性，不是失败后的断言弱化；我给出**保留主张**的修订方向
+
+`review-2` 在它的 §8 步 3 审查中报出两处"冻结判据自身不可实现"的冲突。我**没有采信其转述**，逐条读了它引用的每一处原文。**两处均成立**。
+
+### 一、冲突 1（成立，载重证据在源码侧）
+
+**V7 明确拒绝 cache0（`bishengir/lib/Tools/bishengir-compile/regbase/LateInputVerifier.cpp`，carrier 合取项）：**
+注释原文："its value must be **exactly 4**, and its type must be i32 -- the contract spelling `l2_cache_mode = 4 : i32`"；代码在 `mode != 4` 时 push problem：
+`"l2_cache_mode = " + … + " but the Late contract requires exactly 4: the cache-4 carrier must not be degraded"`。属性缺失亦 push（"an **absent carrier** is a V7 failure (an **explicit 0** is one too …)"）。
+源码并自证 V7 **不可弱化**：D012 的 StoreOp 校验器合法集为 `{0,1,2,4}`（**接受 0**），`verifyStoreCacheMode` 只是 shape/subset 谓词 ⇒ **V7 是本路径上唯一能抓住 cache0 退化的闸门**；且记录了"本文件早先版本把 V7 当 shape-only，放过了无 carrier 的 store，被冻结套件抓到（B2）"。
+
+**Late 路由在 preflight 失败后即返回（`regbase/LatePipeline.cpp:541-545`），早于 §3.1 合法化尾段与 A5：**
+`if (failed(bishengir::runPipeline(module, buildPreflight, config, "late-preflight"))) { … "the module was not transformed and no artifact was produced." ; return EXIT_FAILURE; }`
+
+**冻结侧的绑定链：** §2 标题 `:218` 自述为 "goal **6.2**'s seven bullets" ⇒ §2 各行**就是 6.2 行**；`:371` 的 POSITIVE ENVIRONMENT 声明其 "binding on **every 6.2/6.3 positive row**"，且要求正例执行**staged bundle**（即 Late 路由）。而 `BX-B5:292` 无条件要求"on cache0 fixtures（S1a mutated 4 -> 0；Section 5）that value is **0**"，`BX-B6:308-312` 更要求"for the cache0 fixtures, **EVERY** such operand is 0 … 两半都必需（both halves are required）"。
+
+⇒ **在 Late 路由下，cache0 输入被 V7 拒绝于尾段/A5 之前 ⇒ 不存在被发射的操作数 ⇒ BX-B5 的 cache0 半与 BX-B6 的"两半必需"按现文不可实现。** 冲突成立。
+
+**我对此的一处修正（不改变结论）**：不是"冻结整体与已接受的 Late 契约冲突"。`X-b01:665-671` **已经**为 V7 留了位："expected: **REJECT or value-level FAIL**；reason `l2_cache`；**the emitted operand, if the chain proceeds, must be 0**"。冲突**精确定位在 §2 的 BX-B5/B6 被 `:371` 绑上 Late 之后**。
+
+### 二、冲突 2（成立，是量词过度概括，危害较小但对 harness 作者是实的）
+
+`X-SHALL:653-660` 自述 "applies to **every** row below"，其期望为"the compile **FAILS**, AND the failure is attributable to the semantic assertion"。但同节：
+- `X-n5:747-749` 期望 **oracle** 的 compiler-pin 身份检查失败；
+- `X-n6a/n6b:750-755` 期望 **oracle** 的 expected.json / fixture 完整性检查失败（正文自述 "These three rows **test the TEST**"）；
+- `X-b01` 允许 **成功 lower + value-level FAIL**。
+
+⇒ X-SHALL 的全称量词与本节后文**字面矛盾**。harness 若把 X-SHALL 当普适谓词实现，会为 n5/n6a/n6b 写出错误的判据。
+
+### 三、裁决
+
+**架构门禁裁决：BLOCK（判据侧）** —— 不是 P2-A 的阻断，而是**冻结判据不可实现**，故 **§8 步 4 不得在修订落地前开始**。
+
+**同时明确：这不是"失败后弱化断言"。** 冻结内**每一行仍是 NOT_RUN**（BX-B1..B9、NX-N1..N4、CX-C1..C11、TRACE A4、X-*），P2-C **一次编译都未执行**；CLAUDE.md 禁止的是"失败后改 oracle/弱化断言"，此处是**执行前**发现判据自相矛盾。修订必须**保留主张**，只改绑定与量词。
+
+### 四、我给出的修订方向（范围由我批准，执行为 verifier 的 oracle 职责）
+
+1. **保留 `BX-B5/B6` 的 cache0 主张，但把它的路由绑定从 Late 移出。** "cache4 输入 vs cache0 输入的**成对**发射操作数测量"只有在 cache0 合法的地方才可实现 —— 即 **ordinary / D012 lowering 路由**（D012 的合法集 `{0,1,2,4}` 接受 0）。故把它重述为一个**单独命名**的 D012 lowering / default-cache0 控制行，而非 §2 的身份门禁正例。
+2. **Late 路由上，cache0 夹具的期望就是 `X-b01` 的那一条**：V7 在尾段/A5 之前**拒绝**它 —— 而**这个拒绝本身**就是 6.2 "cache4 must not be replaced by cache0" 的主张在 Late 上的成立方式（以拒绝成立，而非以发射 0 成立）。**不得**把 V7 改成接受 0 来"修好"这个冲突。
+3. **`X-SHALL` 的量词收窄**，并把两类非编译失败的行**显式命名**：oracle 侧完整性类（`n5/n6a/n6b`）与"成功 lower + value-level FAIL"类（`X-b01`）。
+4. **不得删除任何一条主张**。改的是路由绑定与量词，不是断言内容；`D085` 的 cache4/cache0 成对规则**完整保留**，只是挂到它能成立的路由上。
+5. **执行方式**：由 `verify` 产出冻结的**新修订**（新文件或显式修订块），**不得覆盖**已被接受的 `66a599f3…` / 77,925 B 那一份（旧证据永不覆盖）；我**复测**新修订后才重新接受，此后 harness 才可依修订版实现。
+
+### 五、未做
+
+无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；**未改正文**（`66a599f3…` 仍为已接受版）；§11 五份文档未改；staged bundle 未触碰。
+
+## 2026-10-14 第 26 轮（§26 追加 86）：**REVISE 批准**（范围 = 我的裁决）；**E-G 裁定：要求 artifact**；**E-H 裁定：按正文口径计数**；E-I 维持 advisory；**一次修订，不覆盖已接受正文**
+
+我已把修订范围批准并发给 `verify`（oracle 归它所有，我不亲自改正文）。裁决要点记此备查。
+
+### 一、修订范围（6 项，一次做完，不得分批）
+
+| # | 项 | 裁定 |
+|---|---|---|
+| 1 | `BX-B5/B6` 路由绑定 | **主张全保留，只把 cache0 成对测量移出 Late** —— 挂到 cache0 **合法**的 ordinary/D012 lowering 路由（合法集 `{0,1,2,4}`）；Late 上 cache0 夹具的期望即 `X-b01` 的"V7 在尾段/A5 前拒绝"。**不得为消解冲突而放宽 V7**（源码注释自证 V7 是本路径唯一闸门，且早先 shape-only 读法曾被 B2 抓到）。 |
+| 2 | `X-SHALL` 量词 | 收窄全称量词，显式命名两类非编译失败：oracle 侧完整性（`n5/n6a/n6b`）与"成功 lower + value-level FAIL"（`X-b01`）。不删条。 |
+| 3 | `E-A` | 两个口径**都写**：精确算法（60 行以 `\n` 连接、**不含**末尾换行）+ 磁盘口径 **4,275 B / `35d3a6c9…`**，与 4,274 B 并列。 |
+| 4 | `E-G` | **裁定：要求 artifact。** 见 §二。 |
+| 5 | `E-H` | **裁定：按正文口径** —— 改为"**行首**匹配"计数，并加一条控制形状证明"一行承载两家族"的流**现在必须 FAIL**（当前 rc=0 PASS）。 |
+| 6 | `E-I` | **维持 advisory**，不动消费者；只收窄 A4 理由句。 |
+
+### 二、E-G 我的裁定与其理由（这是本追加里最重要的一条判断）
+
+`--artifact` 合取项**载重**：`rc==0` **本身不证明任何产物被生成**，而"静默空转编译"正是该行存在的理由。故消费者必须在 `rc==0` 且未给 artifact 时 **FAIL（rc=1）**，给了则须校验存在性。
+- **代价我接受**：这移动 `a5_marker_count.py` 封印与 `_a5ex/CONTROL-SHAPES.txt` 封印（`db11e939…`）—— 因为**当前就在做执行前修订**，封印变动成本最低。
+- `exercise_a5_consumer.py` 形状 2 现期望"不给 `--artifact` ⇒ rc=0"，须**改期望为 rc=1 并重新测量**（不得只把数字改成想要的）。
+- **遗留义务已写明**：合取项依赖**调用方**传 `--artifact`，故 harness 契约必须写成"**A4 的调用必须传 `--artifact`**"——否则严格性只是名义上的。
+
+### 三、约束（写入修订要求）
+
+- **不删任何主张**；只改绑定与量词；**D085 的 cache4/cache0 成对规则完整保留**，仅改挂载路由。
+- **不覆盖** `verify/p2c-freeze/P2C-TEST-FREEZE.txt`（`66a599f3…` / 77,925 B）—— 它在磁盘上作为**被取代的修订**原样保留；新修订走独立路径、独立 sha。
+- **无任何生产代码改动**（纯 oracle 侧）。
+- 修订内须**显式声明**：每一行仍是 **NOT_RUN**，且 P2-C **无任何编译器行被执行**过。
+- `verify` 回报新修订 path/sha/size、未动的旧正文、新消费者 sha、新 `CONTROL-SHAPES` sha、更正后的 E-A 数字；**我复测后才重新接受**，§8 步 4 在此前不开始。
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；未改正文；§11 五份文档未改。
+
+## 2026-10-14 第 26 轮（§26 追加 87）：Challenger 三问裁决到齐（**Q1 入口 APPROVE / Q2 切割 APPROVE-by-source、运行时 NOT_RUN / Q3 判据 BLOCK**）；我**又实测出一条新的误 PASS**（artifact 只查存在性）；sidecar `10dd5146…` 复核；新增判据项**分"已证实"与"待测量"两类**入修订
+
+### 一、Challenger 的三问裁决（`review-2`，§8 步 3）
+
+| 问 | 裁决 | 依据（其自述，我未逐条复核的已标注） |
+|---|---|---|
+| Q1 入口设计 | **APPROVE**（Golden/源码调用图 @HEAD `4495ab29`） | ordinary retry 在 `runRegBasePipeline:695/757`；Late 于 `Driver:74` return 并直接调 `runLateBitcodeAndA5:626` |
+| Q1 标记操作化 | **REVISE** | "1+1 计数必要但不充分，无 A3 零值/源码无法证明在环外"；混合 Late+retry 应作 **CONTROL2**；rc=1 会**掩盖**已观察到的重复 |
+| Q2 切割 | **APPROVE（源码层）**，运行时**尚缺一次 NOT_RUN 验证** | regbase 尾段有 Standard/AVEIntrin/CF 合法化器但**无 ConvertHIVMToLLVM**；A5 SIMD builder 是唯一在 `PassPipelineA5:52` 加该转换者；P2-B tail dump27 仍有残留 func/memref/HIVM+regbase intrinsics；**P2-C smoke 无 pass dump** |
+| Q2 `CX-C11` | **REVISE** | 字面"恰好一次"应改为**完整 trace 下按 body-entry 计数/效应** |
+| Q3 判据 | **BLOCK（按现文）** | 即我已确认的两条（cache0 强制半 + Late V7 绑定；X-SHALL 全称量词误分类 oracle 完整性控制行） |
+
+### 二、我新实测出的一条误 PASS（**独立于 Challenger 的三条**，加重 E-G）
+
+Challenger 报"真实 P2-B 二进制 + 无闸门流 + **已存在的无关 artifact** ⇒ PASS0"。我复现并**推到更极端**：`--artifact` 的合取项是 `args.artifact.is_file()`，**只查存在性**：
+
+| `--artifact` 指向 | 结果 |
+|---|---|
+| `/etc/hostname` | `present=True` ⇒ **`PASS: late-routed genuine Late compile …`、rc=0** |
+| `/tmp/lead-falsepass/p3.stderr` | 同上，**rc=0** |
+| `/tmp/lead-append82.md` | 同上，**rc=0** |
+
+⇒ 一次**什么都没产出**的编译，只要调用方给的路径**存在任意文件**，TRACE A4 就 PASS，且 PASS 文本自称 **"genuine Late compile"**。这比我原先的 E-G（"合取项可省略"）**更重**：**即使给了也不是身份校验**。
+**对 E-G 裁定的更新**：要求传 `--artifact` 是**必要但非充分**。契约须两手都写：(i) A4 调用必须传 `--artifact`；(ii) artifact 的**身份**（sha/大小）由**具名行**承担 —— 或把 PASS 文本收窄到只声称"存在"。否则"存在"这一字面被满足，而文本过度声称（与 E-B "basename 不是引用"同族）。
+
+### 三、Challenger 的新判据项：我的分检（**已证实** / **待测量**）
+
+**已由我证实：**
+- **`CX-C6` "b32/b8" 必须只作 b32** —— 该行**自相矛盾**：正文自述"The functionType attribute is the **SOLE** carrier of the pb32 selection（Golden 注：无 functionType 的 256 宽 pge **仍降到 b8**）"，却又把断言写成"the lowered result is **b32/b8**"。既然无载体即 b8，则**有载体必须是 b32**；写成 b32/b8 会让**退化情形**也 PASS。成立。
+- **`CX-C8` 关系式不足** —— 正文 Expected 只把两对 flag 约束到"**都在 store 之前**"与对序（MTE2/V 然后 V/MTE3），**未**约束它们相对 **VF 调用**的位置；而夹具行号（`:163/:164` → `:173 func.call` → `:180/:181`）正表明 MTE2 对在 VF **之前**、V 对在 VF **之后**。不加这条，把两对都放在 VF 前的编译也能过。为合理收紧。
+- **`b10` 是复合的（实质成立）** —— 夹具 `b10_dma_payload_16384.mlir`（18,659 B / `ec8b5776…`）**同时**含 `262144`(GM，6 处)、`16384`(**payload**)、`4096`；而正文 `CX-C7:524` 只记 "b10（GM 524288 -> 262144）"。故"只查 GM 不能证明 DMA payload 受保护"成立。
+  **诚实标注**：我**未找到 S1a golden 原件**，故未能产出精确 diff；"四量（GM extent / UB4096 tile-payload / stride4096 / VF limit4096）"这一**分解**仍属**其声称、我未独立测量**。
+- **`X-SHALL` 与 oracle 完整性行冲突**、**`BX-B5/B6` 的 Late 绑定冲突** —— 见 追加 85。
+
+**待测量（我未复核，**不得**据此改 oracle）：**
+- **`BX-B5` 混淆"公开 4 操作数/双 i32 libcall"与"内部 copy intrinsic"**，其据为 `DMAUtils` 公开宏 `:2115-2131`。我尚未读到该宏（`DMAUtils.h` 在 `bishengir/lib/Template/include/{,RegBase/}DMAUtils.h` 等多处，需先定版本再读）。
+- `CX-C6` 的 "b32 only"、`CX-C8` 的关系式、`b10` 的四量分解 —— 后者见上。
+
+**其列出的、我确认属独立 NOT_RUN 义务（不是本修订可关的）**：goal 7 C 的 **非 C310 ABI/D012 仓内测试**、§5 的 **128×64 保持**。
+
+### 四、`verify` 的 sidecar 我按 D081 **复测**（不采信其散文）
+
+| 项 | 我实测 |
+|---|---|
+| sidecar `P2C-TEST-FREEZE.REVISION.txt` | **35,748 B / `10dd514600520079513f97685ce02a5d89ebfdfecdfdead92046c917528aed6a` / 565 行**，末行 `End of revision record.` ✔ 与其一致 |
+| 正文 | **77,925 B / `66a599f3…`**，未动 ✔ |
+| `E-A` 修法 | sidecar 内仍是 **4,274**（出现 2 次），**4,275 出现 0 次** ⇒ 我的差 1 字节发现**仍成立**，待修订修 |
+| `E-D/E-E` | 我的双向计数探针**不是判别性探针**（`L862-864`、`1,379` 各出现 1 次，但那是**作为"陈旧值"被引用**，非活引用）⇒ **不构成发现**，采信其"two-direction table"（我上一轮已通读该表）。记此以免把自己粗糙的探针当成结论。 |
+
+### 五、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；未改正文；§11 五份文档未改；staged bundle 未触碰。
+
+**下一步**：把上述**已证实**项并入**同一次**修订范围发给 `verify`；**待测量**项要求**先测量后决定**（不得据未复核的声称改 oracle）；向 `review-2` 确认三裁决已收及其处置。§8 步 4 仍不启动。
+
+## 2026-10-14 第 26 轮（§26 追加 88）：Challenger 完整 Q1/Q2 审查我逐点复核 —— **其两处新判据项成立**；另**独立证实我的 E-I 降级**；并发现**仓内注释的一个过期定位符**
+
+### 一、我逐点复核的源码定位（全部成立）
+
+| 其主张 | 我实测 | 判定 |
+|---|---|---|
+| Late 函数只含**一个**直接 `runHIVMCCompileA5` 调用，失败即返回、**无 retry** | `BiShengIRCompileMain.cpp` 内 A5 调用点**仅两处：626（Late）与 757（ordinary，在 L695 的 retry 环内，759 `break`）**；其注释自述"This route has **no retry loop** … this function contains no other call to `runHIVMCCompileA5`" | **成立** —— 且**独立证实我 追加 83 对 E-I 的降级** ✔ |
+| ordinary 标记**优先**于 late（`:124`） | `:124-128`：`if has_late and not ord_hit: "late" elif ord_hit: "ordinary"` | **成立**（我 追加 82 的探针 (4) 已实测其后果） |
+| `rc != 0` 在**多重性检查之前**返回 | `:258-263`：`if args.rc != 0: … "A4 is unattainable on a failing compile and is never PASS here"; return 2` —— **确在**多重性检查之前 | **成立** |
+| C-GATE = Late 调用点；BOUNDARY = **A5 函数入口** | `:624` C-GATE 紧贴单一调用点；`HIVMCMainA5.cpp:952` BOUNDARY 在**函数入口**，注释自述"At the FUNCTION entry, not at a call site" | **成立** |
+
+### 二、两条**新判据项**（我确认应入修订）
+
+1. **污染被洗成"控制"**：因为 ordinary 优先，一条**被 retry 标记污染**的 Late 流被判 `ordinary` ⇒ `CONTROL/NOT_RUN`、rc=2（我实测）。但那是**为 Late 验收发起的运行**，正确语义应是 **route contamination ⇒ FAIL**，而不是一个良性的"ordinary 控制"。⇒ 该工具**无法对"被污染的 Late 运行"判失败**。需在修订中区分"**请求的 Late 验收**"与"**ordinary 对照**"两种调用意图。
+2. **失败编译被拒看**：`rc != 0` 时直接 `NOT_RUN`，**不看**多重性。而其 **NOT_RUN 文本**断言"the compile did **not reach a successful A5 invocation**" —— 这是**未经检验的因果断言**，且**一般情形下为假**：编译可以**到达 A5 两次**而后失败。⇒ 一个能证明"调用次数被违反"的证据被工具主动丢弃；文本又过度声称（与 E-G 的 PASS 文本同族）。
+
+### 三、我另一处独立发现：**仓内注释的过期定位符**（minor erratum）
+
+`HIVMCMainA5.cpp:945-951` 注释称 A5 的两个 caller 之一是"the retry loop at `regbase/BiShengIRCompileMain.cpp:**448**`"。**实测：该行不是 A5 调用**（444-452 是 namespace 收尾与注释头）；该文件内 A5 调用只有 **626 / 757** 两处，ordinary 环的那处在 **757**。
+⇒ 注释的**两 caller 论证是对的**（retry 环 + `Tools/hivmc/HIVMCMain.cpp` 独立工具），但**定位符过期**，会把复检者引到空处（"定位符指向邻域"这一类）。建议在修订或注释中更正为 757。
+
+### 四、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；未改正文与任何源码注释（本 erratum 只是**记录**，不代改）；§11 五份文档未改。
+
+**下一步**：其 Q2 尾部（`A5 PassPipelineA5.cpp:47` 起）与 Q3 细节**被截断**，我已向 `review-2` 索取；待其到齐后，把上述两条新判据项与已确认项**一次性**并入发给 `verify` 的同一次修订（不再碎片化）。
+
+## 2026-10-14 第 26 轮（§26 追加 89）：**§8 步 3 关闭** —— 终局裁决（入口 APPROVE / 切割 APPROVE / 判据 BLOCK / 全部 NOT_RUN）；我把其最后三处定位**逐条实测**，**BX-B5 层混淆成立且已精确到槽位**；发现**同一根因的第二处**（R7.4）
+
+### 一、终局裁决（`review-2`，§8 步 3 正式结论）
+
+**入口设计 APPROVE（源码层）；切割 APPROVE（源码层）；P2-C 执行 NOT_RUN；判据 BLOCK。**
+
+其**主动撤回**了单家族二进制那条反对意见（"binary-anchored per-family counts + explicit empty-count guard 与契约自洽"），并自行得出 **E-I 仅为 advisory 措辞问题** —— 与我 追加 83 的降级**独立同向**。它亦**独立发现** `HIVMCMainA5.cpp:946-951` 的 caller 注释过期（我 追加 88 记为定位符 448→757），并明确 **"Do not alter classifier routing to cure that comment"**。
+
+**兄弟项普查（我特别索要的）**：**§2 内无其它行**有同样的路由不可实现性（B1/B2/B3/B4/B7/B9 均可用合法的 Late cache4 正例；B2 自己已声明 O0 不可达；B8 是否定伞）；**但 §7 R7.4 `:1030-1032` 重复了同一无条件 cache0 措辞** ⇒ 同一根因的**第二处**，须一并加同样的路由/条件限定（**不是**新阻断）。
+
+### 二、其三处最后定位，我逐条实测（全部成立）
+
+1. **`BX-B5` 层混淆 —— 成立，且我已把槽位钉死。**
+   - **公开 C310 ABI**（`Template/lib/RegBase/Vector/include/RegBase/DMAUtils.h:2114-2119`）：`_mlir_ciface_store_ubuf_to_gm_…(src, dst, AtomicKind atomic_kind, uint32_t l2_cache_mode)` ⇒ **4 个操作数**，cache 是**第 4 个**、且是**第 2 个 i32**；注释自述"The store cache policy is part of the C310 **public ABI** only"，m300 变体"**no cache field**"（3 参数 ciface）。
+   - **内部 intrinsic**（同文件 `:282-285`）：`INTRINSIC(copy_ubuf_to_gm_align_v2, gm+off, ub+off, 0, burst_cnt, burst_len, l2_cache_ctl, dst_stride, src_stride)` ⇒ cache 在**源码第 6 个**位置；且 `:280` 处**窄化为 `uint8_t`**（注释："Narrowed to the descriptor field width **only here**; the policy is 32-bit through the whole **public/forwarding ABI**"）。
+   - **冻结 `BX-B5:295-302` 的病**：它给出的是**内部**的位置表（cache 第 6），却要求"the **4th i32-typed argument** carries `l2_cache_ctl`" —— "第 4" 是**公开**层的序数。**两层被拼接**；且在内部层 `l2_cache_ctl` 是 `uint8_t`，**根本不是 i32**。⇒ 复检者若在内部调用上找"第 4 个 i32"，会看错槽位。**成立**。
+2. **`R7.4` 第二处 —— 成立**：正文 `:1030-1031` "cache0 fixtures (X-b01 / X-n1, and any fixture whose attribute is absent or 0) **CORRECTLY expect 0**"，即 追加 85 那条冲突的**规则化重述**，需同加条件限定（Late 上 V7 拒绝；"发射 0"只在链继续处成立）。
+3. **`CX-C11` 操作化 —— 成立**：正文 `:588-602` 要求字面量 `convert-hivm-to-llvm` 在 pass 流中"**EXACTLY ONCE in total**"。**字面量频次不是执行频次**；它自己的补充也对："Once per scope is a FAIL … 两个 manager 各跑一次即总计两次"。**主张**（恰好执行一次）正确，**操作化**（数字面量）错误。
+
+### 三、其余并入修订的项（我未逐条复核的已标注）
+
+- `CX-C6` 只作 b32（我 追加 87 已独立证实其自相矛盾）；`CX-C8` 需完整序（load 完成 → MTE2/V set+wait → **VF** → V/MTE3 set+wait → store → 终止 barrier），而非只有对序与"都在 store 前"。
+- `CX-C7`/`X-b10`：披露**完整 delta**，若要主张独立 DMA-size 覆盖需加**仅 payload 的孤立控制**（"复合失败无法指认是哪条检查触发的"）。**夹具字节须保留。**
+- **Golden 128×64 VF 迭代/车道几何**（`docs/goal.md:39`）需**显式语义断言**；DMA/UB 对象计数不能确立它。
+- **P2-D 独立义务**（`docs/p2-goal-1013.md:331-339`）：仓内 **D012 正/负回归**、**非 C310 旧 ABI**、代表性 **ordinary RegBase 回归**；`X-c03` 只拒错误 target，**不能**证明非 C310 ABI。**不得**从 C310 正例推断这些。
+- 其**未**将 `b10` 四量分解当作事实断言（与我 追加 87 标注"为其声称"一致）；`E-A` 仍开；`E-B..F` 按我的独立复核关闭。
+
+### 四、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；未改正文、源码或任何注释（448→757 那条只是**记录**）；§11 五份文档未改。
+
+**下一步**：把**全部**项**一次性**发给 `verify`（终局合并范围，不再碎片化）；其产出**单一份**修订后我复测再接受；§8 步 4 仍不启动（且仍缺 harness 与 D090 环境）。
+
+## 2026-10-14 第 26 轮（§26 追加 90）：**`review-2` 的第二次投递是同一份裁决的重复呈现**（又一次被截断于 CX-C 处）—— 不按新事件记账；其内容与 追加 89 所录**逐条一致**，已全部覆盖
+
+**记账纪律**（D083）：一份交付物的两次呈现不是两次事件。本追加仅为**防止重复计数**而写，不引入新内容。
+
+**逐条比对结果（与 追加 89 相同）**：入口 APPROVE（`Driver.cpp:73`；`BiShengIRCompileMain.cpp:624` 单一直接 A5 调用、失败即返回）；**再次撤回**单家族反对意见并再述 **E-I 仅 advisory**、**A3 覆盖 ordinary retry 缺位**；切割 APPROVE（`LatePipeline.cpp:548` 直调保守尾段；`PassPipeline.cpp:243` 不排 `ConvertHIVMToLLVM`；`PassPipelineA5.cpp:52` 由 HIVMC A5 拥有该转换）；BLOCK（`BX-B5/B6` × `:371` 捆绑、`LateInputVerifier.cpp:860` 要求恰为 4、preflight 失败早于发射；`X-SHALL` 全称量词与 `X-n5/n6a/n6b` 冲突）；**兄弟普查结论同**（§2 内无它行；**但 §7 R7.4 `:1030` 需同加路由限定**）；以及 `E-G`/`E-H`、`DMAUtils.h:2114` 与 `:284` 分层、`CX-C11 :588` 需定义执行事件（0/1/2 控制）。**无一项超出 追加 89 已录范围。**
+
+**因此本轮不重复动作**：不重发修订范围（我已于上一条消息发出**合并后的终局范围**，并在其中包含了本渲染的全部条目）；**不再索要尾部**（更早那条投递已是完整版，含 `FINAL DECISION` 与全部 "Other changes needed in the SAME criteria revision" 清单）。
+
+**仍未闭合的一项**：`S1a` golden **路径**它两次都未给出（它给的是 P2-B boundary dump 路径，那是佐证不是 golden）⇒ `b10` 对 golden 的精确 diff 仍由 `verify` 按我标记的 **MEASURE** 自行测量，**不得**据未测量的四量分解改 `CX-C7`/`X-b10`。
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未写 `verify/p2c-freeze/`；未改正文/源码/注释；§11 五份文档未改。
+
+## 2026-10-14 第 26 轮（§26 追加 91）：**`b10` 的复合性我**亲自测出**（此前标为 MEASURE 的项，现闭合）；两处范围**收窄**
+
+`review-2` 给出了 `S1a` golden 的**精确路径**：`verify/tests/negatives/vadd_late_p1v2.mlir`（冻结 `:143-145` 引用；18,659 B / `d1023ac1…`），`b10` 即其兄弟 `b10_dma_payload_16384.mlir`（18,659 B / `ec8b5776…`）。我据此做了**只读直接 diff**（空白归一化）。
+
+**结果：复合变异成立，且比"四量"更宽 —— 共 46 行改变**：
+
+| 量 | S1a | b10 |
+|---|---|---|
+| GM extent（A/B/C） | `memref<524288xf32, gm>` | `memref<262144xf32, gm>` —— **这是冻结唯一记录的那条** |
+| UB tile | `memref<8192xf32, ub>` | `memref<4096xf32, ub>` |
+| 块常量（`%c8192_i64`，即 store/burst 范围） | `arith.constant 8192 : i64` | `arith.constant **4096** : i64` |
+| subview | `[%blk_ix] [8192] [1]` | `[%blk_ix] [4096] [1]` |
+| load ins/outs 形状 | `8192` | `4096` |
+
+⇒ "**只查 GM 不能证明 DMA payload 受保护**"**成立**：该夹具同时改动了 payload/UB 几何与块常量，一次复合失败**无法指认是哪条检查触发的**。冻结 `CX-C7:524` 只记 GM 半，确为**披露不全**。**夹具字节保留**（两个文件均未触碰）。
+
+**两处范围收窄（按其 message 1/3）**：
+1. **`CX-C11` 的 body-entry 改写不再强制** —— 它自述："Body-entry recasting is **not mandatory** if another measured complete execution trace meets those obligations"，并要求 `verify` **先测量再选机制**。且 `runBeforePass` 先于 `runOnOperation`（`Pass.cpp:516-531`）⇒ **before-pass 事件只证明"尝试进入"，不证明"转换成功"**；正例须兼有成功运行 + 转换后 IR。
+2. **`BX-B5` 的最终 LLVM 操作数序号须**从 dump 实测**，**不得**由 C++ 签名推断** —— 它明确："Final lowered LLVM argument types/ordinals must be measured separately; I am **not** inferring those from C++." 这与冻结自身的要求（观察必须在**发射物**上做）一致。
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未写 `verify/p2c-freeze/`；未改正文/源码/夹具；§11 五份文档未改。
+
+## 2026-10-14 第 26 轮（§26 追加 92）：Challenger 给 3/3（S1a→b10 **直接** diff）——我在两份夹具上**逐行复测**：四量分解与规模全中、**一处行号差 1**（其 `:157` 实测为 `:156`）；另确认两条我原先没有的事实（UB 字节基址**未动**；夹具**自带过期注释**，且注释在 b10 中描述的是 S1a）；`CX-C7` 结论**收紧**
+
+### 一、直接在两份夹具上复测（只读，未写字节）
+
+| 项 | 实测 |
+|---|---|
+| 行数不变（"无插入/删除行"） | 两文件均 **274 行** ✔ |
+| 差异规模 | `^[<>]` **46 行**、hunk 头 **10** —— 与我 追加 91 的独立测量**一致** ✔ |
+| sha | `d1023ac1fdfd22c8…`（S1a golden）/ `ec8b5776f029eec1…`（b10），与 freeze `:143-145` 所引一致 ✔ |
+| `:148` | `%c8192_i64 = arith.constant 4096 : i64`（**SSA 名仍为 8192**，值 4096）✔ |
+| `:150` | `%blk = arith.muli %bx, %c8192_i64`（乘子本身未改）✔ |
+| `:219` | `%c8192 = arith.constant 4096 : index` ✔ |
+| `:238` | `scf.for %i = %c0 to %c8192 step %c64`（步长仍 64 ⇒ **trips 128 → 64**）✔ |
+
+⇒ 其"四量分解（GM extent / 每 tile 的 UB·GM·DMA extent / block stride / VF bound）**直接确认**"成立，且与 追加 91 的独立测量**互相印证**（两次测量、同一结论）。
+
+### 二、我原先没有、经复测确认的两条（均为**新增**记录）
+
+1. **UB 字节基址在两文件中完全相同**：`:138 %c65536_i64`、`:139 %c131072_i64`，以及 `:141`/`:142` 两条 `hivm.hir.pointer_cast` 的**基址值未变**；变的**只是 memref extent**（`memref<8192xf32, ub> → memref<4096xf32, ub>`）。
+   ⇒ b10 的 DMA payload 变化**完全由 extent 承担**（32768 B → 16384 B），**地址刻意不动** —— 与夹具 `:134` 既有注释 "0 / 65536 / 131072 - **never** 0 / 16384 / 32768" 的设计意图一致。
+   **须与"地址不动"分开记账**：payload 变了而地址没变 ⇒ (i) 只认地址的检查**发现不了** payload 变化；(ii) 只认 GM extent 的检查同样发现不了；(iii) 局部检查**无法**把 payload 变化与同批发生的 GM extent / stride / trip-count 变化**分开归因**。这正是 `CX-C7` 需要**隔离 payload-only 对照**的理由，也是"用 b10 拒绝不能证明独立 DMA-payload 保护"的**实测依据**。
+
+2. **夹具自带过期注释**，且两文件该段落**逐字相同** ⇒ b10 的注释**描述的是 S1a 而非它自己**：`:156` "Two GM->UB reads (**32768 B each**)"、`:206` 与 `:239` "8192 elements / 64 lanes = **128 iterations**"。
+   ⇒ 只看 b10 的注释会**读成** 32768 B / 128 trips，而操作数实测是 **16384 B / 64 trips**。**记录：观察必须取自操作数，不得取自注释**（与既有"定位符指向邻域"同族；此处是**夹具内部**的陈旧注释）。
+
+### 三、一处行号差 1（不改变结论，但**记录中的值必须可复现**）
+
+其报 `:157` 载 "(32768 B each)"；我实测该串位于 **`:156`**（两文件同）。`:157` 实为 "Golden TIR lines 19 and 22. Source: HIVMDMAOps.td:62-155."。其**其余行号**（`:148`、`:150`、`:152-154`、`:158-159`、`:174-176`、`:209-211`、`:219`、`:238`、`:240-242`）我抽查的**均逐一对得上**。
+⇒ 按既有纪律（**值旁的来源标签必须能复现该值**），写入冻结的只取 **`:156`**；其 `:157` 记作**未复现**，**不改其结论**。
+
+### 四、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；**两夹具未写字节**（只读）；未在 `verify/p2c-freeze/` 内写字节；正文 `66a599f3…` / 77,925 B 未动；§11 登记的五份文档未改；staged bundle `impl/stage-p2c-r1/` 未触碰。
+
+**下一步**：把**行号化**的 delta + 上述两条新事实 + `:156` 更正**一次**发给 `verify`（并入**同一轮**修订，不再加新范围）；向 `review-2` 确认 3/3 已收、我独立复测一致、及唯一行号差 1。§8 步 4 仍不启动（待修订落地 + Challenger 复核有效消费者与控制形状）。
+
+## 2026-10-14 第 26 轮（§26 追加 93）：`review-2` 空闲通知里的 `DMAUtils.h` 行号我**实测结算** —— 其 `:2114`/`:284` 在所述粒度上**正确**，我补出 `BX-B5` 改写所需的**精确行号**与一处它未提的事实（内部层有**两个** intrinsic 调用点；参数是 32 位、被窄化到 `uint8_t` 后才入 intrinsic）
+
+`review-2` 的空闲通知（`2026-10-14T02:59:25Z`）重述已收的 3/3，无新裁决（`Q1` APPROVE / `Q2` 源码 APPROVE、运行时 NOT_RUN / `Q3` 判据 BLOCK / 编译器执行 NOT_RUN）。其唯一新增信息是 `DMAUtils.h` 的两层定位。我不采信转述，直接实测（只读；文件 106,134 B）：
+
+| 层 | 行号（实测） | 内容 |
+|---|---|---|
+| 公开 C310 | `:2114`–`:2124` | 宏签名起于 `:2114`；`l2_cache_mode` 的**形参**在 **`:2119`**（`AtomicKind atomic_kind, uint32_t l2_cache_mode)`），**转发使用**在 `:2124`。四操作数：src / dst / atomic_kind / l2_cache_mode |
+| 内部 | `:275` | 所在函数的形参是 **`uint32_t l2_cache_mode`**（32 位，与公开层一致）|
+| 内部 | `:280` | `uint8_t l2_cache_ctl = static_cast<uint8_t>(l2_cache_mode);` —— **窄化只在此处发生** |
+| 内部 | `:284` / `:285` | `INTRINSIC(copy_ubuf_to_gm_align_v2, gm_ptr + gm_offset, ub_ptr + ub_offset,` 续行 `:285 = 0, burst_cnt, burst_len, l2_cache_ctl, dst_stride, src_stride);` ⇒ `l2_cache_ctl` 是 intrinsic 名之后的**第 6 项**，且行上的**值是 `uint8_t` 的 `l2_cache_ctl`，不是 `l2_cache_mode`** |
+| 内部 | `:288` / `:292` | **第二个** `INTRINSIC(copy_ubuf_to_gm_align_v2, …)` 调用点，缓存项在**相同的相对位置** |
+
+**判定**：`review-2` 的 "`:2114` 公开 C310 签名四操作数 / `:284` 内部列表缓存项居第六" 在所述粒度上**成立** ✔；其"最终 LLVM 实参位置仍须测量"我**同意并已转给 `verify`**。
+
+**它未提、但 `BX-B5` 改写必须承载的两点**：
+1. **两层用的是两个不同拼写**：公开层与其所在函数的形参都是 **`l2_cache_mode`（`uint32_t`）**；只有内部 intrinsic 的实参是 **`l2_cache_ctl`（`uint8_t`，`:280` 处显式 `static_cast` 窄化）**。故"第 4 个 i32 实参"这一**公开层序数**不能直接搬到**内部层**（那里该值是 `uint8_t`）—— 冻结内将该序数写在内部 intrinsic 的位置列表旁边，即为 追加 89 所钉的**层混用缺陷**的精确形式。
+2. **内部层有两个 intrinsic 调用点**（`:284` 与 `:288`）。因此"检查哪个被发射的调用"**必须先由 dump 确定**，不能假定唯一；这与"最终 LLVM 实参位置须测量"是同一件事的两面。
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未写 `verify/p2c-freeze/` 与 `impl/stage-p2c-r1/`；正文 `66a599f3…` 未动；§11 五份文档未改；两夹具未写字节。
+
+## 2026-10-14 第 26 轮（§26 追加 94）：修订版身份**我复测通过**；`E-A` 两种读法**均复现**，且**我自己的成因诊断是反的**（接受更正）；`E-I` 我账上的引用**引错了文件**（接受更正，结论在正确文件上仍成立）；停写规则那一秒我此前记错；**E-G / E-H 两项冻结级裁决由我作出（均判"收紧"）**
+
+### 一、修订版身份：我独立复测（不采信散文，D081）
+
+| 项 | 我实测 | 判定 |
+|---|---|---|
+| `P2C-TEST-FREEZE.REVISION.txt` | **47,568 B / `0e4d6abf6ac45ca136f8102a5ccd93b92d99409e75c6746a3f5465d38b50c100` / 755 行**，末行 `End of revision record.` | ✔ 与其所称一致 |
+| 正文 `P2C-TEST-FREEZE.txt` | **77,925 B / `66a599f3…` / 1,378 行**，末行 `END OF FREEZE.` | ✔ **未动** |
+| 消费者 / 试跑器 / 控制形状 | `33531228…` / `155ef532…` / `db11e939…` | ✔ 三者**本次均未变** |
+| 锚定文件（E-A 主体） | `8c3beeb1…` / **4,483 B** | ✔ 整文件封印未变 |
+
+### 二、E-A：两种读法**都复现**，且**我的成因句是反的** —— 接受更正
+
+我在磁盘上重跑两条算法（只读）：
+
+| 读法 | 算法 | 实测 |
+|---|---|---|
+| **(W)** 含末尾换行 | `sed '3,5d'` ≡ `'\n'.join(split('\n')[:2] + split('\n')[5:])` | **4,275 B / `35d3a6c9f748f395167e3b9fe0121d41d623dc612015bad80f1fed92a392de99`** |
+| **(N)** 不含末尾换行 | `'\n'.join(splitlines()[:2] + splitlines()[5:])` | **4,274 B / `d64a6640e16f485d70b65dab5cffafe8a0b0b718387cff192c8f3143ad5b7681`** |
+
+基数实测：`split('\n')` 得 **64** 个元素、`splitlines()` 得 **63** 个、文件**以换行结尾**。
+**⇒ `split('\n')` 保留末尾空元素 ⇒ `join` 保留末尾换行 ⇒ 得 (W) 4,275，不是 (N)。只有 `splitlines()` 丢掉空元素才得 (N)。**
+
+**我更正我自己的记录**：追加 82 §四 / 我在前一轮给出的成因句"它按 `split('\n')` 计算、因而**丢掉**末尾换行 ⇒ 得 4,274"是**反的**。正确表述是：**`split('\n')` + `join` 得 (W)=4,275；它先前单独发布的 4,274=(N) 只能由 `splitlines()` + `join` 产生。** 它的更正成立，我接受，并记此以免我把这条反了的句子再引用出去 —— 这正是该修复要消除的"不符即读作篡改"的同一族错误（**值旁的来源标签必须能复现该值**）。
+其侧car 已**两者都写、各标算法**，并给复检者留了捷径（先按 (W)，行导向工具都给它；得 (N) 说明你 `join` 的是 `splitlines()`）；整文件封印 `8c3beeb1…` 未动。**E-A 关闭 ✔**（旧 `d64a6640…` 不再单独发布）。
+
+### 三、E-I：**我账上引错了文件** —— 接受更正，结论在**正确的文件**上仍成立
+
+我实测两份流：
+
+| 文件 | 实测 | 内容 |
+|---|---|---|
+| `verify/logs/suite-v3/20261013T232010Z-2744262/A2.stderr` | `0ca79249…` / **582 B** | L2 `inferLayoutOptimization`、L3 `ordinary-regbase-pipeline`、**L4 `retry-loop iteration=1 of=2`**、L8 `a5-compile`；`retry-loop`=**1**、`ordinary-regbase-pipeline`=1、`late-route`=**0** ⇒ **这是 ORDINARY 控制行**（消费者判定 `route: ordinary`、exit 2，正是 ORD_KEYS 应有的行为）|
+| `impl/scratch/p2c-smoke/late-20261014T005329Z/A/stderr` | **`7f43c384b2f82d5f3c434c71399ee20da40d3c185b2ac6e5c6c51c561eb4cd8c` / 1,816 B** | L2 `[P2-BOUNDARY] late-route stage=late entry=runLateHIVMPipeline`；`retry-loop`=**0**、`late-route`=1 |
+
+**我更正我自己的记录**：追加 82 §五 / 追加 83 证据第 4 条把 `…/A2.stderr` 称作"参考 **Late** 流、不含 retry-loop 标记"—— 两处都错：它**不是** Late 流（是 ordinary 控制行），且它**含** retry-loop（L4）。**唯一正确的那条证据**是 `impl/scratch/p2c-smoke/…/A/stderr`：真 Late 流里 `retry-loop` 计数为 **0**。
+**结论不变**：`ORD_KEYS` 含 `retry-loop` 是**正确设计**（在自称 Late 的运行里见到 retry-loop 恰是"你其实不在 Late 模式"的正面证据），**E-I 维持 advisory**，消费者不动。凡后续引用只引 `7f43c384…` 那一份。
+
+### 四、停写规则那一秒：我此前记错
+
+`impl/stage-p2c-r1/` 最新文件实测为 **`SHA256SUMS.README.txt` @ 2026-10-14 09:36:26**.796（8 个文件；`sha256sum -c SHA256SUMS.txt` 自 bundle 基址 ⇒ **4/4 OK、rc=0**）。我先前记的"09:36:27"**更正为 09:36:26**；其"bundle 停写规则成立"的判定 ✔。
+
+### 五、两项冻结级裁决（**由我作出**，均为"**收紧**"，且**不编辑正文**）
+
+前提：**正文是被接受的 oracle（`66a599f3…`），消费者是它的实现；两者不符时，**实现**要向**正文**收敛**，而不是改正文。两条都是**执行前**的加强，**未弱化任何断言、未删除任何主张**，冻结内每一行仍为 **NOT_RUN**。
+
+**（1）E-G —— 判：收紧（消费者向正文 L920 收敛）。**
+正文 `L920` 的阶梯字面写作 `late-routed + rc==0 + **artifact present** + EVERY … count == 1 -> PASS`；但 `L951` 记的 `0 0` 那一行恰是**省略 `--artifact`** 的形状（合取项被跳过即 PASS），而 `L961` 的 `1 1` 是**给了 `--artifact` 但路径不存在**（`present=False`）—— 两者不是同一命题。**取其严者**，理由：goal `:301` 明言"文件存在或编译器 exit 0 不足以宣布 P2 成功"，而该合取项**可被调用方省略**恰使一个**什么都没产出**的编译 PASS，且 PASS 文本自称 "genuine Late compile"。
+**要求（写清"必须成立"、机制由 `verify` 选并测量）**：(i) `--artifact` 在 Late 正例上**必须提供**，缺失为 **错误**（既非跳过、亦非 PASS）；(ii) 合取项由"存在"升级为"**由本次编译产出**"—— 对**编译起始时刻**具名 freshness 判据，使**先前已存在的无关文件**（我已实测 `/etc/hostname`、游离 stderr、草稿 md 三者均曾 rc=0 PASS）**必须 FAIL**；(iii) artifact 的 **sha256 与大小**须作为**具名行**写入消费者自身输出（复检者可再验，D081/D086），且 PASS 文本**不得**声称它未证之事；(iv) **新增三个反例形状**（省略 `--artifact`、指向**无关已存在文件**、两家族标记**同行**），**测量**而非断言，`CONTROL-SHAPES` 从 16 扩至覆盖之。
+**代价与批准**：**批准**其三元封印位移（`a5_marker_count.py`、`exercise_a5_consumer.py`、`_a5ex/CONTROL-SHAPES.txt`）。**旧身份以"已被取代"记名保留，永不覆盖**（旧证据永不覆盖）。
+
+**（2）E-H —— 判：修正计数为"行首前缀计数"（消费者向正文 L816-817 收敛）。**
+正文 `L816-817` 字面要求 "exactly one **line beginning** `[P2-BOUNDARY]` … AND exactly one **line beginning** `[P2-C-GATE]` …"，而实装 `L207` 是 `n = stream.count(m)`（**子串**计数）⇒ 有实测：一行同时承载两家族即得两计数各 1、`route: late`、exit 0、A4 PASS，而 `grep -c '^\[P2-C-GATE\] a5-compile'` 对该文件返回 **0**（**一行不可能以两个前缀开头**）。
+**要求**：把计数改为**行首前缀**口径，与正文一致；并**新增"两家族同行"反例形状**使封印运行**能够**判别它（现有 16 形状无此案，故封印运行抓不到）。**批准**二元封印位移。**记录值不受影响**（参考流两家族本在不同行），故本项**不改变任何已测结果**，只让工具与其自身声明一致、并补上可判别的控制行。
+
+**（3）ADV-3（advisory，不修）**：正文 `L790-791` 的 A4 理由句（"both callers are covered（…retry loop；hivmc/HIVMCMain.cpp）"）过宽 —— Late 路由下 retry loop 不可能是 caller。**记名保留，不修正文**（与 E-I 同因：覆盖它的计数是 TRACE A3，且 A3 设计正确）。
+
+### 六、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 内写字节；**未改正文** `66a599f3…` / 77,925 B；**未改 §11 登记的五份文档**；未写 `impl/stage-p2c-r1/`（8 文件、4/4 OK、停写于 09:36:26）；两夹具未写字节；`exercise_a5_consumer.py` 未被我运行。
+
+**下一步**：把上述两项裁决 + 两条更正确认**一次**发给 `verify`（它自述"两项均未打补丁、非我指示不动"）；实现后我**再复测**新身份，之后才轮到 `review-2` 复核**有效消费者与其控制形状**。§8 步 4 仍不启动（另仍缺 harness 与 D090 环境）。
+
+## 2026-10-14 第 26 轮（§26 追加 95）：`verify` 的完成通知**不新增内容**（其正文与 追加 94 已记同）；但其新披露的一个"管道 rc ≠ 命令 rc"事实，我据**已记录数据本身**证明**封印运行的 16 行未被污染**；并记其实时活跃证据
+
+### 一、该通知不构成新事件（**故不重复记账**）
+
+`verify` 的 idle 通知（`03:09:11Z` = 11:09:11 +0800）内容与其先前投递的修订消息一致：sidecar `0e4d6abf…` / 47,568 B / 755 行、正文 `66a599f3…` / 77,925 B 未动、E-A 两figure、E-I 引用更正、E-G/E-H 记为 material 并**作为冻结级决定退回**、E-I 降 advisory、ADV-3 记名、14 项封印复测未变、停写 09:36:26、无构建无 harness 无 `impl/stage-p2c-r1/` 写入、全部编译器行 NOT_RUN。
+**上述每一条均已在 追加 94 记录并已由我裁决后回发指令**，故本条只作**状态签名**，不重复正文（`D083`"同一事件的多种呈现不是多个事件"）。
+
+### 二、通知里的**新**事实：它自曝一次"管道 rc 不是命令 rc"的测量错误
+
+它自述："an earlier piped invocation of mine printed the pipe's status, not the consumer's"，并称**已在 sidecar 更正**（未引其管道数字）。这与 `D082`（工具输出可能被掩蔽/不是文件本身）同族：**管道末段的状态码不是被测量命令的状态码**。
+
+**它未回答、而复核者一定会问的一问**：封印运行的 16 行 exit code 是否也经管道采集？我用**已记录数据本身**给出判别性论证 —— **不可能**：
+
+- 若封印运行经管道（如 `… | tee`），则 `$?` 恒为**管道末段**的状态，即 **0**；
+- 而 `CONTROL-SHAPES.txt` 记录的 measured 值**含 1、2、3**（`synth: BOUNDARY twice`=1、`ordinary archived stream`=2、`wrong binary`=3 等），且与 expected **逐行相符**（`MISMATCHES: 0`，16 行）；
+- 经管道采集会得到**全 0**，从而产生 **14 处不符**。实测不符为 **0** ⇒ **封印运行未走管道** ⇒ `CONTROL-SHAPES.txt` 的 16 个 exit code **可信**。
+
+（此论证只依赖已封印数据，不需重跑；若将来新增形状，采集方式仍须**无管道**并记入证据。）
+
+### 三、其实时活跃（我实测，非采信状态字符串）
+
+`/tmp/vfy_c/ok.stderr` @ **11:11:23**、`/tmp/vfy_c/o` @ **11:11:24**（我观测时刻 11:11:24 +0800）；`/tmp/vfy_w.txt` @ 11:07:36 且大小 **4,275 B**（它在自行复现 E-A 的 (W) 读法）。⇒ **它在推进我上一条指令里的两项收紧**，不是停滞。**不停止它**（修订是 §8 步 4 的唯一阻塞项，停掉即丢掉唯一能开闸的工作）。
+
+### 四、未做
+
+无构建、无 `ninja`、无 NPU 运行、无 push；未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节；正文 `66a599f3…` 未动；§11 五份文档未改；两夹具未写字节。
+
+## 2026-10-14 第 26 轮（§26 追加 96）：**修订 r2 我复测通过并接受为实施用 oracle**（身份/封印/控制形状全部我实测）；E-H 已修、E-G 三项已实装而第 (ii) 项以**具名 LIMIT** 披露（附我给 harness 的绑定义务）；**CX-C6 已修为 b32-only**（我先按计数报警，读上下文后判定为**误报**）；r2 §0.2/§0.4 **自曝一条对我方指令的重大事实**：我下的"gate 落地**前**冻结"前提**在写入时已被两个 P2-C 提交作废** —— 我记下**我自己的程序性偏离**
+
+### 一、身份与封印：我逐项实测（D081，不采信散文）
+
+| 项 | 我实测 | 判定 |
+|---|---|---|
+| r2 正文 | **`80ec735ab20683dc6f6f4309ae323bc8e810e698f64dbefc86291c98057ec78a` / 111,622 B / 1,896 行**，末行 `END OF FREEZE (r2).` | ✔ |
+| r1（被取代，**未动**） | **`66a599f3…` / 77,925 B / 1,378 行**，末行 `END OF FREEZE.` | ✔ |
+| sidecar | **`953028ea2c604431cc591026152cbfd70b90a3b3751f8b5ad5cde6d400206f75` / 62,821 B / 996 行**，末行仍为哨兵 `End of revision record.` | ✔ |
+| 消费者 | **`d9cb6948966df932e042685f132d0bd01f1e9c47ce8109bdf46eeb49c3d3091b` / 21,348 B** | ✔ |
+| 试跑器 | **`2cd121f13008f0c637a9f2876229e98fdbedb4a36c71dfc51e0b38e2ff0852eb` / 10,910 B** | ✔ |
+| 控制形状 | **`bf5057ba94e946ab04ffe67670c3a637de44d87d7211ac8bdff712500ba18565` / 9,627 B**，`shapes : 24`、**`MISMATCHES: 0`** | ✔ 16 → **24** |
+| 被取代件 | `_a5ex/CONTROL-SHAPES.superseded-r1.txt` = **`db11e939…` / 5,589 B** —— 与我此前记录的**旧**值**逐字节相同** | ✔ **诚实的取代**（旧字节留名保留，未覆盖）|
+
+⇒ r2 的**旧证据永不覆盖**纪律成立；消费者封印的移动正是我在 追加 94 批准的那一元。
+
+### 二、我指令的两项，逐项核对（读实装，不读声明）
+
+**E-H（行首前缀计数）—— 已修 ✔**：`a5_marker_count.py:178-179` 现为 `sum(1 for ln in stream.splitlines() if ln.strip().startswith(marker))`（旧为 `stream.count(m)` 子串）；PASS 文本同步改为 "appears on exactly one **line beginning with its family prefix**"；并**新增可判别形状** `NEW: both family markers on one line → 1 1 MATCH`（旧 16 形状无此案，故封印运行抓不到）。
+（注：`:275` 仍有 `stream.count(A5_PAYLOAD)` —— 那是冻结自述为 "recorded, **NOT** asserted" 的**求和级诊断**，非判据。）
+
+**E-G（artifact 合取项）—— 三项实装、一项以 LIMIT 披露：**
+| 我的要求 | 实装 | 判定 |
+|---|---|---|
+| (i) `--artifact` 必给，缺失为错误 | `:379-388` `if args.artifact is None: FAIL "rc==0 but no --artifact was supplied…"`（argparse 仍 `default=None`，但**语义上必给**并产出**可区分的 FAIL**，优于 argparse 直接退 2）| ✔ |
+| (iii) sha256+大小 具名行 | `:395-396` `print("artifact : … size=… sha256=…")` | ✔ |
+| (iv) 三个反例形状 | `--artifact OMITTED → 1`；`unrelated-existing.txt → FAIL`（"a pre-existing file unrelated to this compile must not satisfy the artifact conjunct"）；`both family markers on one line → 1` | ✔ |
+| (ii) "由本次编译产出" | **未实装**；改以 **object-form（ELF 或 `BC\xc0\xde`）+ 非零长** 检查 ⇒ **我已实测演示的那一类误 PASS（`/etc/hostname`、游离 stderr、草稿 md）现已被封**；残余为 `LIMIT (not a test): unrelated OBJECT file 0 0 MATCH` —— **预先存在的无关 *object* 文件仍会 PASS** | **部分** |
+| PASS 文本不得过度声称 | `:415-417` 明写 "Scope of this PASS: decomposition + artifact existence and **object-form ONLY**; artifact identity, freshness and provenance are **not** claimed" | ✔ **过度声称已消除** |
+
+**我对 (ii) 残余的裁决**：**只以"具名 LIMIT"接受**，并把补上它作为 **harness 的绑定义务**（在我批准 harness 范围时落定，§8.5）：harness 必须把 artifact 指向**本次运行自建的输出目录**内的路径，**永不**传预先存在的路径。理由：核心缺陷是**PASS 文本对一个什么都没产出的编译自称 "genuine"**，该**虚假声称已消除**；残余（预先存在的 object 文件）比"任意已存在路径"窄得多，且已**具名披露**，不应为此把时间谓词塞进 oracle。
+
+### 三、我先按计数报警，读上下文后判定为**误报**（记此以免把自己的粗探针当结论）
+
+我对 r2 做 token 计数，得 `b32/b8` 出现 **2** 次 —— 与我"CX-C6 必须只作 b32"的指令**表面冲突**。**读上下文后判定不成立**：两处均在**解释该修复本身**的段落里（`r1 asserted "the lowered result is b32/b8" … writing "b32/b8" admits the degraded case as a PASS. **The assertion is therefore: the pge carries functionType pb32 AND the lowered result is b32.**`）。⇒ **CX-C6 已正确修为 b32-only** ✔，旧措辞仅作**被删除文本**被引用。**我的计数探针不判别性，结论以读原文为准**（与既有"定位符指向邻域"同族）。
+
+### 四、r2 §0.2/§0.4 **自曝**：我下的前提**在写入时已作废** —— 我记下**自己的程序性偏离**
+
+r2 明载：**我在 dispatch 时报告的 HEAD 是 `347221f5…`（parent `cfaa59677…`）**，并要求"在 implementor 的 gate **落地前**写冻结"；而**冻结写入时实测** HEAD 已是 **`4495ab29…`**，其父 `5d4aabde…`，`HEAD^^ = 347221f5…`（即我报的那个）。**⇒ 两个 P2-C 提交早已落在我所述 HEAD 之上**，`porcelain 0`。
+
+- r2 对此的处置（**记录而非粉饰**）：**未读任何提交内容**（只跑 `git log --oneline`、`git status --porcelain`、一次 `git diff --stat …` 取范围：文件名与行数，318+/13−）；每条期望结果**全部取自 pre-gate 源**（Golden 夹具、模板源、goal 文本、P1 家族、P2-B staged binary 与 dump）；因此该冻结**按构造**（而非按声明）与 gate 内容无关 —— 它没有**任何一个字段**能被 P2-C 改动塑形。
+- 它并要求**来源标签只能写作** "written **after** the P2-C commits existed, from pre-gate sources only"，**永不**写作 "written before the gate landed"。**我接受该标签更正。** 这正是 `D079`（对可变状态的谓词会静默失效）的实例。
+- **我记录我自己的程序性偏离**：CLAUDE.md 要求"测试与期望结果**独立于**生产实现、且**在实现之前**定义"。**时间条款未满足**（实现先落地）；**实质条款满足**：期望结果独立于实现、且**经测量**确认未读 gate 内容，且**无一行被执行**，故**没有任何 oracle 被拟合到已观测输出**。按纪律**记录、不修补**，并**列为 Challenger 必须独立复核的项**。
+
+### 五、其余状态（其自述，待 Challenger 独立确认）
+
+`no claim deleted`（只改绑定/量词/操作化）、`D085` 成对规则**完整保留**、`V7` **不放松**（Late 上 cache0 由 V7 拒绝成立）、`r2 §6` 控制表为**从 `CONTROL-SHAPES.txt` 逐字抽取**（24 行对 24 封印行、`expected==measured`、逐行 MATCH）、**21 处 NOT_RUN**、D3 的 **dump 半未测且不声称**（无 pass dump 产出）。它另自曝两条**自捉缺陷**：先前的控制表为"手打"且与封印 tag 漂移（现改为抽取）；F.4 曾误挂在 goal 7 C。
+**我复核了 F.4 更正**：`p2-goal-1013.md:331-339`（"**C. 编译器与旧路径回归**"）确**不含** FunctionInfo/TVM-FFI 主机参数；该义务在 6.3 的编号清单里（"Kernel symbol 与 FunctionInfo 所需信息一致"，:286-290 区）。**⇒ 我 item F 的引用有误，接受更正。**
+
+### 六、裁决与下一步
+
+**裁决：接受 r2 为实施用 oracle（operative）**，但**§8 步 3 的复核尚未完成** —— r2 是新的有效 oracle，须先经 Challenger 独立复核（23 处编辑 vs. 我批准的合并范围、§0.2 的"按构造独立"是否真、CX-C8/CX-C11/BX-B5/R7.4/X-SHALL、E-G 残余 LIMIT、PASS 文本的范围语句是否真约束主张），此后 harness 才可依 r2 实现。
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；**未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节**；r1 正文 `66a599f3…` 未动；§11 五份文档未改（仅**读** `p2-goal-1013.md:286-341`）；两夹具未写字节；全部行仍 NOT_RUN。
+
+## 2026-10-14 第 26 轮（§26 追加 97）：`review-2` 的中期发现我**逐处复核后判定成立** —— r2 的"全称独立性"声明**按现文为假**（我先前**接受了它并转述给 Challenger**，故这是我的失误）；裁决为**对该声明 BLOCK、对 r2 为 REVISE**（语义内容不受影响）；补出四类来源的分类要求
+
+### 一、我逐处复核它的四个引证（全部成立）
+
+| 引证 | 我实测原文（r2）|
+|---|---|
+| `:90-92` 全称声明 | "this freeze is INDEPENDENT of the gate's content **by construction**… **there is no field in it that a P2-C change could have shaped**" |
+| `:115-119` | "A row whose expected value could only be obtained by observing a P2-C run would not be independent -- **there is no such row here**" |
+| `:1182-1188` | 参考 Late 流（`impl/scratch/p2c-smoke/late-20261014T005329Z/A/stderr`）上 `[P2-BOUNDARY] a5-family count : 1 <- expected 1`、`[P2-C-GATE] a5-family count : 1 <- expected 1`，紧接一句 "**The first two are the frozen expectations**" |
+| `:1197-1198` | "so **the expectations above are sourced from a real run's stream**, with the census admissible only as the diagnosis…" |
+| `BX-B2 :264` | Expected 块内直写 "The stream line to look for reports `level=O2 level-reason=flag`"；而 goal `:268-276` 只要求检查 "**O0/O2 选择**"，**未**规定该日志拼写 |
+| `BX-B9 :431-440` | 从**被测二进制内**抽取编译进去的 expected-template 常量、自行对 bundle `../lib` 模板求 sha256、再断言相等；并附负控制（P1 pin 的比较必须 FAIL）|
+
+⇒ **存在至少一处"期望值取自一次 P2-C 运行"**（`impl/scratch/p2c-smoke/…/A/stderr` 是 **P2-C gate 二进制**的运行）。故 `:90-92` 与 `:118-119` 的**全称**表述**按现文为假**，我设的判据（"任何字段可被 P2-C 改动塑形 ⇒ BLOCK"）**在此命中**。
+
+### 二、但**语义内容不受影响** —— 我要把"被拟合"与"被筛选"分开
+
+`<-- expected 1` 的那个 **1** 并非实现产物：TRACE A4 的语义要求本就是"每个锚定家族**恰好一次**"，该值**可由 A4 独立导出**；若那次运行给出 2，那将是**参考流自身违反 A4**，而不是新的期望值。故此处是**独立导出的要求被用来筛选/确认参考流**（筛选），**不是**期望值被拟合成观测值（拟合）。`review-2` 自述亦同："does not invalidate the independently specified cache4/ABI/geometry semantics or imply numerical fitting"。
+**真正的缺陷是措辞与分类**：一句话同时说"源自一次真实运行"与"没有任何期望值来自 P2-C 运行"，**自相矛盾**；且把**适配器字面量**（日志拼写）与**主体身份钉**（二进制内常量/模板哈希）与**独立语义要求**混在同一个"Expected"名下 —— 这正是 `D081`（值旁的来源标签必须能复现该值）/`D083`（计数须具名其总体）一族。
+
+### 三、**我自己的失误，记录不修补**
+
+`r2 §0.2` 的独立性是 **verifier 的自证**（self-attestation），而我在 追加 96 中**接受了它**，并在随后给 `review-2` 的委派里**把它当作事实转述**（"independent by construction … verify that claim adversarially"）。**我未在转述前自行核对 `:1182-1198` 那一段** —— 复核者一读即得，我本可先读。**教训**：对**自证**类断言，转述即是背书；委派第三方去攻击它，不能替代我自己先读一遍原文。
+**我方可站立的更强表述**（供 r2 与后续文档采用）："**没有任何语义期望值是从 P2-C 的 diff 或运行中导出的**；与实现耦合的适配器字面量与主体身份钉，已**具名标注**为其自身类别，且不作为语义期望。"
+
+### 四、裁决
+
+- **对 `:90-92`/`:118-119` 的全称独立性声明：BLOCK（按现文）。**
+- **对 r2 整体：REVISE**（不是否决）—— 修的是**声明范围与分类**，不是语义。要求（并入**同一次**修订，不与 `review-2` 的其余发现分两轮）：
+  1. **删去/收窄全称声明**，改写成第三节末的"更强且为真"的表述；
+  2. **显式列出四类来源**并对**每一行**标注其类别：(a) 独立语义要求（取自 Golden/模板/goal）；(b) **实现耦合的测量适配器/字面量**（如 BX-B2 的 `level-reason=flag` 拼写 —— 须移出 Expected 或就地标注为适配器字面量并给出处）；(c) **主体身份钉**（BX-B9 一类：问句源自 goal 6.2，计算为 verifier 自有，输入为被测工件 —— 标注为身份钉，不作语义期望）；(d) **观测到的控制值**（如参考流的 1/1 —— 标注为**控制基线**，并写明其语义期望"恰好一次"系由 A4 独立导出、该观测只是确认参考流满足之）；
+  3. **不得**再出现"the frozen expectations"用于**观测到的控制值**的表述；
+  4. `D085`/`V7`/`cache0` 语义与几何/ABI 内容**不动**；无一行执行，故仍非"失败后弱化"。
+- **`review-2` 的完整裁决待其完成**（它自述"finishing the consumer/control assessment"）；我**等它一次到齐**，再把**合并后**的单一修订指令发给 `verify`（避免多轮移动封印）。
+
+### 五、未做
+
+无构建、无 `ninja`、无 NPU 运行、无 push；**未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节**（本轮全部为**读**）；r1 `66a599f3…` 未动；§11 五份文档未改；两夹具未写字节；全部行仍 NOT_RUN。
+
+## 2026-10-14 第 26 轮（§26 追加 98）：`review-2` 第二项发现我复核**成立**，且其**根因是我先前裁决的不完整传播** —— Late 正例只剩"输入契约拒绝"，而 goal 6.2 `:276` 要求的是"**最终 Kernel 的链接/优化链**中未被替换"（输出保全）；裁决 REVISE，并纳入其**判别性实验**作为 NOT_RUN 行
+
+### 一、我逐处复核（成立）
+
+| 引证 | 我实测原文（r2）|
+|---|---|
+| `BX-B5 :347-351` | "on the cache4 Golden fixture (S1a) that value is 4"、"form of the observation is an **OPERAND of the emitted call**"；而 BX-B6 的 ROUTE BINDING 段（`:350-352`）把 cache0 半**移出** Late |
+| `BX-B6 标题 :366-367` | "cache4 is not replaced by cache0 anywhere in the **link/optimize chain the final kernel uses**" |
+| `BX-B6 (i) :373-391`（Late 臂）| 只给"cache0 夹具被 **V7 拒绝**"；并明写 "no Late compile of a cache0 fixture reaches a tail or an A5 call and **THERE IS NO EMITTED OPERAND to read**"，随后主张 "**that rejection IS how** 'cache4 must not be replaced by cache0' holds on this route" |
+| `BX-B6 (ii) :393-404`（D012 臂）| "for the cache4 fixture, **EVERY emitted store's cache operand is 4**；for the cache0 fixtures, EVERY such operand is 0 … **both halves are required**"，并自述 "THIS HALF IS A SEPARATELY NAMED CONTROL … **NOT** a Section 2 identity-gate positive" |
+| goal `:276` | "cache4 在**最终 Kernel 所使用的链接/优化链**中未被替换为 cache0" |
+| 全文 grep | `every emitted` 仅 `:396`（D012 臂）；`the final kernel uses` 仅 `:367`（标题）—— **Late 正例上无任何行要求发射的操作数到最终链接后仍为 4** |
+
+⇒ **缺口成立且锋锐**：Late 路由上，r2 对 goal `:276` 的唯一支撑是"**cache0 输入被 V7 拒绝**"，这是**输入契约**检查；而 goal 的命题是**输出保全**（final kernel 所用链条）。一个**合法的 cache4 输入**可以过 V7，却在**保守尾段 / A5 下降 / 链接优化**中被降级为 cache0，而 Late 上**没有任何一行**能看到它。能抓它的 "EVERY emitted store is 4" **被绑在了 D012 臂**上。
+
+### 二、**根因：我先前裁决的不完整传播**（记录，不修补）
+
+我在 追加 85 §四.1（并在 追加 94 §五重申）裁定："cache4 输入 vs cache0 输入的**成对**发射操作数测量只有在 cache0 合法的地方才可实现"，故把它**移到 D012 lowering 路由**。这对**成对比较**是对的（V7 在 Late 上拒绝 cache0，Late 上确实**没有** cache0 正例可测）。**但我没有同时要求：Late 正例必须保留"输出保全"那一半。** r2 依我的裁决把**两半都**搬到了 D012 臂 —— 于是 Late 路由只剩输入拒绝，**goal 自己点名的那条路由**上掉落了一条 goal 字面要求。
+**教训**：当我把一条**成对**判据按路由拆开时，必须逐半检查"哪一半在新路由上仍可实现"，而不是把整对搬走。**记录、不修补**；并作为我自己的失误列入 Challenger 复核范围。
+
+### 三、裁决：接受发现；**对 Late 正例的判据缺口 = BLOCK 级**；**r2 处置 = REVISE**
+
+`review-2` 的修法我采纳（**保留主张、不新增路由冲突**）：
+1. **臂 (i)（Late）必须同时要求两件事**：(a) cache0 夹具被 **V7 拒绝**（不变，**V7 不放松**）；(b) **Late 正例链中每一个相关 cache 操作数在最终 kernel 的链接/优化之后仍为 4** —— 即把 BX-B5 的操作数断言**沿到最终链接层**，而不是停在 A5 下降层。这才是 goal `:276` 的字面命题。
+2. **臂 (ii)（D012 lowering / default-cache0 控制）保持**，仍为**具名独立控制**，仍带成对对比（两半必需），仍归 Section F 的仓内 D012 回归，不冒充 §2 身份门禁正例。
+3. **新增其判别性实验为 NOT_RUN 行**（我认可其构造，正合 goal `:329`"必须因**预期的语义断言**而失败"）：**合法 cache4 过 V7、发射尾操作数为 4；随后在 tail 之后 / 链接步骤中把该 cache 操作数改为 0；D012 路由不动。** 期望：cache0 拒绝与 D012 成对**仍通过**，而 **goal 6.2 `:276` 的断言在 Late 上必须 FAIL**。⇒ 该实验是**唯一**能证明输出侧检查**具判别性**（而非空真）的构造；缺它，臂 (i) 的新增合取项无法被证明会真的触发。
+4. `D085` 成对规则**完整保留**（挂在它能成立的路由上）；**无一行执行**，故非"失败后弱化"。
+
+### 四、未做 / 状态
+
+无构建、无 `ninja`、无 NPU 运行、无 push；**未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节**（本轮全部为读）；r1 `66a599f3…` 未动；§11 五份文档未改；两夹具未写字节；全部行仍 NOT_RUN。
+`review-2` 仍自述在完成 consumer/control 评估；**等其一次到齐后发单一合并修订指令**（避免多轮移动封印）。
+
+## 2026-10-14 第 27 轮（§27 追加 99）：Challenger 终审 **1/3** 到齐（**r2 按现文 BLOCK**，入口/切割仍 APPROVE）；其"局部自相矛盾"我**独立复现**（`i32-typed` 全篇仅 `:342` 一处，且公开层签名证明该序数**不可能**）；DMAUtils.h 头哈希复现；**我另测出封印目录的"文件普查"本不可用**（MINOR，我明确**不升级**）
+
+### 一、裁决到齐（1/3）
+
+`review-2` 终审第 1/3 部分：**r2 按现文 BLOCK**；同时**入口源码 APPROVE**、**切割源码 APPROVE 不变**；编译器相关行 **NOT_RUN**（未执行，不得记 PASS）。它自述在审前与审后**各自独立读过**磁盘身份，与我测得的完全一致（我未采信其散文，见下）。
+
+其 **item 1 = REVISE**：改动映射到已批准范围，无无关扩张；并澄清"**23 edits**"是 **builder 的替换操作**，**不是 diff hunk** —— SequenceMatcher 把真实 diff 切成 **36** 个变更块，"这本身不是缺陷"。**记此以免我把 23 当行数/块数引用**（与 D083 "行数不是测量数"同族）。
+
+### 二、它验过的 GOOD（**其已核、我未逐条复核**，故不作为我自己的发现记账）
+
+`CX-C8` 完整链绑定；`C11` 完整 trace（含 `Pass.cpp:516-531`、`:559-564`）；`R7.4` 路由限定；`X-SHALL` 三类失败类命名；`E-A` 的 W/N 两个值**精确复现**。
+**诚实标注**：以上我**只读了它的结论**，未逐条重测 ⇒ 记为"**第三方已核、我未复核**"。
+
+### 三、MATERIAL
+
+`BX-B6` 的 Late 半，见 追加 98（我已独立复现）。它追加的一句我采纳并记录：**"`BX-B5` 的单层已发射操作数，本身不等于全链检查"** —— 即 cache4 必须在**最终 kernel 所用的链接/优化链**上仍是 4；这只有把操作数读到**最终**层才算，读 A5 前一层不算。
+
+### 四、LOCAL CONTRADICTION（**本轮我自己的测量，不是转述**）
+
+| 处 | 原文 |
+|---|---|
+| r2 `:320` | "FOUR operands; the cache is the **FOURTH OVERALL and the SECOND i32**." —— 正确 |
+| r2 `:342-344` | 仍保留 "A \"**4th i32-typed argument**\" ordinal belongs to **LAYER 1**; on LAYER 2 the same value is a uint8_t at source argument six." —— **不可能** |
+
+我的两路测量：
+1. `grep -n 'i32-typed' verify/p2c-freeze/P2C-TEST-FREEZE.r2.txt` ⇒ **全篇仅 `:342` 一处**（故这不是"两处都改了一半"，而是 `:320` 已改、`:342` 遗留旧句）。
+2. 重读公开层签名 `…/Template/lib/RegBase/Vector/include/RegBase/DMAUtils.h:2118-2119`：`memref_t<__ubuf__ …> *src, memref_t<__gm__ …> *dst, AtomicKind atomic_kind, uint32_t l2_cache_mode)` ⇒ 该层**能称为 i32 的只有 `AtomicKind`（枚举）与 `uint32_t`**，**不存在"第 4 个 i32 型实参"**。正确写法即 `:320` 的"第 4 总位 / 第 2 i32"。
+
+**处置**：删除或改写 `:342-344` 该序数句；**最终 LLVM slot 与类型仍作为 dump 测量保留** —— 不得用手写序数替代对真实 dump 的读取。
+
+### 五、头哈希复现（两方独立）
+
+`sha256sum …/RegBase/Vector/include/RegBase/DMAUtils.h` = **`e0a4d275c95b3c911105b84a8a1f305e018153cfae54ef82b7f28c8312c59016` / 106,134 B**，与 review-2 所称一致。
+
+### 六、**我新测的一条 MINOR**：封印目录的"文件普查"本不可用（并说明为何**不升级**）
+
+实测 `verify/p2c-freeze/` 现含 **25 个文件**，其中 **8 个不属于冻结集**：`_apply_r10.py`（12,858 B，10:29，未在 r2 具名）、`__pycache__/` 下 **4** 个 `.pyc`、`_a5ex/` 下的形状夹具与 `kernel.o`（0 B）。
+
+- 这**部分是预期**（控制形状夹具必须在场），所以问题**不是**"目录里有杂物"，而是：**任何"封印目录含 N 个文件"式的普查都不是检查** —— N 随工作文件变动（D083 同族：一个计数必须说明它的总体）。
+- **我明确不升级为缺陷**：`__pycache__/a5_marker_count.cpython-311.opt-2.pyc`（**09:54**）虽**早于**消费者 11:19 的修订，但 CPython 默认的 **mtime/size 失效检查**会因源文件已更新而**强制重编译** ⇒ **不存在"静默载入修订前行为"**。故它**不是** D042 那种"可被执行的陈旧副本"，只是目录卫生。
+- **处置（并入同一次修订指令，不另动封印）**：把 builder 脚本与 `__pycache__` 移出封印目录（或至少删 `.pyc`）；**封印只以具名文件为准，不以目录为准**。
+
+### 七、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；**未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节**（本轮全部为只读测量）；正文 `66a599f3…` 未动；§11 五份文档未改；staged bundle 未触碰。
+
+**下一步**：等 `review-2` 的 **2/3、3/3**（我已两次索要"家族扫描"：同一失效模式 —— **复合主张被路由劈开后有一半变得不可实现并被丢弃** —— 的其他实例）。**到齐后才发唯一一次合并修订指令**给 `verify`（一次修订 = 一次封印移动）。**§8 步 4 仍关闭。**
+
+## 2026-10-14 第 27 轮（§27 追加 100）：Challenger 终审 **2/3、3/3** 与**家族扫描三则**到齐；我逐条自测 —— **终局 BLOCK（判据侧）成立**；我另测出 **LIMIT 夹具的属性名是假称**（108 B = 8 字节前缀 + 100 NUL）、**S2 序数第二处**与 **§4.1/C12 互斥**；给 `verify` 的**唯一一次合并修订指令**已发出
+
+### 一、终局裁定
+
+| 项 | 裁决 |
+|---|---|
+| item 1（BX-B6 Late 正例 + i32 序数） | **REVISE**（改动在已批准范围内，无无关扩张） |
+| item 2（通用独立性宣称） | **BLOCK**（按现文不成立） |
+| item 3/4（消费者/控制面） | **APPROVE（窄范围）**，附明确 LIMIT |
+| 入口源码 / 切割源码 | **APPROVE 不变** |
+| 编译器、硬件、CodeGen、Host Args 各行 | **NOT_RUN** |
+
+它自述审前审后磁盘封印未变，与我测得一致。**无架构变更、无 Golden 变更。**
+
+### 二、我逐条自测（**不采信散文**）
+
+| # | 主张 | 我的测量 | 判定 |
+|---|---|---|---|
+| 1 | LIMIT 夹具不是真对象 | `_a5ex/unrelated-existing.o` **108 B** = `7f 45 4c 46 02 01 01 00` + **100 个 NUL**；偏移 8 之后非零字节 **0**；全文件不同字节值仅 `{0,1,2,69,70,76,127}`。生产者 `exercise_a5_consumer.py:87-89` 字面写 `b"\x7fELF\x02\x01\x01\x00" + b"\x00"*100`，其上方注释却称 "this one is an object file from an unrelated compile" —— **注释是假的**。`CONTROL-SHAPES.txt:43` 标其为 "unrelated **OBJECT** file"；消费者 `:408` PASS 文本自称 "object file"；`:405-406` 的 "must not satisfy" 对**带 magic 的文件为假**，而下一分支恰好放行 | **成立（我自己的测量）** |
+| 2 | item 2(a) 标签矛盾 | r2 `:140-144` 自述"流只提供观察值，EXPECTATION 来自 trace A4 的定义"，而 `:1182-1188` 称那两个 1 计数为 "the frozen expectations"，消费者 `:282-283` 字面 "the expectation is sourced from a real run's stream" | **成立** |
+| 3 | item 2(b) 实现耦合拼写 | goal `:272` 仅要求 "O0/O2 选择"，**无拼写要求**；`docs/p2-architecture.md:1324` 表格确实复现 `level=O2 level-reason=flag …` 并称其为 "injected canonical bare spelling of the argv pin"（对 staged bundle 所测） | **成立** |
+| 4 | item 2(c) BX-B9 | 其判据我上轮已读（`:431-440`）：**对被测对象字节**的独立计算 ⇒ 身份/自洽检查，非正确性期望 | **成立** |
+| 5 | 家族扫描 1：S2 是同一序数第二处 | 我实测 DMAUtils.h **`:280`** = `uint8_t l2_cache_ctl = static_cast<uint8_t>(l2_cache_mode);`，而 **`:281`** = `const uint32_t src_stride = src_gap + burst_len;` ⇒ r2 `:183` 行号**差一行**；`:193-195` 用推得的 `(ptr,ptr,i32=0,i32=burst_cnt,i32=burst_len,i32=l2_cache_ctl,…)` 断言"第 4 个 **i32-TYPED** 实参"，与已修正的 `:320` 及"**测量**最终 LLVM 类型/slot"的规则直接冲突 | **成立** |
+| 6 | 家族扫描 2：C12 被 §4.1 陈旧否定交叉引用排除 | C12 `:813-835` 明确断言 128×64，且自述 "Added by r2 before execution; nothing was weakened"；而 §4.1 `:858-860` 把同一项标为 "NOT asserted here / no CX row claims it"，`:868-871` 更把"该 gap"声明为 "recorded decision" ⇒ 同文档自相矛盾，**是 r2 自己新增行未回填表** | **成立** |
+| 7 | 家族扫描 3：C1 比较谓词未写明 | `docs/p2-verification.md:129`：C1 = "compiles b02 and b01 and compares the two outcomes — an **absent** carrier and an explicit **cache0** carrier **must not be conflated**"；r2 `:1859-1860` 只说 "one paired measurement, not two"，**未写谓词**。两次布尔拒绝**不构成区分** ⇒ 逐一执行 b01/b02 各自 PASS **不得记作 C1** | **成立** |
+| 8 | 程序性（对**我自己**） | CLAUDE.md `:19` 原文 "…independent of production implementation, **BEFORE implementation**"。我的下发报 HEAD `347221f5`，冻结时 HEAD 已是 `4495ab29`（父 `5d4aabde`）⇒ **时间子句未被满足**，事后披露不能追溯满足（D079 形状） | **成立，记为 lead 顺序/控制偏差** |
+
+### 三、我不采纳 / 不升级的部分（避免把议价当成发现）
+
+- **不采纳"数值拟合"暗示**：review-2 明言未发现 Golden 语义值被拟合，我亦未发现。争议是**标签与来源声明**，不是数值。
+- **"no row executed" 支持"无失败后弱化"，不支持"无 P2-C 输出影响任何字段"** —— 采纳此区分并写入修订。
+- **item 3 的窄处置我接受，但有条件**：未来 acceptance harness 必须对**同一次运行、同一产物**合取 goal-7 D 真实性行（新的 per-run 输出目录、初始不存在、捕获真实 rc 与完整流、目标/符号检查）。**记为我在 §8.5 的绑定义务。**
+- 它自述的 13 次 CLI 探针与 15 项统计我**未逐条重跑**，记为"第三方已核、我未复核"。
+
+### 四、合并修订指令（**唯一一次**；范围由我批准，执行为 verifier 的 oracle 职责）
+
+`R-1` 独立性/来源（item 2 主体）· `R-2` BX-B6 Late 全链 + 判别性实验 NOT_RUN 行 · `R-3` 两处序数句 + `:183` 行号 · `R-4` C12/§4.1 回填 · `R-5` C1 比较谓词 · `R-6` MINOR 四项（LIMIT 属性名、消费者文本、就地覆盖、目录卫生）· `R-7` 把我的顺序偏差写进树状态披露。**要求产出新修订 `r3`，不得覆盖 `80ec735a…`（r2）与 `66a599f3…`（r1）；不得删除任何主张，只改绑定、量词与来源标签。**
+
+### 五、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；**未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节**（本轮全部只读）；正文未动；§11 五份文档**只读未改**；staged bundle 未触碰。
+
+**下一步**：等 `verify` 产出 `r3` → 我复测 → `review-2` 复审 → 才进 §8 步 4。**§8 步 4 仍关闭。**
+
+## 2026-10-14 第 27 轮（§27 追加 101）：**评审环闭合** —— Challenger 的家族扫描给出**否定结果**（r1→r2 间只有 BX-B5/B6、X-b01、R7.4 改过 cache0 路由绑定；**唯一被证实的"丢失可实现的一半"是 BX-B6 在 Late 上的 cache4 输出保全合取项**）⇒ 修复**有界**，不必重开路由决策；普查的四处 loci 我自测；合并指令 + addendum 已在 `verify` 手上
+
+### 一、家族扫描的否定结果（我三度索要的问题，答案是"只有一个实例"）
+
+`review-2` 显式检查后报告：**没有任何第二个被证实的"复合主张被路由劈开后一半变得不可实现并被丢弃"**。各站点的 deferred half **都在**：
+
+| 站点 | 保留的 half |
+|---|---|
+| X-b01 `:923-939` | Late 拒绝 **且** D012 emitted-0 臂 |
+| R7.4 `:1414-1427` | 重复上述 split |
+| b10 → F.6 `:1585-1589` | missing isolated payload coverage，NOT_RUN |
+| C2 FunctionInfo → F.4 `:1565-1577` | field 半 |
+| UB metadata/硬件 → F.5 `:1578-1583` | 保留 |
+| ordinary 编译 → F.3 `:1559-1564` | 保留 |
+| N1–N4 `:489-543` | absent/present/extra 三种构造与 populate 后置条件各自独立 |
+
+⇒ **BX-B6 是 r2 中该失效模式的唯一实例**，故 `R-2` 的修复范围**有界**；我不必重开任何路由决策。
+
+### 二、我自测的四处 loci（**不采信散文**）
+
+| 处 | 我的测量 | 判定 |
+|---|---|---|
+| R7.5 `:1428-1432` | 原文 "**Every** cache assertion in Sections 2, 4 and 5 … is stated against the EMITTED artefact property … never against a regex over the input" —— 与 r2 **自己的** BX-B6 arm (i)（Late 上 cache0 被 V7 拒绝、**没有**已发射操作数可读）直接冲突 | **成立**，改为"读**值**的断言按已发射操作数；拒绝臂按输入契约" |
+| §8.2 `:1463-1465` | 原文把 "the fail-closed P2-B shape" 记为满足 NX-N1..N4（四个**具名诊断**负例） | **成立**：通用 fail-closed rc=1 **不得**记为那四个负例（与 `check-literals` 同族："不能触发的守卫读起来像覆盖"） |
+| `:1487-1491` | "No expected value came from any of them." —— 与 item 2 同类 blanket 措辞 | **成立**，须随 R-1 一并限定 |
+| `:1679-1685` | "The 6.2 expected template identity lives in one of them [bundle 内自称'可自由修改'的散文文件] … the freeze registers them **OUTSIDE** the bundle, **by sha256 AND byte count**" | **成立**：这是**外部锚定的主体钉**，不是独立语义期望 —— 即 **D093 形状**。**保留算法与实测哈希，只改标签**（改标签不削弱完整性检查） |
+
+### 三、已处置
+
+- 已发 `verify` 的 **R-1 addendum**：A–F 六组 loci + 上表两处量词修正 + 消费者 `a5_marker_count.py:277-284` 的同批修正 + `patch_consumer_eg.py:245` 的 pyright 未用局部变量。**措辞明确：同一次修订、不新增封印移动、不得开始第二轮。**
+- 已回 `review-2`：普查已折叠进同一次修订；其**否定结果**已收并**闭合我的问题**；其 item 3/4 的窄 APPROVE 与全部 LIMIT 已按其措辞记录。
+
+### 四、状态与未做
+
+**评审环闭合**：`review-2` 终审三条 + 来源家族普查 + 家族扫描**全部到齐**，且上述**每一条我主张过的都经我自测**（LIMIT 夹具 108 B、S2 `:193-195` 与 `:183` 行号、C12 与 §4.1、C1 谓词、R7.5、§8.2、`:1487`、`:1681`、DMAUtils.h `:280`/`:281`）。**球在 `verify` 手上（产出 `r3`）。**
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；**未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节**；正文 `66a599f3…` 与 r2 `80ec735a…` 未动；§11 五份文档**只读未改**；staged bundle 未触碰。
+
+**下一步**：等 `verify` 的 `r3` → 我复测（size/sha256/行数/末行 + 抽查每条 R-1..R-7 是否落地）→ `review-2` 复审 → 才进 §8 步 4。**§8 步 4 仍关闭；P3 门禁未到。**
+
+## 2026-10-14 第 27 轮（§27 追加 102）：**r2 封印的消费者被就地覆写且未留副本** —— 我测出并定位一条恢复路径（补丁脚本 + 我早前的基版副本）；已发处置与恢复指令；**根因是我自己的指令漏洞**（"不得覆盖"未扩展到被封印的**代码件**）
+
+### 一、测量
+
+`verify/p2c-freeze/a5_marker_count.py`：r2 封印 **`d9cb6948…` / 21,348 B** → **12:01:35 被就地改写为 25,824 B / `00577e5b3914513fbe6298daa91a08c9d7a982169a87407d3ebb1228628c64bf`**。
+
+这是修订的**预期**下一步（该封印此前已移动过一次：14,538 → 21,348）。问题**不在动作**，而在**被取代的版本没有留副本**：
+- 我按**名称**（`find -iname '*a5_marker_count*'`）与**内容**（三个特征串 + `-size 21348c`）双路搜遍 `/tmp` 与 evidence 树 ⇒ **无 21,348 B 副本**。
+- `__pycache__/a5_marker_count.cpython-311.pyc`（11:23）保留的是**行为**（字节码），**不是源码文本** ⇒ 此后只剩**行为级**复验可做。
+  **诚实标注**：我那支"是否内嵌源码"的探针很粗（它匹配到的是**名字串**而非源码），**不构成**任何方向的证据。
+
+### 二、一条恢复路径（**我定位、不执行**；补丁脚本会写盘）
+
+| 件 | 值 |
+|---|---|
+| 候选重构器 | `/tmp/verifier-r2/patch_consumer_eg.py` = **`7bf72aaa…` / 13,644 B / 267 行** |
+| 其结构 | `:14 EDITS` + `:246 text.replace(old, new, 1)` ⇒ **替换对**补丁；**无 >200 字符长行** ⇒ 不内嵌整份文本 |
+| 危险点 | `:257 CON.write_text(...)` ⇒ **就地运行会写进封印目录**，故**不得就地运行**（我未运行） |
+| 它的基版 | `/tmp/lead-recheck/verify/p2c-freeze/a5_marker_count.py` = **14,538 B @ 10:35**（**我自己早前的只读复核副本**，即 `33531228…`） |
+
+⇒ 把基版拷出、对**副本**打补丁、再哈希：**若得 `d9cb6948…` / 21,348 B，洞即字节级关闭**；若不匹配则**如实记录**行为级限制。已把该定位、哈希与"`/tmp` 易失、宜即刻处理"发给 `verify`（作者）。
+
+### 三、处置指令（已发）
+
+1. 仍在手上的 21,348 B 文本**立即落盘**为 `a5_marker_count.superseded-r2.py` 并回报 size + sha256；
+2. **此后每次改动前**先把当前封印字节另存（它已对 `CONTROL-SHAPES.superseded-r1.txt` 做对过 —— 扩展到**全部**被改封印文件）；
+3. `r3` 必须**显式封印新的消费者哈希**（不得沿用 r2 的值）；若旧文本确不可恢复，**在 r3 中明写该限制** —— r2 §6 的 24 形状表与 15 次 CLI 探针都是对该版本跑的。**不得声称一个再也跑不了的控制封印。**
+
+### 四、根因（**记在我自己账上**）
+
+我的 R-1/R-6 指令写了"产出 r3 新文件、不得覆盖 r1/r2"，但**未把"不得覆盖"扩展到 r2 所封印的代码件**（消费者、`CONTROL-SHAPES.txt`、消费者消费的夹具）。**这是我的指令漏洞，不是 verify 越权** —— 它执行的是"修订消费者"这一**已批准**动作，缺的只是"先另存旧版"。与 `p2-suite-logs-overwrite-in-place`、D079 同族：**一条钉在可变内容上的记录，被后续无关工作静默作废**。
+
+### 五、未做 / 下一步
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；**未在 `verify/p2c-freeze/` 或 `impl/stage-p2c-r1/` 内写字节**（本轮全部只读；**补丁脚本未运行**）；正文 `66a599f3…` 与 r2 `80ec735a…` 未动；§11 五份只读；staged bundle 未触碰。
+
+**下一步**：等 `verify` 回报 `r3`（path/size/sha256/行数/末行）与恢复结果 → 我复测 → `review-2` 复审 → 才进 §8 步 4。**§8 步 4 仍关闭。**
+
+### §27 追加 102 附记：Challenger 终审**正式结束**，转 idle
+
+`review-2` 连发四则 **idle 通知重放**（03:59:38Z–04:02:51Z），内容与我在 追加 99–101 已逐条自测并处置的终审**等价**：r2 身份复测 `111,622 B / 1,896 行 / 80ec735a… / 末行 "END OF FREEZE (r2)."`（与我一致）；其分类表 `:39/:87/:114/:128/:552/:873/:1487`、`:259/:798/:912/:1097`、`:244/:279/:409/:496/:1595/:1679`、`:1160/:1182/:1286/:1357` 是我已转达的 **A–F loci 的子集**；`:1369` 的"archived ordinary 的实测 1 称作 the assertion"与消费者 `:277` 的同一处修正亦已在 R-1 addendum 内。**重放未携带新信息，故不重复记账。**
+
+**状态变更（唯一实质项）**：`review-2` 已由工作中转为 **idle/available**，其 §8 步 3 的 r2 终审**正式结束**；它自述"下一步是 r3 的只读复审，待 lead 独立测量之后"。**故不向它发消息**（避免无谓唤醒 —— 我已在 追加 101 告知 r3 到位后即送审）。
+
+**等待图**：`verify`（产出 `r3` + 尝试恢复 `d9cb6948…` 文本）→ 我复测 → `review-2` 复审 → §8 步 4。**§8 步 4 仍关闭；P3 门禁未到。** 本轮未构建、未写封印目录、未改 §11 五份文档。
+
+### §27 追加 102 附记 2：恢复工作在途，方法自校验；**我未把一条 pyright 假警报转给 `verify`**
+
+**恢复方法（已定位、未运行）**：`/tmp/verifier-r2/unpatch_consumer.py` = `1dfc3e9f8bc788888fd2c53d1f559e897a4fcc689ceb9d456e9118928de18024` / 1,745 B / 12:04。它把 E-G 补丁的 `(old,new)` 对**逆序反用**于**当前 live 文件**，并有**两道守卫**：每对要求 `new` 恰好出现 1 次否则 `ABORT`（`:29-31`），末了要求结果 **sha256 == `d9cb6948…`**，不等则"拒绝写出"（`:35-38`）。输出写到 `a5_marker_count.superseded-eg.py`，**live 路径不动**（`:39`）。
+**方法可靠性**：`sha256` 相等即**字节相等**（碰撞不可行）⇒ 该脚本一旦成功，恢复是**证明级**的，不是重写。设计正确。
+
+**我未转达的假警报**：pyright 先后报了 `unpatch_consumer.py` 的"模块级 `return`（:30/:37/:44）""不可达代码（:47）""无法解析 `import patch_consumer_eg`（:15）"。**我实测**：`ast.parse()` **无错误** ⇒ 该文件**能编译**；前三条是 pyright 在 verify **写入过程中**采样到**半成品**所致（`def main()` 尚未写出），第四条是 pyright 不识 `:14 sys.path.insert` 的**假阳性**。**故未转达、未要求 verify 修** —— 转达它只会让一个正在工作的队友去追幻影。这是本会话**第二次**差点被"对**在建文件**的 linter 输出"误导（与 `tool-output-may-be-masked-not-the-file`、`check-literals` 同族：**工具对文件的断言，不等于文件的性质**）。
+
+**等待图不变**：`verify`（`r3` + 恢复结果）→ 我复测 → `review-2` 复审 → §8 步 4。**§8 步 4 仍关闭。** 本轮未构建、未在封印目录写字节、未运行任何补丁脚本、未改 §11 五份文档。
+
+## 2026-10-14 第 27 轮（§27 追加 103）：`verify` 报 E-G/E-H 落地 —— 我逐件自测：**三件被取代的封印字节级恢复成功**（我 追加 102 的路径奏效）；**但 pre-E-G r2 `80ec735a…` 被就地覆写、已不在盘上**（评审目标本身被替换）；**行号位移不均匀**（+0…+94）⇒ **按行号下发的指令不可用**；**R-1..R-7 尚未落地**（grep 全 0）
+
+### 一、CURRENT 身份：我实测，**全部与 verify 自报一致**
+
+| 件 | 我的 sha256（前 16） | 大小 | 行数 | 末行 |
+|---|---|---|---|---|
+| `P2C-TEST-FREEZE.txt`（r1） | `66a599f37714d693` | 77,925 B | 1,378 | `END OF FREEZE.` |
+| `P2C-TEST-FREEZE.r2.txt` | `78293ab4a9ddd5a7` | 117,904 B | 1,990 | `END OF FREEZE (r2).` |
+| `P2C-TEST-FREEZE.REVISION.txt` | `49b154dd2f9a8e1a` | 72,184 B | 1,145 | `End of revision record.` |
+| `a5_marker_count.py` | `00577e5b3914513f` | 25,824 B | 505 | — |
+| `exercise_a5_consumer.py` | `476cc376a38cae0f` | 17,869 B | 352 | — |
+| `_a5ex/CONTROL-SHAPES.txt` | `dfa4f5cedcb8302a` | 13,014 B | 81 | `MISMATCHES: 0` |
+
+### 二、被取代件：**恢复成功，且是字节级证明**（我 追加 102 的恢复路径奏效）
+
+`a5_marker_count.superseded-eg.py` = **`d9cb6948…` / 21,348 B** ✔ · `exercise_a5_consumer.superseded-eg.py` = **`2cd121f1…` / 10,910 B** ✔ · `_a5ex/CONTROL-SHAPES.superseded-eg.txt` = **`bf5057ba…` / 9,627 B** ✔ —— **三者与我此前记录逐字节相同**。故 追加 102 的隐患（消费者旧文本不可恢复）**已关闭**；`unpatch_consumer.py` 的哈希守卫起效。
+
+### 三、**但评审目标本身被替换了**
+
+**`find -size 111622c` 全盘无结果** ⇒ pre-E-G r2 `80ec735a…` / 111,622 B **不在盘上**。它不在 verify 的 "SUPERSEDED, KEPT" 清单里（该清单只有上述三件 + `CONTROL-SHAPES.superseded-r1.txt` + r1 正文）。**review-2 的终审与我的 R-1..R-7 全部键在这个已消失的文件上。**
+
+### 四、行号位移（**不均匀**，这是关键）
+
+| 我在旧 r2 引的 | 内容 | 在新 r2 的位置 |
+|---|---|---|
+| `:193` / `:320` / `:342` / `:373` / `:858` / `:264` | S2 序数 / 第四总位 / 4th i32-typed / BX-B6 Late / §4.1 / BX-B2 | **未移** ✔ |
+| `:1182` → | "frozen expectations" 标签 | **:1189** |
+| `:1197` → | "real run's stream" | **:1199** |
+| `:393` → | BX-B6 D012 臂 "EVERY emitted" | **:396** |
+| `:1681` → | expected template identity | **:1775**（+94） |
+| `:1842/:1859` → | C1 "half of C1" | **:1936/:1937**（+94） |
+| `:1428` → | R7.5 | **:1490**（+62） |
+| `:1487` → | §8.6 Reading boundary | **:1549**（+62） |
+
+⇒ 位移从 **+0 到 +94** 不等（多次插入）⇒ **按行号下发的指令会静默错位**。**这是系统性流程缺陷，记在我账上**：我连续数轮都按行号给 loci。**纠正：loci 一律按内容/标题锚定，行号只作提示。**
+
+### 五、**内容仍在** ⇒ review-2 的发现**依然成立**（只是锚点要重定）
+
+我逐条按内容复检：`no field` 1 处、`frozen expectations` 1 处、`EVERY emitted` 1 处、`4th i32-typed` 1 处（`:342`）、`fourth i32 Store libcall`（`:193`）、`no CX row`（`:860`/`:869`）、`expected template identity`（`:1775`）、`half of C1`（`:1936`/`:1937`）、`R7.5`（`:1490`）、`Reading boundary`（`:1549`）—— **全部在新 r2 中找得到**。故 E-G 这一 pass **没有丢掉被审内容**。
+
+### 六、`R-1..R-7` **尚未落地**
+
+taxonomy 标记（`CONTROL BASELINE` / `implementation-coupled` / `subject identity pin` / `observed control value` / `independently specified semantic`）在 r2 与 sidecar 中 **grep 全 0** ⇒ verify 这一轮做的是**更早的 E-G/E-H 指令**，我的 R-1..R-7 **尚未执行**。另需 verify 自行定位两处（我未能唯一确定）：§8.2 "fail-closed … satisfies the NEGATIVE rows"、ordinary 流实测 1 被称作 "the assertion"。
+
+### 七、处置（已发 `verify`）
+
+1. 用保留的 `make_r2.pre-eg.py.bak`（57,887 B）**重建** pre-E-G r2 到**临时路径**并哈希：命中 `80ec735a…` 则封印为 `P2C-TEST-FREEZE.r2.superseded-eg.txt`；不中则**如实记录限制**。**评审目标不得被静默替换。**
+2. **`r3` 必须是新文件；`r2` 从此不再编辑** —— 复审期间目标必须冻结。
+3. R-1..R-7 以**内容锚点**重发（附我实测的当前锚点表）。
+4. review-2 的裁定键在已被取代的件上 ⇒ **复审目标定为 `r3`**（含 E-G + R-1..R-7），不重开对 r2 的复审。
+
+### 八、未做
+
+无构建、无 `ninja`、无 NPU 运行、无 push；**未在封印目录或 staged bundle 写字节**（本轮全部只读，未运行任何补丁/构建脚本）；r1 `66a599f3…` 未动；§11 五份只读；staged bundle 未触碰。**§8 步 4 仍关闭。**
+
+### §27 追加 103 附记：E-G 报告的重放（无新信息）+ **一条我自己的新观察：`--compile-start` 是可变状态的一次读数**
+
+`verify` 于 04:20:05Z 重放同一份 E-G/E-H 报告（idle 通知）：所列身份与我 追加 103 的实测表**逐一相同**（r2 `78293ab4…`、sidecar `49b154dd…`、consumer `00577e5b…`、exercise `476cc376…`、CONTROL-SHAPES `dfa4f5ce…`、三件 superseded 与我此前记录相同、r1 `66a599f3…` 未动）⇒ **无新信息，不重复记账**。
+
+**但其中一项细节值得钉住（我的判定，非其主张）**：`--compile-start` 的**运行记录值**取 `impl/scratch/p2c-smoke/late-20261014T005329Z/A/cmd.txt` 的 **mtime** = `1791939210.216219` epoch = `2026-10-14T00:53:30.216Z`；`kernel.o` 的 mtime 为 **+0.508 s**，故 `cmd.txt` 是编译起点的**有效下界**。
+
+- **设计本身是对的**：消费者把它作为**必填参数** `--compile-start` **传入**，**不自推** —— 这正是正确的切分。
+- **残余风险**：该值是**可变状态（一个 scratch 目录里某文件的 mtime）的一次读数**。若复检者**重新 `stat`** `cmd.txt` 而**不是比对已记录的数值**，则 mtime 一旦变动（重跑、拷贝、`touch`），同一份记录就会读出不同结果 —— 而**读数不符"读起来就是篡改"**。
+- **同族**：`evidence-pinned-by-a-predicate-over-mutable-state`（D079）、`two-hash-namespaces-for-one-path`（一个值必须**连函数名一起记**，否则复检者的不符看起来像篡改）、D094（**测量记录必须带自己的时刻**）。
+- **处置（记为我的开放项，随 `r3` 一并落）**：封印须记 **绝对 epoch 数值 + 派生方式 + 测量时刻**，并**写明"复检比对已记录的数值，不要重新 `stat` 源文件"**。
+
+**未做**：无构建/`ninja`/NPU/push；未在封印目录或 staged bundle 写字节；§11 五份只读。**等待图**：`verify`（重建 `80ec735a…` → 新文件 `r3` 含 R-1..R-7）→ 我复测 → `review-2` 复审 `r3` → §8 步 4。**§8 步 4 仍关闭。**
+
+### §27 追加 103 附记 2：**我差点发出的假警报**（两个实例未标注时刻）+ verify 的保留纪律已到位 + r2 §6 形状映射复检通过
+
+**一、我差点发出的假警报（记在我账上）。** 读新 `CONTROL-SHAPES.txt:3` 时，它声明其生产者 `consumer-sha256 : 9b4d4bce…  (27,109 B)`，而我 追加 103 实测 live 消费者为 `00577e5b…` / 25,824 B ⇒ 表面上是"封印声明的生产者与盘上文件不符"，读起来像篡改。**我未发出，先做了 mtime 判别实验**：
+
+| 件 | mtime | 大小 | sha256(前16) |
+|---|---|---|---|
+| `a5_marker_count.py` | **12:30:43** | 27,109 B | `9b4d4bce59d1e435` |
+| `exercise_a5_consumer.py` | **12:32:33** | 20,311 B | — |
+| `_a5ex/CONTROL-SHAPES.txt` | **12:34:08**（在其后） | 13,872 B | — |
+
+⇒ **`verify` 正在构建 `r3`**；两个读数取自**不同实例**。我的 25,824 B **对它那一刻是对的**，错的是我**没给任一侧标注测量时刻**（D094：测量记录必须带自己的时刻；D081：值旁的来源标签必须能复现它）。**记为我的第三次同类近误**（前两次：pyright 对**在建文件**的输出、追加 102 的补丁脚本静态语法）。**未转达 verify。**
+
+**二、verify 的保留纪律已到位。** 「每次改动前先另存」**正在执行**：
+
+- `a5_marker_count.superseded-pre-r3.py` = **25,824 B / `00577e5b…`**（正是我实测、并差点据以发假警报的那个版本）
+- `a5_marker_count.superseded-r2.py` / `a5_marker_count.superseded-eg.py` = 21,348 B / `d9cb6948…`
+
+**三、r2 §6 形状映射复检（通过）。** 4/4 特征形状名在 r2 中可见（`:1338` real reference / `:1342` synthetic BOUNDARY twice / `:1361` E-H merged / `:1365` unit classify）；r2 自述 "exercised over **28** control shapes"，与封印 `shapes : 28` 一致。**我的"20"是我自己的正则太窄**（要求关键词并剥除数字）所致 ⇒ **不构成差异证据**。与 `row-count-is-not-a-measurement-count` 同族：**一个粗糙的计数探针不是反证** —— 这次它反证的是我自己的工具。另：封印中 `MATCH` 串计数为 29 而非 28，多出的 1 来自末行 `MISMATCHES: 0` 里的子串 —— 同一族的**子串计数不是行计数**。
+
+**四、附带确认（与我的记录一致）**：r2 `:1432-1438` 自带 **D083 标注**——"TWO NAMES, ONE SUBJECT"：`A2.stderr` 与 ledger 的 `D4.ordinary.stderr` 字节相同（582 B / `0ca7924937ee6343…`，同 8 行），**同一控制流两个路径，只计一次**。
+
+**未做**：无构建、无 `ninja`、无 NPU 运行、无 push；**未在封印目录或 staged bundle 写字节**（本轮全部只读）；**未向 `verify` 发任何消息**（它正在构建 `r3`）。§11 五份只读。**§8 步 4 仍关闭。**
+
+### §27 追加 104：**预 E-G 重建不是字节精确的**（+368 B / +4 行）—— 我实测并已向 `verify` 发出封存标签要求
+
+**测量时刻：2026-10-14T12:44:11–12:44:55+08:00。** 冻结目录自 **12:34:08** 起写静默，**尚无 r3**。但 `/tmp/verifier-r2/pre-eg-rebuild/` 的 mtime = **12:44:02**（我普查前 16 秒）⇒ `verify` **在线并在做 E-G 前重建**，即我指令项 (a)。我**先前的一次 `find -newermt` 什么都没看到**，因为该目录里的文件 mtime 被解包/复制保留 ⇒ **又一次"探针静默≠没有活动"**。
+
+**一、实测（我自己跑的，不是转述）：**
+
+| 件 | 大小 | 行数 | sha256 |
+|---|---|---|---|
+| `P2C-TEST-FREEZE.r2.rebuilt.txt` | **111,990 B** | **1,900** | `4ca658f4d57eabe7…` |
+| `P2C-TEST-FREEZE.r2.egseal.txt` | **111,990 B** | **1,900** | `d14aff9db1c3ce41…` |
+| **被审 r2-A**（盘上已无） | **111,622 B** | **1,896** | `80ec735a…` |
+| 当前 r2-B | 117,904 B | 1,990 | `78293ab4a9ddd5a7…` |
+
+⇒ 重建 = 被审件 **+368 B / +4 行**。**重建不复现被审字节。** 注意 `.bak` 造于 **12:13:35**，晚于 r2-A 的封存（`r2block.txt` = **11:47:36**）⇒ "pre-eg" 构造器**本身已是更晚的快照**，这 4 行很可能在那之前就漂了。**记为假设，待 `verify` 定根因，不作为我的结论。**
+
+**二、两个变体只差 R-6 标签，且行长中性 —— 机制已查明。** `rebuilt.txt` 与 `egseal.txt` 仅在 `:1313` / `:1316` 不同（`ELF-MAGIC` ↔ `unrelated OBJECT`），而**两行的长度都恰好 91** —— 名字列是**补齐到固定宽度**的，较长措辞被列宽吸收，所以两版**大小相同是预期的，不是巧合**。这同时确认 **R-6 的重贴标签正在落地**。
+
+**三、封存标签要求（已发 `verify`，msg `4f1f1085`）。** 若补不回那 4 行：**必须以"重建件"命名，不得携带被审件的身份**，并把 `+368 B / +4 行 vs 80ec735a…` 写进头部。**一个被贴了原件身份的重建件，比直说"被审字节不可复现"更糟**（D081/D093 同族：旁边的来源标签必须能复现它）。"不可字节复现"是**可记录的正常结局**；**悄悄改名不是**。
+
+**四、附带（保留纪律已到位，不构成缺陷）**：`a5_marker_count.superseded-pre-r3.py` = `00577e5b…` / 25,824 B ✔；`exercise_a5_consumer.superseded-pre-r3.py` = `476cc376…` / 17,869 B ✔；`_a5ex/CONTROL-SHAPES.superseded-pre-r3.txt` = 13,014 B ✔。**R-6 未清项仍在**：`__pycache__/a5_marker_count.cpython-311.pyc`（30,590 B @12:33:10）仍在封存目录内。
+
+**未做**：无构建、无 `ninja`、无 NPU、无 push；**未在冻结目录写任何字节**（本轮全只读）；§11 五份只读。**§8 步 4 仍关闭。**
+
+### §27 追加 105：`NOT-REPRODUCED` 封存件已落地（标签对、正文未披露）；并**更正我自己的"缺 harness"说法** —— 缺的是 A4 驱动，不是 harness
+
+**测量时刻：2026-10-14T12:44:11–12:46:08+08:00。**
+
+**一、`verify` 已按我的要求封存（项 (a) 半交付）。** 新件 `verify/p2c-freeze/P2C-TEST-FREEZE.r2.superseded-eg.NOT-REPRODUCED.txt` @**12:44:02** = **`d14aff9db1c3ce41…` / 111,990 B / 1,900 行**，与我实测的 `/tmp/verifier-r2/pre-eg-rebuild/P2C-TEST-FREEZE.r2.egseal.txt` **字节相同** ⇒ 它选了 **`egseal` 变体**，即**保留被审时的 R-6 旧措辞**（`unrelated OBJECT file`）的那一版。**这个选择是对的**：那是与被审件内容最近的重建，而不是把我新要的措辞混进"重建件"。**命名也对**。
+
+**二、但正文不披露"非复现" —— 目前只有文件名在说。** `grep -iE 'NOT.REPRODUCED|not reproduc|111,?622|111,?990|80ec735a|\+368|reconstruct'` 在该件中只得 **2 个无关命中**（`:630` "both 274 lines"、`:669` "A citation of :157 … is not reproduced"）。正文 §0 开头的自我描述仍是 **"REVISION IDENTITY. This file is r2 … derived line-for-line from the accepted r1 body"** ⇒ 它**只声明与 r1 的关系，不声明与 `80ec735a…` 的关系，也没有 +368 B / +4 行的差量**。**复制正文的读者会丢掉警告**（D081/D093 同族：旁边的来源标签必须能复现它）。
+
+**时刻说明（重要）**：该件写于 **12:44:02**，而我那条要求（msg `4f1f1085`）**在其后**才到达 ⇒ **`verify` 写它时尚未看到我的要求**。故**不作为缺陷上报**，留待其报告中核对：项 (a) = 名字 ✔ / 差量入头部 ✘。
+
+**三、更正我自己的说法（"§8 步 4 缺 harness"）—— 我说错了一半。** 实测 `verify/tests/scripts/run_p2b_trace_harness.py` = 33,056 B / 746 行 / 04:07:30：
+
+- 它**确实**驱动一次**真实 Late 编译**（`:401` `args_cmd = [FIXTURE, args.late_flag, …]`，fixture `NEG/vadd_late_p1v2.mlir`，`--input-ir-stage=late-hivm`），`:137` `subprocess.run(argv, capture_output=True, text=True, timeout=600)`，从 tree dump 与 `[PassID]` 流取测量，对每阶段断言 D1..D11，判决词仅 PASS/FAIL/BLOCKED/NOT_RUN。
+- 但它**不传** `--artifact / --compile-start / --intent / --rc`（grep 为空）⇒ 它是**pass-trace harness**，不是 A4 件驱动。
+
+⇒ **准确结论：trace harness 存在；缺的是把真实 Late 编译绑到冻结 A4 消费者上的驱动。** 该驱动需 (i) 建**每轮新建**的输出目录（E-G 残余义务：魔数在前的既有文件风险只由"路径由构造保证全新"兜住）、(ii) 先写 `cmd.txt`（其 **mtime 就是 `--compile-start`**，这是封印自己定义的契约）、(iii) `capture_output=True` 跑编译保 rc、(iv) 把 `--artifact/--compile-start/--rc/--intent late` 交给冻结消费者。harness 家族：`run_p2_suite.py` / `run_p2_suite_v3.py` / `run_p2b_trace_harness.py`；运行目录 `verify/work/run/A1…`（41 个）。
+
+**四、进度**：**仍无 r3**；冻结目录自 12:44:02 起写静默至 12:46:08。`__pycache__`（R-6 未清项）仍在。
+
+**未做**：无构建、无 NPU、无 push；**未在冻结目录写字节**（本轮全只读）。**§8 步 4 仍关闭。**
+
+### §27 追加 106：项 (a) **完整交付** —— 重建件头部披露差量，且其内嵌正文**逐字节复现**其自称的 sha（我独立验证，D081 满足）
+
+**测量时刻：2026-10-14T12:46:29–12:46:59+08:00。**
+
+**一、`verify` 已把 12:44:02 的 `…NOT-REPRODUCED.txt` 换为** `P2C-TEST-FREEZE.r2.pre-eg-RECONSTRUCTION.txt` @**12:46:29** = **`73535067dc4577b3…` / 114,013 B / 1,935 行**。旧名已不在盘上。
+
+**二、我独立验证了它的**来源标签能否复现其值**（D081，这是本轮唯一有分量的检查）：**按 `1900 lines) =====` 标记切出内嵌正文，**去掉写入者自己那一个空分隔行后 = 111,990 B / 1,900 行 / `d14aff9db1c3ce41…`** —— 与头部自称的 raw body sha **完全相同** ⇒ **头部不撒谎，内嵌正文就是它声称的那段字节**。（带分隔行时为 111,991 B / 1,901 行 / `a934b701…`，差 1 字节即那个空行，非缺陷。）另一个独立副本仍在 `/tmp/verifier-r2/pre-eg-rebuild/P2C-TEST-FREEZE.r2.egseal.txt`（111,990 B）。
+
+**三、头部内容（已逐条核对，全部为真）**：首行即为 **"RECONSTRUCTION -- NOT THE REVIEWED ARTIFACT. DO NOT CITE AS r2-A."**；点明被审件 `80ec735ab20683dc…` / **111,622 B, 1,896 lines**（"NOT on disk; overwritten in place"）；**差量 +368 B / +4 行**并声明"NOT reproduced and NOT claimed to be"；给出生成方法（builder `/tmp/verifier-r2/make_r2.pre-eg.py.bak`，DST 重定向到 TEMP，控制表输入重定向到 `_a5ex/CONTROL-SHAPES.superseded-pre-r3.txt`，即 r2-A 原本据以构建的 `dfa4f5ce…` E-G 封印）；并引用了我的记录规则原文。
+
+**四、它独立复现了我的发现。** 头部记载第二次运行得 `4ca658f4…`，"same size, differing only at the two R-6 label lines -- the padded name column absorbs the wording, so the size ties either way"。**这与我 追加 104 独立测得的"两版 `:1313` 均恰为 91 字符"完全一致** —— 两条独立路径得到同一机制。
+
+**五、根因（已被它确认并锐化）**：`patch_make_r2_eg.py` mtime **12:13:22**（先建）→ `make_r2.pre-eg.py.bak` **12:13:35**（E-G 补丁的备份步骤）→ `r2block.txt` **11:47:36**（review-2 材料）。⇒ **"pre-eg" 构造器是 E-G 补丁的备份快照，取于 review 材料之后 26 分钟**，不是 r2-A 封存当时的构造器。R-6 家族再加一条：**"pre-" 前缀只说明它早于某个后续事件，不说明它等于被审时刻的状态。**
+
+**六、一处非实质损失，记录但不作缺陷**：12:44:02 的中间件 `…NOT-REPRODUCED.txt` 是**被就地替换**而非与后继件并存。但**无内容损失**：其字节 (i) 以内嵌正文形式**逐字节存活**于后继件中（上面已验），(ii) 在 `/tmp` 另有副本。这与 `80ec735a…` 不同 —— 那里丢的是**被审件本身**。
+
+**七、进度**：**仍无 r3**。`__pycache__`（R-6 未清项）仍在。
+
+**未做**：无构建、无 NPU、无 push；**未在冻结目录写字节**（本轮全只读）。**§8 步 4 仍关闭。**
+
+### §27 追加 107：**步 4 环境预检通过（独立、只读）**；并为 bundle 自认"可修改"的两份散文文件**建立外部锚**（D093 修法）
+
+**测量时刻：2026-10-14T12:47:29–12:47:46+08:00。** 目的：在真实 Late-positive 运行之前，独立确认 staged bundle（D090 的"positive environment"）完好且与**冻结 oracle 文本自己断言的**身份一致。
+
+**一、清单核验通过。** 按 `SHA256SUMS.README.txt` 的指示在 **base_dir 内**执行 `sha256sum -c SHA256SUMS.txt`（`sha256sum -c` 必须在其 base 目录内跑，否则整个清单打印 FAILED 且与真实字节不符不可区分）：
+
+```
+bin/bishengir-compile: OK
+lib/meta_op.aiv.c310.O2.bc: OK
+lib/meta_op.aiv.c310.O0.bc: OK
+lib/meta_op.aiv.c310.O2.bc.linked.bc: OK        rc=0
+```
+
+**二、冻结 oracle 断言的身份在盘上复现。** `CONTROL-SHAPES.txt:52` 的 wrong-binary 行同时断言 observed 与 expected = `3807eb3d907236b1…`；我实测 `lib/meta_op.aiv.c310.O2.bc` = **`3807eb3d907236b17855db57a475ea120c37a74905c92bb4b971b415da7d6f79`** / 31,206,992 B ⇒ **一致**。goal §6.2 的 **"O0/O2 选择"** 所需的一对：O2 `3807eb3d…` / O0 `b8c68dcb1ef50646…`（`TEMPLATE-IDENTITY.txt` row [1] 同时给出）；`.linked.bc` `cbd56bd9…` 为 O2 边中间产物，**仅作来源凭证，entry 从不解析它**。
+
+**三、两条自述声称被我独立复现（不只是转述）。** (i) inode 卫生：`bin/bishengir-compile` 实测 **`link=1 inode=161332350`**，与 README 自述的"link count 7 -> 1, inode -> 161332350"**完全一致**；(ii) 组成：`bin/` **恰有一个文件**，`bishengir-opt` **确实缺席**（且是有意缺席 —— 它未随本相重链，仍是 P1 pin `0761c6e6…`，置于 `../lead/preserved-p1-compiler/`）。
+
+**四、【新增，D093 修法】外部锚。** 该 bundle **自认**其两份散文文件 *"are NOT covered by SHA256SUMS.txt and are free to be amended (as here)"* —— 而这两份**确已各被修改两次**（两处 header correction）。它们承载的正是 O0/O2 身份行 ⇒ 按 R3/D093（可修改文件中的 oracle 需外部锚），我在**bundle 之外**（本 ledger）钉住它们：
+
+| 件（bundle 内） | sha256 | 大小 | 行数 | 锚定时刻 |
+|---|---|---|---|---|
+| `TEMPLATE-IDENTITY.txt` | `83241567a025c85406f01871615b43acac3e48a06ba5fbb70a9fd6eb0dc8c3c6` | 6,785 B | 100 | 2026-10-14T12:47:46+08:00 |
+| `SHA256SUMS.README.txt` | `9c2e111f9a9d4b8a0a28748252549582346fc575484efb6100abd477c6c4f27f` | 6,407 B | 88 | 同上 |
+
+⇒ 此后再有任何改动，都可对照 bundle 之外的记录检出。**这正是"清单 4/4 仍 OK 而 §6.2 期望值被改写"这一失效模式的对策。**
+
+**五、顺带记录两条稍后会用到的约束。** (i) `TEMPLATE-IDENTITY.txt` 自述其模板步骤运行时 subject tree = **HEAD 347221f5**、`git status --porcelain` 为空。(ii) **D091**：P1 pin **没有重建路径**（由非任何已提交版本的 DMAUtils.h 工作树状态编出），故 **pin 绝不可用"重建"来验证 —— 重建不是检查它，而是替换它**。
+
+**未做**：无构建、无 NPU、无 push；**未在 bundle 或冻结目录写任何字节**（本轮全只读）。**§8 步 4 仍关闭**（待 r3 + 我对 r3 的复测 + Challenger 复审）。
+
+### §27 追加 108：goal §6.3 的 11 项 ABI 检查**有明确归属**；并记下我本会话**第四次探针自伤**（`-E` 里的 `\|` 是字面竖线，不是或）
+
+**测量时刻：2026-10-14T12:48:15–12:48:31+08:00。**
+
+**一、我的探针坏了，先记我自己。** 我用 `grep -ciE 'Ascend950\|Ascend950PR'` 这类模式统计覆盖，得到一串 0，一度像是"文档没覆盖"。**实际是 `-E`（ERE）里 `|` 才是或，`\|` 是字面竖线** ⇒ 我搜的是 `950PR|Ascend950` 这个**不存在的字符串**，必然 0 命中。**改正后同一批探针全部非零**（`Ascend950PR` abi=1 / freeze=4；`pb32` abi=1 / freeze=13；`set_flag` abi=1 / freeze=11）。为证明**变量是探针而不是文档**，我故意把其中一个模式敲成 `960PR|Ascend950` —— 它照样返回 abi=1，因为 `Ascend950` 那一支仍命中。**这是本会话第四次探针自伤**（前三次：`grep -o 'MATCH'` 数进 `MISMATCHES` 的子串、被数字描述打乱的 awk 列、未标注时刻的封印/活件对比）。**四次都不是被查对象的缺陷 —— 与 `row-count-is-not-a-measurement-count` 同族，该规则已第四次作用在我自己的工具上。**
+
+**二、11 项检查有归属，且有精确到行的互引。** `docs/p2-binary-abi.md` **`## C. LLVM and Kernel ABI — the 11 enumerated checks (goal §6.3)`（:298）** 以表格列出 **C1..C11**（`sed -n '298,336p' | grep -cE '^\| C[0-9]+ \|'` = **11**），**每行状态均 NOT_RUN**。冻结件 `P2C-TEST-FREEZE.r2.txt:205` 精确互引："`docs/p2-binary-abi.md` B1-B8 at **:214-221**; C1-C11 at **:304-314**"。⇒ §6.3 的 11 项**不是悬空的验收条件**，它们在文档与冻结测试两侧都有落点。
+
+**三、一处需要 R-4 收口的不对称（记录，不在此判）。** 冻结件自带 6.3 ABI oracle 一节：`:546` "**SECTION 4 -- THE 6.3 ABI ORACLE (C1-C11). NEW; no oracle for this exists**"，其行名为 **CX-C1..CX-C12**（`:1577` 写作 "CX-C1..CX-C12"），即 **12 行** oracle 对 goal 的 **11 项**检查 —— 多出的 **CX-C12** 正是 review-2 标出的 C12/§4.1 指代问题，**已由 R-4 承接**（把 C12 与 §4.1 的 `:858-860`/`:868-871` 重新指向，标题 `:546`/`:550`）。**CX oracle 需要一件已产出的 artifact 才能执行**（`:1577` 自述 "needs an emitted artefact"），故与 r3/步 4 同批关闭。
+
+**四、顺带（后续验收要用）**：C9 的**量纲陷阱**已被文档显式冻结 —— `:743`/`:757` 记 `UB_SIZE` = 2031616 **bits**（= 248 KB 容量）与 kernel 的 196608 **bytes** arena 是**两个量**，并点名 `HACCAttrs.td:309` 的示例恰好写了 `196608 : i32` 这个**同一个数字** ⇒ **按数字而非按量匹配的检查会"确认" C9 而实际是错的**。C11 与 `p2-pass-trace.md` 的 C2 互引，且 `:1451` 记 CX-C11 沿用同一 total-1 纪律。
+
+**未做**：无构建、无 NPU、无 push；只读。**§8 步 4 仍关闭。**
+
+### §27 追加 108 附记：r3 范围确认已发（`verify` 处于 idle 的决策点）；项 (a) 正式关闭
+
+**2026-10-14T12:48Z+08 后。** `verify` 连续两次 idle 通知："r1 and r2 confirmed untouched. Now the r3 builder." / "Measurement captured. Now the r3 builder." ⇒ 它**不在写入中**，正好是发指令的窗口。已发 msg **`e91caecf`**，内容：**(a) 关闭并接受**（重建件头部标签复现其值已由我独立验证 ⇒ 不再回访）；**r3 = 新文件**，r2 `78293ab4…` 永不再改；**in r3**：R-1..R-7（按 A–F 普查的**内容锚**，不用行号 —— 位移非均匀 +0..+94，我先前所有行号锚是"活锚与死锚的混合"）+ 项 (b) `--compile-start` 记录须带绝对 epoch、推导与测量时刻，并明示复检者**不要**再 stat 源文件（D094）；**NOT in r3**：A4 驱动（已查明 `run_p2b_trace_harness.py` 是 pass-trace harness，不传任何 A4 旗标 ⇒ A4 驱动是**独立的步 4 项**，另行派发，r3 保持为纯测试文档）；**r3 落地后**：作为新文件冻结并把 **sha256 + 大小 + 行数**发我，我复测后才送 Challenger —— 这是 §8 步 4 的**唯一**闸门。
+
+**未做**：无构建、无 NPU、无 push；只读。**§8 步 4 仍关闭。**
