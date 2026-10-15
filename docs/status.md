@@ -13604,3 +13604,477 @@ experiment."* 仍然成立。
   它已由该文件**自身的 CORRECTION 3** 就地取代。
 - `lead/r9-review/STEP9-EVIDENCE-MAP.txt`（`872bdcd03bc28356d630a02dd69c0b53fae6cb5519134c3269dffd309dc94a70` / 14,893 B；Lead 自撰工作笔记，
   **非证据**）的 "OPEN QUESTION CARRIED INTO STEP 9" 一节由本行标注为**已被 CORRECTION 3 取代**。
+
+## 追加 257 — **P2 Final Gate 与 P3 交接完成**：四项有界修复 + 三个新反例；Challenger **SCOPED APPROVE**；P2 有界接受，P3 设计交接完成、实机执行未授权，**停在 P3 门禁**
+
+时间：2026-10-15 晚。授权：`docs/p2-goal-1015.md`（§2 三项交付 A/B/C、§4.3 只修有直接验收价值的缺陷、
+§5 允许对固定 Golden VADD 的 Late→A5 Binary 范围给 SCOPED APPROVE、§8 交付清单与"完成后停止在 P3 门禁"）。
+本轮**未** push、**未** rebase、**未**改 Golden、**未**重写冻结 Oracle、**未**动远端配置。
+
+### 1. 最终 verdict（原文落盘，非转述）
+
+`EV/resume-04/challenger/CHALLENGER-FINAL-VERDICT.txt`，sha256
+`18af1997b5181388ddcde1b049b83d6a3d7669fc2ce84abab3394297766c3220` / 12,689 B / 99 行。
+源 transcript `subagents/agent-achallenger-final-f41fb199b9a8b05a.jsonl`，14:53:20Z 世代，静默监测确认
+1,197,682 B 即为终代。由 Lead 代落盘，因为 Challenger 是只读审查者、不写文件（memory
+`challenger-refuses-md-writes`）。
+
+裁决原文要点：**SCOPED APPROVE for the fixed-Golden F32 VADD Late→A5 Binary scope**；先前 REVISE 的四项
+有界缺陷全部关闭，未发现阻塞性回归；普通 RegBase SIMD 完整 ELF 仍 **BASELINE_BLOCKED**；硬件数值正确性仍
+**NOT_RUN**；*"This removes the P2 technical review blocker; it does not itself authorize P3 execution or
+claim hardware correctness."*
+
+### 2. 修复后的生产身份（新构建；**未**沿用旧 SHA）
+
+| 客体 | SHA-256 | bytes |
+|---|---|---:|
+| `regbase/LateInputVerifier.cpp`（live，本轮唯一生产改动） | `e19080ab1bd772fac2c5b790b22d4c62d1b62857f3be4ce941e044fc07b387bf` | 62,538 |
+| `bishengir-opt`（post-fix） | `9ea6f21b61d620e3752339ff66fd6ff5d382fd58bcb86ad1fd32dccf44b07e70` | 214,636,848 |
+| `bishengir-compile`（post-fix） | `2206d8c54e1b3c3e4689f92efdcee26baedade398711b0d9d9a2242dc27852eb` | 205,494,152 |
+
+diff 相对 HEAD `82f3ad088`：`LateInputVerifier.cpp` **491 insertions / 68 deletions**，
+`regbase/CMakeLists.txt` **6 insertions**（补 `MLIRAVEDialect` 链接边，sha256
+`6961d21a8af85e65fa3b925e8aa114400ffa377269848eadac3f3ac79719c987`）。
+两处中间构建 `27fc3feb…`（首建，**误拒冻结基线**）、`df060073…` 已登记 superseded，不得引用。
+
+**持久性缺口（本轮已闭合）**：post-fix `bishengir-opt` 此前只存在于构建树
+`/home/s00653124/workspace/AscendNPU-IR-1/build/bin/`，**任何后续构建都会覆盖它**——而它是本轮
+9 个变异体复跑与三个新反例判定的仪器。已复制入证据并复算：
+`EV/resume-04/impl/postfix-stage/bin/bishengir-opt.9ea6f21b`（同 sha256/同 bytes，`cp -p`）。
+不如此则本轮"新二进制"证据在下一次构建后不可复现。
+
+### 3. 四个有界缺陷与最小反例（§4.3）
+
+全部落在 `LateInputVerifier.cpp`（+ 构建接线），逐条见 `EV/resume-04/WORK-ORDER-4FIXES.md`：
+
+1. **V5 载体**：由"任意属性文本含子串 `pb32`"改为与消费侧同构的类型化谓词
+   `op->getAttrOfType<hivmave::FunctionDistTypeAttr>("functionType")` 且枚举 `PB32`，并限定在
+   **受支持 VF 的实际 pge**（Challenger 的裁定：模块级布尔会留下旁路）。
+2. **V6(c) GM 链**：由"遍历 `arith.muli` 检查常量值"改为沿 DMA 的 GM 操作数回溯 subview → 入口参数，
+   要求冻结偏移链 `index_cast(muli(get_block_idx, 8192))` + size 8192 + stride 1。
+   **该修复的第一版有真实回归**：固定取 `operand 0`，而 `hivm.hir.load` 的 GM 在 operand 0、
+   `hivm.hir.store` 的 GM 在 operand 1，故**误拒冻结基线**。**发现顺序须如实登记**（追加 258 更正）：
+   Implementor 自己的 runner 先看到基线被拒（14:30:13Z）并在 14:30:23Z 独立得出同一根因、
+   14:30:24Z 改为按地址空间选择 GM 操作数；Lead 在 14:29:59Z 用**另一件仪器**（直接调用，非其 runner）
+   对当时在场的构建 `27fc3feb…` 独立复现同一缺陷，14:45:28Z 才把报告送达——**Lead 是独立复现者，
+   不是首先发现者**（`LEAD-FOUND-REGRESSION-store-operand.txt` 的标题"LEAD-FOUND"为当时用语，
+   已由追加 258 限定）。该回归**未进入任何被接受的二进制**，且是 §4.3 "若失败由 P2 修改引入，
+   则必须修复，不得豁免" 的实例。
+3. **函数体保护**：bodyless/external 入口在 V6/V7 解引用**之前**诊断；此前 rc=134（SIGABRT）、stdout 0 字节、
+   零验证诊断。
+4. **V6 同步顺序**：由"计数 + 集合比较"改为固定 VADD 顺序关系（两 load → MTE2/V set → 匹配 wait →
+   VF call → V/MTE3 set → 匹配 wait → store → 终结 PIPE_ALL）+ 精确 pipe/event 元组。
+
+三个新反例（Verifier 独立编写，预期先于实现冻结），修复前/后：
+
+| 反例 | SHA-256 | pre-fix | post-fix |
+|---|---|---|---|
+| `new01_v5_functiontype_wrong_type.mlir` | `dd32abe8f919c3d29dc36bc62c652f900c8d03b37ad516d15e0ec6fc29fedc53` | 接受（洞） | 拒绝，V5 诊断 |
+| `new02_v6_c_only_offset.mlir` | `db730e165f3d4cd730b2ac63758ee5587ba23d627200a6e727c31f45269f260d` | 接受（洞） | 拒绝，V6 诊断 |
+| `new03_v6_vmte3_pair_after_store.mlir` | `af26e888444abd333cdc3f1e3041eb4e556fd3858cdd55276845ac91fe02bcce` | 接受（洞） | 拒绝，V6 诊断 |
+
+pre-fix 原始流 `EV/resume-04/impl/pre-fix-new/`（三条 sem_rc=0）。Lead 用**自写 runner**（不同仪器）
+独立复跑 9 个变异体（4 原反例 + 3 新反例 + 2 对照）于新二进制：9/9 符合预期、诊断为正确理由
+（`LEAD-POSTFIX-RECHECK.txt` + `postfix-recheck/`）。冻结基线在新二进制上接受（rc=0，两流均空：
+`guard.stdout`/`guard.stderr`/`guard2.*`）。
+
+**Contract Gate 对 GM 地址链零覆盖**（14 个标签）：`LEAD-CLOSURE-ACCEPTANCE.txt` 旁
+`CONTRACT-GATE-GM-COVERAGE.txt`。故 §4.3 第 2 项**必须**由 verifier 自身覆盖，不能记在 Contract Gate 名下。
+
+### 4. §6.4 不变量：修复不得改变冻结 fixture 的 A5 产物 —— 已实测
+
+验证器是只读 preflight，冻结 fixture 本就全过，故 A5 产物必须逐字节不变。实测：pre-fix **两次**
+（确定性对照）+ post-fix **两次**，四个 `kernel.o` 全部逐字节相同
+`2c4247c3b2ce11f79ad15415eb06d4ce1d5523a0c19c91ad3743bc08e7b8c4c9` / 4,448 B；stderr 在 stage
+路径归一化后一致；compile dump 中存在 `LateInputVerifierPass`。
+证据 `LEAD-A5-INVARIANT-CHECK.txt`、`impl/a5x-{pre,post}-{1,2}/`。Challenger 独立复现同一结论。
+
+### 5. P2 验收状态矩阵：46 行 = 45 PASS / 1 NOT_RUN（C3）
+
+机器可读 `EV/resume-04/lead/p2-acceptance-matrix.json`（sha256
+`9932fea2c68b94d3f4d8bfadadfe0365dbdc07cc70026d4a23a76bb436f0432c` / 12,459 B）。取代规则 D244：
+取"最新一次**真正执行过该行**的运行"；`suite-v6` 判 VOID（46 行全 NOT_RUN，且其 RETIRED 行实现的是被
+追加 252 §4 反转的指令）。Lead 独立重数 `P2-ACCEPTANCE-MATRIX-VERIFY.txt`；Challenger 独立重建同一计数。
+
+**限界（Challenger 要求登记）**：该矩阵是**历史仪器的混合体**（历史执行 + 定向复跑 + 本轮新二进制检查），
+**不是 46 项对新二进制的检查**。C3（non950 完整 binary）为 NOT_RUN：三操作数 lowering 测试不等于
+binary 成功。
+
+### 6. BASELINE_BLOCKED 的隔离依据
+
+两条历史臂与**本轮修复后的**编译器均 rc=1、未定义符号 `_mlir_ciface_vadd_1d_float`，且产出**相同的
+9,072 字节 prelink 对象** `7200a267a4caafeaf159a0f40b9f710990d601603bda22d7d6168115d8165ec9`。
+该路由上 Late verifier 不参与；本轮改动不触及 ordinary 路由、合法化尾部、HIVMC lowering、D012 生产逻辑
+与仓内测试（`LEAD-SOURCE-SCOPE-AUDIT.txt`：HEAD 相对 `4495ab29b` 仅两个测试文件 +295，生产代码零差异）。
+故该失败**非 P2 引入**，按 §5 保留 BASELINE_BLOCKED，**不谎报完整 SIMD ELF PASS**，也不豁免为 PASS。
+本轮新证据 `resume-04/challenger-execution-_zf5ok9g/ordinary.{stderr,o,rc}`。
+
+### 7. 受限能力登记（不修、不开新项目，§4.3）
+
+- 验证器只支持**固定结构 VADD 形态**，不构成任意程序等价性、通用 CFG 同步或所有 UB/VF 数据流变异的证明。
+- 等价替代地址表达式、多 pge 形态可能仍不受支持。
+- 动态 UB 运行期分配、ACL 加载、HostArgs 执行、FunctionInfo 传播、数值正确性均为**下游义务**。
+- **三处记录性更正**（Challenger 提出，Lead 独立复核后裁定 **RECORD / DO NOT REPAIR**，理由：改注释需重建，
+  会改变已被封存裁决所判定的二进制身份 `9ea6f21b…`）：
+  1. `LateInputVerifier.cpp:703-708` 注释**高估**旧检查对"无关算子上文本"的接受能力；实测旧规则只遍历
+     `ave.hir.pge`，`ctl_other_op_pb32.mlir` 修复前即被拒（semantic rc=1），原因是**载体被删除**，不是
+     无关算子规则命中。
+  2. `singleEntryBlock` 对多块函数返回 `front()`，只守 `getBody().empty()`；由 V6 单独拒绝多块入口缓解。
+  3. 旧稿"468 insertions"只存在于 Lead 工作小结，**未进入任何工件**；`fix.diffstat.txt` 本就为 497/68。
+  证据 `LEAD-CHALLENGER-RECORD-CORRECTIONS.txt`。
+
+### 8. P3 交接与"无需重建原 Binary"的证据
+
+P3 设计见 `docs/p3-acl-harness-design.md`。唯一设备程序 = 冻结 `kernel.o`（`2c4247c3…` / 4,448 B）：
+ELF64 LE、ET_EXEC、machine `0x1029`、flags `0x990000`、导出 `main_kernel`（GLOBAL FUNC）；
+HostArgs = A/B/C 三个 64-bit GM 地址、24 bytes；grid=64；dynamic UB=196608 bytes；N=524288；
+UB 基址 0/65536/131072。CANN 9.2 头文件与正式 `x86_64-linux/lib64/libascendcl.so` 的五个 `aclrt*`
+导出已核对，**真实 loader 尚未执行**；P3 首个子门禁必须是加载同一份已验 SHA 字节并成功 lookup
+`main_kernel`，记录两个真实 ACL rc，失败即 `LOADER_BLOCKED` 且停止 launch。
+
+**无需重建原 Binary 的证据**：本轮唯一的 P2 新缺陷都在 Late 输入验证器（只读 preflight）内部，且 §6.4
+已实测 pre-fix 与 post-fix 对冻结 fixture 产出的 A5 产物**逐字节相同**。故 P2 原设备 Binary **无需重建**；
+新二进制 `9ea6f21b…`/`2206d8c5…` 只承担"验证器能拒绝四类非法输入"的新证据，不改变冻结产物。
+
+### 9. 结论与门禁
+
+- **P2：可被有界接受**（SCOPED APPROVE，限固定 Golden F32 VADD 的 Late→A5 Binary 编译范围）。不再有待修的 P2 缺陷。
+- **P3：设计与 Binary/ABI/Launch 交接完成；实机执行未授权**。本轮**停在 P3 门禁**，未实施 P3–P6。
+- 未决外部核对：served-model 审计 UNVERIFIED（无 Magpie 请求日志）；IR 远端一致性 UNVERIFIED（origin 查询超时）。
+- `docs/current-state.md` 更新为 gen 2（sha256 `533b0b2380a252297e4631da6e8100f6fb2a726a208bfcc7f8e9adc9b8272c41` /
+  14,473 B）；gen 1 逐字节保留于 `EV/resume-04/lead/current-state.gen1-pre-rewrite.md`
+  （`430786689589b2531ccbfd9872d6353648f453fdf2094442af31d3b2bfd8ad26` / 6,112 B），未覆盖历史。
+  两代哈希均由脚本从字节计算（memory `a-transcribed-hash-is-not-a-measured-hash`），记录于
+  `EV/resume-04/lead/CURRENT-STATE-MANIFEST.json`。
+
+## 追加 258 — 更正 追加 257 §3 第 2 项与 D128 的**归属**错误：store-GM-operand 回归由 Implementor 首先发现
+
+**被更正的句子**（追加 257 §3 第 2 项，已封存字节保留不动）：*"由 Lead 在验收前拦下"*；
+D128 末句：*"本轮发现并拦截一处由修复自身引入的回归"*。两处都把**独立复现**写成了**发现**。
+
+**实测时间线**（来源：Implementor transcript 的 tool_use/text 时间戳，非其自述）：
+
+| UTC | 事件 | 主体 |
+|---|---|---|
+| 14:29:59Z | `LEAD-FOUND-REGRESSION-store-operand.txt` ctime；Lead 用**直接调用**（非其 runner）对在场的 `27fc3feb…` 复现误拒 | Lead |
+| 14:30:13Z | 其 runner 显示基线被拒，写下 *"the baseline regressed — it must accept"* | **Implementor** |
+| 14:30:23Z | *"The store's GM operand is operand 1, not 0. Let me select by address space."* | **Implementor** |
+| 14:30:24Z | 落地"按地址空间选择 GM 操作数" | **Implementor** |
+| 14:45:28Z | Lead 的报告（含同一最小修复建议）送达 | Lead |
+
+**结论**：两件**不同仪器**在约 14 秒内各自命中同一缺陷；Lead **独立复现**了它，但**不是首先发现者**。
+我那份文件的标题 "LEAD-FOUND" 是当时用语，现由本行限定。该回归**未进入任何被接受的二进制**
+（首建 `27fc3feb…` 已 superseded，证据面为 `9ea6f21b…`），因此**不影响任何判决或哈希**——
+但它会**伪造审查独立性**，而独立性是本项目全部裁决的依据。
+
+**处置**：活文档 `docs/current-state.md` 就地更正（gen2 快照
+`EV/resume-04/lead/current-state.gen2-pre-correction.md`，`533b0b23…`/14,473 B 保留）；
+追加式记录 `status.md` 追加 257 与 `decisions.md` D128 的**已封存字节不动**，由本行与 D129 取代
+（前缀哈希 `a4d39f90…`/1,567,660 B 复验未变；被替换字面量在新区域内唯一）。
+
+**同轮另一处计数诚实性**（写入 `current-state.md` §3）：Implementor 的 `x1/x2/x3` 与 Verifier 的
+`new01/new02/new03` **是同样三个变异**，不是六个：`x1`≡`new01` 逐字节相同（`dd32abe8…`）；
+`x2`/`x3` 与 `new02`/`new03` 语义相同、仅变量名与注释不同。价值在于**两名作者未互相复制地收敛到同一变形**
+（`x1` 逐字节相同，故该条只作弱证据），而**不是**行数。
+
+**另记 Implementor 的两项独立贡献**（我的记录此前未收录）：
+(a) 它预先登记预期后运行 `x4_store_gm_arg_swapped.mlir`（`555bbcca…`），把"store 绑定到 C（argument #2）"
+从**阅读**变成**测量**——基线接受只证明解析成功，不证明绑定到哪个参数；诊断字面量
+`addresses entry argument #0, expected argument #2 (C)` 只能由 `argNo != i` 合取式产生。
+(b) 它独立发现并记录：`build/lib/meta_op.aiv.c310.O2.bc` 是 **P2-A/B 陈旧模板**（`5e7ccae2…`），
+而非 P2-C 的 `3807eb3d…`，故 **build tree 不是可用的 A5 仪器**、§6.4 若从 `build/` 裸跑会让**两个臂都失败**、
+把一个陈旧 fixture 误读成验证器回归。这与 Verifier 的 compile-probe rc=1 是同一事实的两个观测。
+
+## 追加 259 — 本门禁的 `current-state.md` 最终世代绑定（gen 3）
+
+追加 257 §9 记的是 gen 2（`533b0b23…`/14,473 B）。D129 的就地更正使活文档进入 **gen 3**，
+故最终绑定以本条为准，权威清单为 `EV/resume-04/lead/CURRENT-STATE-MANIFEST.json`：
+
+| 世代 | SHA-256 | bytes | 说明 |
+|---|---|---:|---|
+| **gen 3（现行）** | `008105d5587f683d24784a0a79d90b4e4f8d387ec9e7051d16387b741381c59b` | 16,716 | 含 D129 归属更正与 x/new 计数诚实性说明 |
+| gen 2（快照保留） | `533b0b2380a252297e4631da6e8100f6fb2a726a208bfcc7f8e9adc9b8272c41` | 14,473 | 更正前：含"Lead 发现"的归属错误 |
+| gen 1（快照保留） | `430786689589b2531ccbfd9872d6353648f453fdf2094442af31d3b2bfd8ad26` | 6,112 | 门禁中途稿 |
+
+三代字节均在盘上，均可复算；追加 257 的字节**不再改动**，其 gen 2 记法由本条限定为历史世代。
+
+## 追加 260 — 身份复核清单的世代更正，与一次世代字节丢失（记录，不修复）
+
+D129 归属更正之后，`current-state.md` 进入 gen 3，但两份"以内容绑定"的收尾工件仍指向旧世代。
+本轮把两者更正，并如实登记其中一次**不可恢复的字节丢失**。
+
+### 260.1 更正了什么
+
+| 工件 | 更正前 | 更正后 |
+|---|---|---|
+| `P2-FINAL-GATE-DELIVERABLES.txt` | rev 1（`3e2b68f7…`/10,041 B）称 current-state 为 gen 2、把旧 sweep 列为现行、且把 `008105d5…` 标成 `533b0b23…` | rev 2（`dba9e7e1…`/13,359 B）：gen 3、列出 gen 2 快照、旧 sweep 改列为 SUPERSEDED |
+| `IDENTITY-SWEEP-FINAL-gen3.txt` | 不存在（旧 sweep 只覆盖 12 项、绑 gen 2） | `cd51ae1a4c5a770929ce0de6de4de3df1789fecb43cc1554dfd958ecbf7af9be`/4,674 B，**17/17 复现** |
+
+旧 sweep `IDENTITY-SWEEP-FINAL.txt`（`655db285…`/1,903 B）**不删除**：它测得的 12 项全部仍然成立，
+它只是"关于哪一代是现行"这一点过时了（绑 gen 2、且未列 gen 2 快照）。两代并存，由新 sweep 明确限定。
+
+### 260.2 一次字节丢失（必须登记为 LOSS，不得改写为"预期漂移已满足"）
+
+修订 `P2-FINAL-GATE-DELIVERABLES.txt` 时**先就地改写、未先快照旧字节**，故 rev 1 的字节已不在盘上。
+丢失世代身份：`3e2b68f77b041e8ae91834d46f4cf0705e0b9a4005b6c16e08d58ed3e7d0a23f`，10,041 B。
+
+检索范围（使这一"不存在"是有界的，而非断言）：`os.walk` 遍历
+`hivm-poc-evidence/`、`hivm-poc-control/`、`/tmp/claude-1071/`，先按**精确大小 10,041 B** 取候选（0 个），
+再逐个 sha256 比对 —— **未找到**。诚实表述是"该检索未找到"，实践表述是 rev 1 应视为不可用；
+被改写的三段区域已在 rev 2 内逐字引用，其余内容不变。
+
+**这正是本项目已有标准的一个反向实例**：同一轮里 `current-state.md` 被改两次、两次都先做了快照
+（gen 1 `4307866895…`、gen 2 `533b0b23…`，均可复算），而这份索引没有。
+教训是"活工件就地改写前必须先快照旧字节"对**每一件**被就地改写的工件都成立，不能只对被点名的那个成立。
+损失另记于独立文件 `EV/resume-04/lead/LOST-GENERATION-deliverables-index-rev1.txt`
+（`fdd28e399c8cc78d6cf15d4ae62d29f337f0b4ba24580034556b42d02e23667b`/2,707 B），
+使其不依赖于它所涉及的那份文件。
+
+### 260.3 绑定方向（单向，刻意）
+
+新 sweep 以 sha256 引用 deliverables rev 2；rev 2 **刻意不打印** sweep 的 sha256 ——
+两件互相指认哈希的工件无法都"最后写"。故绑定只从 sweep 指向 rev 2，sweep 自身身份写在 sweep 内。
+
+### 260.4 无影响的边界
+
+本轮无任何 verdict、计数或二进制身份依赖 rev 1 的字节；丢失限于这一份索引的编辑史审计链。
+P2 仍为有界接受（SCOPED APPROVE），P3 仍在门禁处停止，结论不变。
+
+## 追加 261 — 追加 260 的更正：丢失的是**三代**，不是一代
+
+追加 260 §260.2 只登记了 deliverables 索引 rev 1（`3e2b68f7…`/10,041 B）的丢失。
+**该登记不完整**：我在写 追加 260 期间又对该索引就地改写了两次、同样未先快照，故共丢失三代：
+
+| 世代 | SHA-256 | bytes | 状态 |
+|---|---|---:|---|
+| rev 1 | `3e2b68f77b041e8ae91834d46f4cf0705e0b9a4005b6c16e08d58ed3e7d0a23f` | 10,041 | LOST |
+| rev 2 | `dba9e7e1d70c6a57b191a99593f3c2a26742cd7851ca0071f37cbe1dbf9c6b60` | 13,359 | LOST |
+| rev 3-pre | `af77bdbe24c7910ba30a778ca2539537af3427263e5d11475f1fe116ba4da39c` | 14,617 | LOST |
+| rev 3 | `2cb626f06128223ea8244c223b49237d2b5688c8c3df466ef653c86655cf1879` | 15,206 | 已 `cp -p` 快照 |
+| rev 4（现行） | `cb8a1060e0d60f1fbc3e03906b2e0595bd4087ebb163c080db228c8a70b58cfa` | 16,216 | 现行 |
+
+检索（使否定有界）：`os.walk` 遍历 `hivm-poc-evidence/`、`hivm-poc-control/`、`/tmp/claude-1071/`，
+按精确大小 10,041 / 13,359 / 14,617 分别取候选（各 0 个）再逐个 sha256 比对 —— **均未找到**。
+范围限三根 + 精确大小；换行改写或根外副本不在此法覆盖内。诚实表述仍为"该检索未找到"。
+
+**rev 3 起已改为先 `cp -p` 快照再改写**（`P2-FINAL-GATE-DELIVERABLES.rev3.snapshot.txt`，
+sha256 与 rev 3 相同）。丢失的完整清单另记于 `EV/resume-04/lead/LOST-GENERATION-deliverables-index-rev1.txt`
+（`88d5cf6278f772f18ffb6e379f7bbe202a661393e27e76baac209fd43091dd83`/4,893 B，含 addendum）。
+
+结论不变：无任何 verdict、计数或二进制身份依赖这些字节。身份复核清单
+`IDENTITY-SWEEP-FINAL-gen3.txt`（`14aef64b0d0e33a8b26e906cc1290cdc1d98e41a793967b17ea88b462258813f`/5,649 B）
+**17/17 复现**，并以 sha256 绑定 deliverables rev 4。
+
+## 追加 262 — 停止"哈希跑步机"：活工件不由记录钉哈希，改由工件自带
+
+追加 260 与 追加 261 各引用了一次身份复核清单的 sha256（`cd51ae1a…`、`14aef64b…`）。两者**都已过时**：
+清单是活工件，每次更正收尾工件后都要重生成，故"记录里钉它的哈希"必然在下一笔写作时失效。
+本条不再引入新的钉法，而是**取消这一钉法**。
+
+**最终状态（以本条为准）**：
+
+- `IDENTITY-SWEEP-FINAL-gen3.txt` 为现行清单，**17/17 复现**，其自身 sha256 与 byte size 写在**文件内部**
+  （`EV/resume-04/lead/IDENTITY-SWEEP-FINAL-gen3.txt`）。记录**不再转录**该值，避免再次过时。
+- 该清单以 sha256 **单向**绑定 deliverables 索引的现行内容（`c9db8164…`/16,704 B）；索引刻意不打印清单的哈希。
+- 索引另有两份可复算的 copy-aside 快照：`.rev3.snapshot.txt`（`2cb626f0…`/15,206 B）、
+  `.rev4.snapshot.txt`（`cb8a1060…`/16,216 B）。
+
+**为什么取消钉法**：两次过时不是笔误，而是**结构性的**——清单的生成必然晚于它所绑定的工件，
+而记录又晚于清单；三者构成一条链，链上任何一环写"下一环的哈希"都会在下一次写作时失效。
+唯一自洽的方向是**单向**：清单 → 索引（清单最后写），记录 → 不钉清单（只指向路径）。
+这与 `an-oracle-in-an-amendable-file-needs-an-external-anchor` 不冲突：那里需要外部锚的是**冻结的**判定值，
+这里是**每轮都会重生成的**复核清单；对后者，正确形状是让工件自带身份，而不是让记录替它记账。
+
+**索引内自指编号也已取消**：索引此前写过"rev 2 为现行"，随后改写为"rev 3 为现行"，每次下一笔即过时。
+现行版本不再在文件里声明自己的版本号（只声明"本内容为现行"），可核的是清单引用的那个 sha256。
+
+**追加 260/261 的字节不改**（只追加）。其引用的两个清单哈希自此限定为历史值。
+结论不变：P2 有界接受（SCOPED APPROVE），P3 停在门禁；无 verdict/计数/二进制身份依赖上述任何字节。
+
+## 追加 263 — 复核清单改为"锚文件"承载身份；清单文件名保留、内容不冻结
+
+追加 262 说"清单自身身份写在文件内部"——**这句话做不到**：文件无法包含自己的 sha256。
+本条给出可行形状，并登记清单自身的丢失史。
+
+**现行绑定链（单向，无环）**：
+
+```
+IDENTITY-SWEEP-FINAL-gen3.sha256.txt  （锚：只写清单的 sha256 + bytes + 复算命令）
+        ↓ 指向
+IDENTITY-SWEEP-FINAL-gen3.txt         （清单：22/22 复现；内容每次重生成，**不含**自身哈希）
+        ↓ 指向
+P2-FINAL-GATE-DELIVERABLES.txt        （收尾索引：被清单以 sha256 绑定；不打印清单哈希）
+```
+
+- 锚文件 `8f123205303d275e59ac7b6a561d677715f604a29bc2b80763aa7c643c09c715`（1,363 B）与被锚的清单
+  **同一步生成**，复算协议写在锚内；两者不一致即说明清单被改而锚未重生成，**两者同时失效**。
+- 清单文件名仍含 `gen3`，因为记录已有三处按该路径引用；**文件名是路径，不是版本**——清单内容每次就地重生成。
+  该矛盾已在清单内显式说明。
+
+**清单自身的丢失史（如实登记）**：本清单先后以同一路径就地重写过多次，早期世代**未先快照、已丢失**，
+其中两代（`cd51ae1a…`、`14aef64b…`）曾被我写进 追加 260/261 后才被取代。
+**这里只登记"发生过若干次"，不列其哈希**——没有主体的哈希正是本轮已经登记过太多次的错误。
+自下一次重生成起，清单也改为先 `cp -p` 快照再改写。
+
+**清单内的一个矛盾已消解**：其文件名与"内容不冻结"的语义冲突，现由文件内一段说明承担，而非改名。
+
+## 追加 264 — D131 的一句话是错的：文件不能包含自己的哈希；改由锚文件承载
+
+追加 262 §(b) 与 D131 都写了"清单自身身份写在清单文件内部"。**这是做不到的**——文件无法包含自己的 sha256。
+本条更正之，并给出可行形状（D132），同时把清单与锚的生成收进一个**原子脚本**。
+
+### 264.1 可行形状：锚文件 + 原子脚本
+
+- **锚**：`EV/resume-04/lead/IDENTITY-SWEEP-FINAL-gen3.sha256.txt`，只写**清单**的 sha256 + bytes + 复算命令。
+- **清单**：`…/IDENTITY-SWEEP-FINAL-gen3.txt`，**不含**自身哈希；以 sha256 引用 deliverables 索引。
+- **原子脚本**：`…/regenerate-identity-sweep.py` 一步生成清单与锚，且**在全部行复现之前拒绝写出任何东西**
+  （实测：故意用旧 claim 运行一次，rc=1、`REFUSING TO WRITE: 19/21`，**未产生半截清单**）。
+- 脚本还会在覆盖前把上一代清单与锚 `cp -p` 旁置，命名带旧 sha 前缀
+  （`…superseded-33221bbf.txt` / `…superseded-81cca9fc.txt`），使被取代的字节**仍可复算**——
+  这正是本轮早先几代丢失的那个属性。
+
+### 264.2 为什么这不是又一次"钉哈希"
+
+锚不是"记录里的转录"，而是**与被锚对象同一步生成的伴随文件**；且**记录只按路径指向锚，不引用其值**。
+脚本可重复运行（实测连跑两次，清单与锚哈希不变，23/23 行）。故不存在"下一次写作即失效"的环。
+
+### 264.3 有意不纳入清单的两份文件
+
+`docs/status.md` 与 `docs/decisions.md` **刻意不是清单的行**：它们是每阶段追加的活记录，
+钉其当前哈希会在下一阶段记录时立刻失效（正是 D131 要终止的那台跑步机）。
+它们的完整性由**另一种、更弱的**方式主张：每次追加都对"追加前字节数"做前缀哈希复核。
+读者若要本轮的裁决，请读这两份；若要确认清单所列工件仍是记录所测的那些，请复跑该脚本。
+
+### 264.4 更正的性质
+
+这是一次**记录性更正**（不改任何 verdict、计数或二进制身份）：D131 的裁定（取消记录钉清单哈希、绑定单向）
+仍然成立且被本条加强；被更正的是其中"写在文件内部"这一句**不可实现的表述**。
+
+## 追加 265 — 清单生成器自身的三处缺陷（均已测量并修复，非改名）
+
+把清单身份收进一个脚本（追加 264 / D132）之后，脚本本身暴露了三个缺陷。三者都是**先测量到、再修**。
+
+### 265.1 旁置命名把后缀追加到整个文件名
+
+首版 `superseded_name()` 把 `.superseded-<sha8>.txt` 接到**完整文件名**尾部，产出
+`IDENTITY-SWEEP-FINAL-gen3.sha256.txt.superseded-XXXX.txt`——读起来像"txt 的 txt"，也不与同类文件排在一起。
+改为在**最后一个扩展名前**插入，并统一为 `<kind>.superseded-<old-sha8>.txt`，收进 `superseded-sweep-generations/`。
+
+### 265.2 幂等重跑会把自己的活文件旁置成"双胞胎"
+
+脚本每次运行都会旁置上一代；当本次写出的字节与现盘字节**完全相同**（幂等重跑）时，
+它把活文件按**自己的** sha 旁置了一份，制造出一个逐字节相同的"双胞胎"——看上去像一代，其实不是。
+已加"字节相同则不旁置"的判据（实测：连续三次运行，文件集与全部哈希不再变化）。
+
+### 265.3 普查文件被当成世代旁置，形成自指回环
+
+我为 `superseded-sweep-generations/` 写了一份普查（census），又让脚本对它也做旁置——
+于是**普查的副本落进了普查自己所枚举的目录**。后果是**幂等性直接失效**（重跑既改了普查、又多出文件），
+且这些副本因文件名不以 `IDENTITY-SWEEP…` 开头而被**误分类为 `sweep` 世代**。
+修复有两处，都是结构性的而非命名性的：
+- 普查是**派生**文件（每一字节都可由它所枚举的目录重算），故**不做旁置**；枚举某目录的工件不得被旁置进该目录。
+- `superseded_name()` 对无法归类的输入**直接抛错**，不再默认成 `sweep`——默认值正是误分类的来源。
+
+### 265.4 普查改为与清单同一步生成
+
+普查若由另一次独立运行生成，它就会是"第二件可能过时的东西"（实测已发生一次：它写着 9 代而目录里是 11 个）。
+现由 `regenerate-identity-sweep.py` **在同一步**写出，故其计数不可能与目录脱节。
+
+**结论不变**：以上均为记录性/工具性缺陷，不涉及任何 verdict、计数或二进制身份。
+
+## 追加 266 — 未快照的就地改写：一次**逐字节恢复**，以及它收紧的"丢失"判据（D134）
+
+**事件**：收尾索引 `P2-FINAL-GATE-DELIVERABLES.txt` 在本轮**又被就地改写一次**，**改写前未做 `cp -p` 快照**。
+改写内容是把索引里仍残留的、已被 D132 更正的表述（"清单身份写在清单内部"）撤回，并修正两处已过期的行数
+（它仍写着 16/16 与 current-state gen 5）。也就是说，追加 260/261 记录的**同一个缺陷，在同一份文件上重演了一次**。
+这一点如实登记，不淡化。
+
+**结果：这一代字节已恢复，且是逐字节的。** 改写 #1 的三处替换在记录（追加 260-265 与索引的修订史块）中**逐字保留**。
+把同样的替换重新施加于改写前的快照 `P2-FINAL-GATE-DELIVERABLES.rev10.snapshot.txt`（`6db60dae…`/20,030 B），
+得到 `1b16d7d161496d07f82a318f7205928e816cbe11ab6d94a72e8e0c7e4b8af33a` / 20,584 B —— 与改写 #1 之后当场
+实测的值 **sha256 与 byte size 均相同**。该世代已存为
+`EV/resume-04/lead/P2-FINAL-GATE-DELIVERABLES.rev11-recovered.snapshot.txt`。
+
+**判据收紧（本条的主要产出）**：可恢复性**不取决于是否快照**，而取决于**改写是否被逐字记录**。
+
+| 世代 | 改写前快照 | 替换内容被逐字记录 | 结果 |
+|---|---|---|---|
+| rev 1 / 2 / 3-pre | 无 | **否** | **丢失**（不可重建） |
+| rev 11（本条） | 无 | **是** | **已恢复**（逐字节相符） |
+
+故追加 260 §(a) 的表述应收紧为：真正丢失的是**既未快照、改写内容又未被逐字记录**的世代；
+"未快照"**本身**不足以断定丢失。这条收紧**不改变** rev 1/2/3-pre 仍然丢失的结论——那三代的替换内容确实没有被记下，
+本次恢复也不主张它们可重建。
+
+**性质**：记录性更正，不改任何 verdict、计数或二进制身份。索引现为 `7300cf22…`/22,537 B（gen 7 绑定，
+`a8538bec…`/22,158 B）。此后对该索引的每次就地改写都**先 `cp -p` 快照**（rev12 已留）。
+
+## 追加 267 — 复核清单的"行数"曾把一次测量算成两次（D135）
+
+**事实**：复核清单枚举 deliverables 索引的快照时，把 `rev7` 与 `rev8` 两个文件**各列一行**。
+实测两者**逐字节相同**（`f2b6df060bb6b1b225dae96b7efd1057d14fd777d7d933de9acc7130bbb82e41` / 18,501 B）：
+那是两次 `cp -p` 之间**没有发生任何编辑**，属于**同一世代的两次快照**，不是两个世代。
+清单当时按行报 `28/28`，即**把一次测量计成了两次**。这与 D083/D084（"一行不等于一次独立测量"）同类，
+本轮第二次犯（第一次是 suite 的 32 行 = 29 次测量）。
+
+**修复（结构性，非改数）**：
+1. 移除重复行；`rev7` 的行名改为显式标注"rev8 是其逐字节孪生，不作为一行"。
+2. 生成器加入**孪生守卫**：被枚举的两行若哈希相同，**拒绝写出任何东西**。
+   实测其可触发：故意插入一条重复行 → rc=1、
+   `REFUSING TO WRITE: 1 enumerated identities are byte-identical twins`，并打印冲突的两行。
+   （"能触发的守卫才是守卫"——不可触发的守卫读起来像覆盖。）
+3. 清单自报数改为**行数 + 不同哈希数**，且两者**同属一个全集**。第一版只把索引行算进行数、
+   没算进不同哈希数，于是打印 `31/31 … 30 DISTINCT`，读起来像"仍有一对孪生"——那只是两个数覆盖范围不同。
+   现为 `31/31 identities reproduce (0 FAIL); 31 DISTINCT hashes among them`。
+
+**性质**：记录性更正。不改任何 verdict、二进制身份；清单/锚/普查随之重生成
+（清单 `0357b2aa…`/9,019 B、锚 `3869f357…`/1,648 B、普查 `eabe5047…`/5,248 B，索引 `4333383c…`/23,318 B）。
+
+## 追加 268 — 撤回 追加 267 里转录的清单哈希（我违反了 D131/D132）
+
+**事实**：追加 267 结尾把复核清单的 sha256 逐字写进了本记录。**这正是 D131 要终止、D132 已更正的那个做法**：
+清单是每轮重生成的活工件，其哈希写进记录后**在下一次重生成时立刻过时**——本轮已因此被咬过四次以上。
+我刚刚又犯了一次，且是在同一份记录里写下"这正是缺陷所在"之后。
+
+**撤回**：追加 267 末句所转录的那个清单哈希**作废，不得引用**。`status.md` 是追加式文件，该字节不予修改；
+本追加即为对该值的撤回。需要现行清单身份时，读**锚文件**
+`EV/resume-04/lead/IDENTITY-SWEEP-FINAL-gen3.sha256.txt`，或直接复跑
+`EV/resume-04/lead/regenerate-identity-sweep.py`——**不要从记录里引用任何清单哈希**。
+
+（同句里转录的索引、锚、普查三个哈希**不作废**：索引与锚由生成器按路径互相指向而非按值绑定，
+普查是派生文件；但按同一条纪律，**记录里也不应转录它们的值**。本追加不再重复任何清单/锚/普查哈希。）
+
+**性质**：记录性更正，不改任何 verdict 或二进制身份。教训与 D131 相同，只是这次的犯错者是我：
+"我知道这条规则"与"我遵守了这条规则"是两回事，而记录里出现一个活工件的哈希就是没遵守。
+
+## 追加 269 — 更正 追加 268 的一句：它说"锚与普查的哈希不作废"，这是错的
+
+追加 268 写"（同句里转录的索引、锚、普查三个哈希**不作废**）"。**该判断有误**，逐项更正：
+
+- **清单哈希**：作废（268 已撤回，理由成立）。
+- **锚哈希**：**同样作废**。锚与清单由生成器**同一步**产出，清单重生成时锚必然一起重生成，
+  故 267 转录的锚哈希与清单哈希**同生共死**，不存在"清单作废而锚不作废"。这是 268 那句的错误所在。
+- **普查哈希**：**同样作废**。普查也由同一步产出（且其内容随被旁置的世代数变化）。
+- **索引哈希**：该值当时与现在恰好相同，但这不是"不作废"的理由，而是**巧合**——
+  索引在这两次重生成之间确实没有再被编辑。按纪律，它**同样不应被转录**。
+
+**正确的表述只有一句**：追加 267 末句转录的**全部四个哈希**（清单、锚、普查、索引）都不应出现在记录里，
+其中三个已过时、第四个只是因为期间没再改动而侥幸仍然相符。**记录不转录活工件的哈希**，这是 D131 的规则，
+本追加不再重复其中任何一个值。
+
+**这是本条最重要的观察**：268 试图做一次"精确的部分撤回"，结果把撤回的边界划错了——
+因为**同一步产出的工件，其身份是同生共死的**，不能只撤回其中一个。
+部分撤回比不撤回更危险：它读起来像已经查清，实际留下三个过时值被读者当成仍然有效。
+
+## 追加 270 — 复核清单的表头声明了它自己做不到的事（D137）
+
+**事实**：清单表头从第一版起就写着"**绝对路径已打印**，故可按原文复跑该检查"。实测：**行内只有标签、
+sha256 与字节数，没有路径**（本次修复前 37 行全部如此）。即该表头是一句**永远为假的字面量**——
+"检查里的字面量是检查的一部分"，而这条字面量从未被行使过，读起来却像覆盖。
+
+**修复**：每行末尾追加该行的**绝对路径**；并按**读者视角**独立复跑（解析文件本身、逐行重算、
+不借助生成器内部）：`37/37` 复现、`37` 个不同哈希、无孪生、索引行在内。
+
+**顺带记下我自己的同类错误**：第一版读者视角复核脚本的正则把**两行静默丢弃**，报 33 行而非 35 行
+（当时的行格式）。我把"未解析的行"当作不存在——这正是"枚举胜过计数"的反面。
+修正后的脚本**先打印所有未解析行**再统计，才看到真实行数。**任何解析式复核都必须报告未匹配项，而不是忽略它们。**
