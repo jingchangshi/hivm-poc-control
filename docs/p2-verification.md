@@ -1,8 +1,8 @@
 # P2 independent verification record
 
-**Status: test freeze FROZEN at v2 (§0.1b); every acceptance row NOT_RUN except C6.** P2 production
-code is **0 lines**. The v1 freeze (§0.1) is retained byte-unchanged as the historical record, and the
-amendment that produced v2 is a named, recorded change (§0.1a) rather than a silent edit.
+**Status (Lead, rewritten 2026-10-14 — this line is line-count-neutral on purpose, because the sealed sidecar cites `docs/p2-verification.md:129`, so no line above §A may move): this file is no longer freeze-time only — the P2-A acceptance run (§0.6, ruled NOT ACCEPTED by D034), its repair-1 re-verification (§0.9, ACCEPT, the design contingency that row attached having since been closed by D035) and the P2-B gate (§0.10, ACCEPTANCE BLOCKED) have each executed, and P2 production code is no longer 0 lines.**
+The sentence that stood here — *"test freeze FROZEN at v2 (§0.1b); every acceptance row NOT_RUN except C6; P2 production code is 0 lines"* — was the state **at the v2 freeze** and is retained as that record in §0.1/§0.1b; the v1 freeze (§0.1) is still held byte-unchanged as the historical record, the amendment that produced v2 is the named, recorded change §0.1a, and v2 was itself then superseded by a named, recorded **re-seal** (§0.1d, items 8–9) plus two unsealed errata (§0.1e) — so §0.1b's own wording is not the current seal either.
+**P2-C and P2-D are NOT closed in this file yet**: their gate rows are added only once the P2-C Freeze revision is sealed and the P2-D regression/negative run (goal §8 step 7) has executed against it — until then every row without an executed run in §0.6/§0.9/§0.10 is NOT_RUN and **no PASS may be inferred from it**. **Order of authority: §0.10 > §0.9 > §0.6**; the §A–§E `status` columns are the freeze-time record of what was defined before any P2 code existed, never current verdicts.
 This file records the **independence** of the verification, the frozen test inventory with its expected
 outcomes, and the acceptance matrix. It is written by the **Lead**; the tests themselves are owned and
 executed by the **Verifier**, whose expectations must be defined independently of the implementation and
@@ -223,3 +223,51 @@ reported here as required, before the P2 architecture review is concluded.
   15, `claude-opus-5-5` 5, `mimo-v2.6-flash-free` 2) that does not match that session's own
   configuration, so it cannot be used to attribute a model to a specific agent. Its own team record
   states `"served_models": "NOT_VERIFIED"`.
+
+
+---
+
+## §0.11 — acceptance-procedure note: how to check the P2-C bundle (appended at the END on purpose)
+
+*Written 2026-10-14 by the Lead. This section is **appended at the end of the file deliberately**: the
+sealed freeze sidecar cites `docs/p2-verification.md:129`, so nothing above §A may move. Appending
+after line 225 shifts no cited line and no row name.*
+
+**When verifying `impl/stage-p2c-r1/`, the only admissible manifest check is, from its own base
+directory:**
+
+```
+cd /home/s00653124/workspace/hivm-poc-evidence/p2-20261013-late-pipeline/impl/stage-p2c-r1
+sha256sum -c SHA256SUMS.txt          # -> 4/4 OK, rc=0
+```
+
+**Do not glob.** `sha256sum -c SHA256SUMS*.txt` also feeds in `SHA256SUMS.README.txt`, which carries no
+checksum lines, and it puts `SHA256SUMS.pre-rebuild.txt` first — producing a leading `FAILED` line plus
+a `no properly formatted SHA256 checksum lines found` warning, rc=1.
+
+`SHA256SUMS.pre-rebuild.txt` (377 B) is a **pre-rebuild identity snapshot of the same path**: it records
+`bin/bishengir-compile` = `2e3955ee9d39c55b388255c7217d8bb81f642b3b37ca724b3ced8026ab5fe641`, while
+`SHA256SUMS.txt` records the rebuilt `812c5cb1d29cb3b8879593ea77d08ebdae274cc943d41523c7c4bab739cbf455`.
+The other three rows are byte-identical between the two files. **Running `-c` against it yields exactly
+`1 FAILED + 3 OK`, rc=1, and that is design, not corruption.** It is retained as the provenance record
+that this path was rebuilt (record-not-repair).
+
+**Why this note is not written into the bundle.** `impl/stage-p2c-r1/SHA256SUMS.README.txt` is registered
+by the freeze as an **EXTERNAL ANCHOR** (sha256 `9c2e111f9a9d4b8a0a28748252549582346fc575484efb6100abd477c6c4f27f`,
+6407 B; `P2C-TEST-FREEZE.r8.txt:3141` — and, not from a revision alone, in the **oracle body itself** at `P2C-TEST-FREEZE.txt:1221`, with the anchor list hardcoded at `measure_anchors_and_identity.py:29` and the mtime-pinned read-back at `ANCHOR-AND-IDENTITY-MEASUREMENTS.txt:13`), and the freeze states in terms — *"Mismatch is FAIL; 'it is only
+prose, it may be amended' is not an acceptable excuse"* (`:3121-3123`) — and carries the Lead's own
+**failosure rule**: *"no further writes inside `impl/stage-p2c-r1/` for the rest of P2-C, so the anchors
+may be taken immediately and stay valid"* (`:3180-3182`). All four anchors were re-measured from disk by
+the Lead at 2026-10-14T14:27Z and **all MATCH**; bundle root is exactly 6 entries. Amending the README
+would convert four currently-matching anchors into MISMATCH across the oracle body and revisions r2–r9
+— a **seal failure paid for a documentation gap**, which is the wrong trade. The note therefore lives
+here, in `docs/status.md` 追加 198, and in the step-8 review brief given to the Challenger.
+
+**Provenance of this note (a Lead defect, recorded not smoothed over).** The Lead first routed the fix
+to the implementor as *"the README self-describes as amendable, so document it there"*. That premise is
+the exact shape the freeze section exists to block, and the Lead had already recorded the underlying
+lesson (the R3/D093 rule that an amendable prose file needs an external anchor). The implementor
+**stopped and refused**, citing the three frozen locators above. Independently re-verified by the Lead,
+then ruled **A: the failosure rule stands unmodified, nothing is written into the bundle.** Same family
+as §0.1f and §0.9a — arguing from one artifact as though it settled a question a *different* artifact
+settles.

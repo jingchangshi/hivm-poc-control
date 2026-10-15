@@ -1254,6 +1254,136 @@ digests may be edited to accommodate that.
 is cheap insurance and because P2-C must record the bitcode identity the new kernel actually links
 against.
 
+### 3.4 P2-C as built — the stage cut, the gate and the instrumentation
+
+§3.3 is the design. This subsection records what was built, at HEAD `4495ab29b`, so that the design
+above and the code are checkable against each other. It is the cut, not the status: the phase entry,
+evidence placement and rulings live in `docs/status.md`.
+
+**The cut is five files, in two commits, and the split is deliberate.** `347221f55` (P2-B) is the
+four-file source cut behind the artifact of record; P2-C adds the fifth file and two commits:
+
+| commit | files | what it is |
+|---|---|---|
+| `5d4aabdea` | `PassPipeline.h` +8/−0, `regbase/BiShengIRCompileMain.cpp` +213/−0, `regbase/LatePipeline.cpp` +17/−13 (238 ins / 13 del) | the functional increment: the entry, the gate, the attach, the single lowering, and the call site |
+| `4495ab29b` | `regbase/BiShengIRCompileMain.cpp` +80 / −0 (80 ins, 0 del) | the `[P2-C-GATE]` observability lines, **pure additive** |
+
+The split is what lets the functional change be reviewed without the probes, and lets "the
+instrumentation adds nothing but logging" be checkable as a property of the diff (0 deletions) rather
+than as a claim. The other two of P2-B's four files (`regbase/Utility.cpp`'s boundary logs, and
+`hivmc/A5/HIVMCMainA5.cpp`) are **not** touched by P2-C.
+
+`PassPipeline.h` is the phase's only new interface: `runLateBitcodeAndA5(mlir::ModuleOp,
+BiShengIRCompileMainConfig)` (`bishengir/include/bishengir/Tools/bishengir-compile/regbase/PassPipeline.h:57`),
+declared directly below `runRegBasePipeline` (`:49-50`) and carrying its own contract comment — the two
+entry points are siblings, and the Late one is documented as returning failure *without* attaching,
+lowering or emitting.
+
+**Where the entry sits in the stage cut, and the no-duplicated-lowering rule.** Steps 4 and 5 run
+**inside the `bishengir-compile` process**, as the Late tail's last statement
+(`regbase/LatePipeline.cpp:581-586`): if the entry fails, the route prints one line and returns
+`EXIT_FAILURE`; there is no fallback branch and nothing after it. The tail above has already run, so
+the module reaching the entry is the fully legalized one. The lowering is **the ordinary route's own
+`runHIVMCCompileA5`**, reached through the ordinary `HIVMCFromBiShengIRConfig(config)` — the same
+function the ordinary path calls at `regbase/BiShengIRCompileMain.cpp:757` — and it is called **exactly
+once**, with no retry loop (the ordinary route's loop lives in `runRegBasePipeline`). So
+`bishengir-compile` does not duplicate the A5 stage; it resolves the template, attaches attributes,
+reads back, and calls the single A5 entry. It also **does not rebuild the template**: the entry reads
+and verifies, and no P2-C step writes under `build/lib`.
+
+**The attach is the ordinary route's own function, called unchanged.** `addBitcodeAttrsToModule`
+(`:83`, invoked at `:566`) is reused rather than copied, so the attribute names, the c310/c220 split
+and the level rule cannot drift between the two routes. Two consequences of that choice are load-
+bearing:
+
+- **The filename is derived twice, on purpose.** The gate spells `"meta_op.aiv.c310." + level + ".bc"`
+  itself (`:476`) instead of sharing the attach's `bitcodeFileName` lambda (`:110-112`). The
+  duplication is what makes the read-back below an *assertion*: if the two derivations disagree, the
+  module carries a path the gate never verified, and that is caught rather than assumed away.
+  *(Locator note, measured: the entry's own comment at `:467` cites `:105-107` for that rule, but the
+  rule's code is the lambda at `:110-112` — the cited neighbourhood is the prose comment above it. It
+  is recorded, not repaired: the same record-not-repair treatment the `LatePipeline.cpp:141` comment
+  defect gets, because changing a comment costs a new commit, a new build and a new staged bundle.)*
+- **The gate's path and the gate's subject are the same path or nothing.** `getLibDirFromExecutable`
+  (`:65`) canonicalizes the executable (`make_absolute` then `real_path`, so symlinks resolve) and
+  appends `../lib`; the entry hashes `<lib-dir>/meta_op.aiv.c310.<level>.bc` and requires that
+  `real_path` of it equals that same string. A symlinked candidate, or a `lib/` replaced after the
+  build, therefore fails on **location** even when the bytes are right — and the observed digest is
+  computed *before* the location test (`:515-519`) so that the log distinguishes "wrong file" from
+  "wrong content" instead of reporting both as a hash mismatch.
+
+**The level rule is a property of the argv, and the measured outcome is that O0 is unreachable.**
+The value comes from `resolveTemplateBitcodeOptLevel` alone (one source of truth, called by the gate
+and again inside the attach); `describeTemplateOptLevelChoice` (`:410`) only *reports* which of its
+three branches was taken, because the middle branch reads the environment (detected CANN version) and
+an unlogged environment input would leave the O0/O2 rows unfalsifiable. Measured against the staged
+bundle, three invocations, one variable:
+
+| invocation | rc | selected | artifact |
+|---|---|---|---|
+| default (no flag) | 0 | `level=O2 level-reason=flag --enable-optimized-metaop (occurrences=1)` | `kernel.o` 4448 B |
+| `--enable-optimized-metaop=false` | 1 | — the invocation is **rejected by name** before any gate line | **absent** |
+| `--enable-optimized-metaop=true` | 0 | `level=O2 level-reason=flag … (occurrences=1)` | `kernel.o` 4448 B |
+
+The default row is the injected canonical bare spelling of the argv pin (§2.3.1), not an absent flag:
+because the pin injects it, the first branch is always the one taken. **The O0 branch is therefore
+unreachable on this route by construction, and the O0 identity constant is totality of the level→
+identity map, not exercised coverage.** The row for it is **NOT_RUN**, not PASS, and the
+`level-reason` field is precisely what keeps that visible instead of assumed.
+
+**The gate fails closed, in a fixed order, with four values.** The chain is
+`lib-dir-unresolved` → `template-absent` → `template-does-not-resolve` →
+`template-resolved-outside-expected-path` → `template-unreadable` → `sha256-mismatch`
+(`:499-528`). On any of them the entry prints `[ERROR] … refusing to attach the template bitcode,
+refusing to run the A5 lowering and refusing to emit an artifact` (`:542-559`) followed by the
+**resolved** absolute path, the **expected** path, the observed SHA-256 and the expected SHA-256, and
+returns failure — so a rejection is diagnosable from that log alone, and no attribute, lowering or
+artifact can follow it. Existence and identity are separate checks in separate branches: a stale but
+real template under `lib/` must be rejected as a *mismatch*, not as an absence.
+
+**The constant is an identity with disclosed circularity, not a correctness proof.** What the gate
+detects is a change to the template between the build of *this* compiler binary and the resolution it
+makes at run time — a substitution / post-build-drift detector. It cannot establish that the bytes are
+the right ones, because the expected value is the hash of what this build ships with. Correctness
+rests elsewhere: the two-row identity manifest, the swap-the-template differential, and the ABI rows.
+Two consequences worth stating in the code's own voice: the pin's bytes must never be "verified" by
+**rebuilding** it (D091 — the pin has no rebuild path; a rebuild replaces what it was meant to check),
+and the recorded identity must be read back out of the artifact rather than re-typed (D092).
+
+**The read-back after the attach is the assertion, and the four C310 slots are reported as status.**
+After `addBitcodeAttrsToModule`, the path the module now carries for `hivm.aiv_bitcode` is read out of
+the module (`bitcodeAttrPath`, `:430`; the same reader `hivmc/Utility.cpp:538-554` uses, so the entry
+reads what the lowering will read) and must equal the verified path, else
+`reason=attach-subject-mismatch` and failure (`:571-587`). Then the four Ascend950 C310 attach slots
+are logged (`:599-613`): the **AIV** slot is the gate's subject and is already required; the other
+three (`aic`, `mix.aic`, `mix.aiv`) may legitimately be absent for a kernel that does not need them,
+and `present=no` there means "no such file under `../lib`" — i.e. what a partial bundle looks like —
+not a gate failure.
+
+**The instrumentation has a family prefix, and one collision that is a consumer-side defect.** All
+lines are on stderr, each with a stable `[P2-C-GATE] ` prefix: `template-select` (the level and the
+branch that chose it), `template-resolve` (candidate / resolved / exists / observed / expected /
+verdict), `template-sibling` (the level that was **not** selected, resolved only to be *reported* —
+nothing reads that path, so a `lib/` holding only the wrong level cannot silently serve it),
+the four `attach` lines, `a5-compile entry=runHIVMCCompileA5 route=late`, and `a5-result rc=…`.
+
+- **The a5-once claim is a line count.** The marker is emitted immediately before the single call site
+  and the result line deliberately does not begin with that token, so "lines beginning with the family
+  prefix and carrying the a5-compile marker == 1" is the assertion.
+- **Measured collision.** The P2-B boundary family's own line already contains the substring
+  `a5-compile entry=runHIVMCCompileA5`, so a consumer that keys on **that bare string** counts 2 on a
+  correct single-lowering compile and reports a false failure. The two markers are distinct tokens (the
+  `[P2-BOUNDARY]` one is a family prefix in its own right), so the fix belongs on the **consumer** side
+  — key on the family prefix, or assert the 1 + 1 decomposition — and **not** in a production
+  re-spelling: editing the emitted text means a new commit, a new build and a new staged bundle, which
+  would invalidate the artifact of record for a wording change. This is a design statement about marker
+  naming: a marker's *payload* is not an identity, only its family prefix plus field set is.
+- **Consumer boundary (D075).** Today the `[P2-C-GATE]` family is read by the producer-side harness
+  (the smoke and level-selection scripts), **not** by the frozen verifier suite — a `P2-C-GATE` search
+  over `verify/` returns nothing, while `P2-BOUNDARY` is what the frozen consumer parses. So this
+  family is producer observability, and must not be read as oracle coverage; if a future claim needs an
+  independent consumer for it, that consumer is the Verifier's to write against the frozen text.
+
 ## 4. Explicit non-goals
 
 - No new target kind; no new runtime; no new generic optimizer; no multibuffer support.
@@ -1305,3 +1435,78 @@ inherit that semantic.
   does, with the same manual A5 defaults (`autoVectorizeV2(false)`, `deterministicComputing(true)`,
   `useDPX(true)`, `onlyRunHIVMPipeline(false)`), because diverging from them would be an unreviewed
   architecture change.
+
+## 5. Append-only errata (record-not-repair)
+
+**Appended 2026-10-14T19:41Z.** Nothing above this heading is rewritten; each item names the bytes it
+corrects and the measurement that corrects them. All three were raised by the step-8 Challenger
+(`review-2`) and independently reproduced by the Lead from the source and the raw logs
+(`lead/r9-review/STEP8-VERDICT-INTERIM.txt` V-6, `STEP8-VERDICT-FINAL.txt`, `docs/decisions.md`
+D103/D104).
+
+**E-1 — "0 deletions" is not a claim about the *kind* of lines added (corrects `:1272`, and the
+`0 del` annotation at `:1269`).** `:1272` says the split lets *"the instrumentation adds nothing but
+logging"* be *"checkable as a property of the diff (0 deletions) rather than as a claim"*. Two
+different propositions are fused. Measured on `4495ab29b` (1 file, `regbase/BiShengIRCompileMain.cpp`,
++80 / −0): of the **80** added lines, **7** carry `[P2-C-GATE]`, **5** are blank, **20** are comments
+— and **48** are none of those. Those 48 are not logging: they include a new function
+`describeTemplateOptLevelChoice()` (which reads the registered `enable-optimized-metaop` option's
+occurrence count and otherwise falls back to CANN-version detection via `detectCannVersion()`), new
+locals (`levelReason`, `siblingLevel`), and a sibling-path derivation. The commit is genuinely purely
+additive, but it adds **observability code**, not only log statements. Corrected claim: the diff is
+**additive** (0 deletions, measured); it is **not** established by that fact that the addition is
+*only* logging.
+
+**E-2 — `:1279-1280` states the Late entry's contract unconditionally, dropping the condition the
+header attaches to it, and contradicting this same document 70 lines later (corrects `:1279-1280`).**
+The sentence reads: *"the two entry points are siblings, and the Late one is documented as returning
+failure **without** attaching, lowering or emitting."* The header it paraphrases is conditional —
+`PassPipeline.h:52-56`: *"Returns failure WITHOUT attaching, lowering or emitting an artifact **when
+the identity gate does not pass**."* The dropped clause matters, because a **second failure path
+exists after the attach**: `regbase/BiShengIRCompileMain.cpp:566` calls
+`addBitcodeAttrsToModule(module, exePath, config)`, and `:573-587` then reads the path the module now
+carries back out and fails with `reason=attach-subject-mismatch` if it is not the path the gate
+verified. So there is a mode in which the entry **has attached** and still returns failure. This
+document says so itself at `:1353-1357`; `:1279-1280` should carry the same qualifier. (The header
+comment is faithful to the pre-attach gate; the paraphrase is what generalises it.)
+
+**E-3 — "a `P2-C-GATE` search over `verify/` returns nothing" is STALE (corrects `:1381-1385`).**
+`:1382-1383` reads: *"**not** by the frozen verifier suite — a `P2-C-GATE` search over `verify/`
+returns nothing, while `P2-BOUNDARY` is what the frozen consumer parses."* Measured:
+`verify/logs/step7-20261014T1746Z/cx_c_measure.py:162` reads
+`l.startswith("[P2-C-GATE] a5-compile entry=runHIVMCCompileA5")` and `:164` reads
+`l.startswith("[P2-C-GATE] a5-result")` — i.e. a `verify/`-side consumer of exactly this family
+exists. The `P2-C-GATE` token also appears in 20+ `verify/` streams, including the run of record
+`verify/logs/suite-v3/20261014T172238Z-190190/{A1,A10,A13.plain,A15.flag*,B12a,B12b,D1..D4,R1}.stderr`.
+Corrected claim: the family is **not** consumed by the *frozen suite* (the D075 boundary the
+paragraph is arguing about is intact), but the stronger "search over `verify/` returns nothing" is
+false and must not be quoted. The word to keep is **frozen**; the word to drop is **nothing**.
+
+**E-4 — a target spelling that looks non-C310 is in the C310 family (adds to `:1353-1361`'s slot
+discussion).** Recorded here so an ABI argument is not built on the spelling:
+`Ascend910_9589` is a member of `isAscend950`'s device set
+(`bishengir/lib/Dialect/HACC/Utils/Utils.cpp:310-340`), so a test targeting `Ascend910_9589` follows
+the **same** new 4-operand store ABI as `Ascend950PR_9579`. Reading the commit-B test-arity change
+(2 files / +5 / −4 in `bishengir/test/`) as evidence that the non-C310 / old-ABI path is still
+exercised is a **false positive**; that half of §7-C2 remains NOT_RUN. See `docs/decisions.md` D104.
+
+**E-5 — this file is content-identified elsewhere, and these appends change that identity
+(disclosure, not a defect).** `verify/p2c-freeze/P2C-TEST-FREEZE.txt:1373` and eight later freeze
+revisions record this file as `121516 B / fa30f32b…`, under a heading that says the rows exist *"so a
+later reader can tell whether the row mappings above still describe the documents they were read
+from."* Those rows are a **point-in-time census, not a live guard** (no script in `verify/p2c-freeze/`
+re-hashes this file at run time), so these appends break no running check — but every such row now
+describes a **superseded generation** of this file. A reader comparing the freeze's recorded hash to
+the file on disk will see a mismatch; that mismatch is **this errata section and nothing else**. The
+pre-append bytes are preserved at
+`lead/r9-review/pre-errata-snapshot/p2-architecture.md.pre-errata` (`121516 B / fa30f32b…`) and the
+append boundary is provable by prefix hash (`head -c 121516` of the new file = `fa30f32b…`).
+
+**E-6 — this section's own number is wrong and must not be used as a locator (corrects this
+section's heading).** The heading reads `## 5. Append-only errata`, but this document already has a
+`## 5. What P2 must prove` (`:1396`) and a `## 6. Open items this document does NOT settle`
+(`:1412`). A bare `§5` in this file is therefore **ambiguous**, and the duplicate number was
+introduced by this very append. The section is uniquely identified by its **title** —
+`Append-only errata (record-not-repair)` — and a locator must use that title, or the line range, and
+never a bare section number. (No renumbering is applied: the body is not rewritten, and a
+renumbering would itself be an in-place edit of a document whose earlier bytes are already reported.)

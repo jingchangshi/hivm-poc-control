@@ -1,0 +1,5 @@
+// CHECK-LABEL: func.func @absent_ascend310b3
+// CHECK: %[[C0:.*]] = arith.constant 0 : i32
+// CHECK: %[[CAST:.*]] = memref.cast
+// CHECK: %[[CAST1:.*]] = memref.cast
+// CHECK: call @store_ubuf_to_gm_1d_float(%[[CAST]], %[[CAST1]], %[[C0]]) : (memref<{{.*}}>, memref<{{.*}}>, i32) -> ()

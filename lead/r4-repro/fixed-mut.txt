@@ -1,0 +1,48 @@
+/home/s00653124/r4-repro/chk3-fixed.txt:5:11: error: CHECK: expected string not found in input
+// CHECK: call @store_ubuf_to_gm_1d_float(%[[CAST]], %[[CAST1]], %[[C0]]) : (memref<{{.*}}>, memref<{{.*}}>, i32) -> ()
+          ^
+<stdin>:6:23: note: scanning from here
+ %cast_0 = memref.cast %arg1 : memref<64xf32, #hivm.address_space<gm>> to memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>>
+                      ^
+<stdin>:6:23: note: with "CAST" equal to "cast"
+ %cast_0 = memref.cast %arg1 : memref<64xf32, #hivm.address_space<gm>> to memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>>
+                      ^
+<stdin>:6:23: note: with "CAST1" equal to "cast_0"
+ %cast_0 = memref.cast %arg1 : memref<64xf32, #hivm.address_space<gm>> to memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>>
+                      ^
+<stdin>:6:23: note: with "C0" equal to "c0_i32"
+ %cast_0 = memref.cast %arg1 : memref<64xf32, #hivm.address_space<gm>> to memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>>
+                      ^
+<stdin>:7:2: note: possible intended match here
+ call @store_ubuf_to_gm_1d_float(%cast, %cast_0, %c0_i32, %c0_i32) : (memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<ub>>, memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>>, i32, i32) -> ()
+ ^
+
+Input file: <stdin>
+Check file: /home/s00653124/r4-repro/chk3-fixed.txt
+
+-dump-input=help explains the following input dump.
+
+Input was:
+<<<<<<
+           1: module attributes {hacc.target = #hacc.target<"Ascend310B3">} { 
+           2:  func.func private @store_ubuf_to_gm_1d_float(memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<ub>>, memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>>, i32, i32) attributes {hacc.function_kind = #hacc.function_kind<DEVICE>, hacc.noinline, hivm.func_core_type = #hivm.func_core_type<AIV>, llvm.emit_c_interface} 
+           3:  func.func @absent_ascend310b3(%arg0: memref<64xf32, #hivm.address_space<ub>>, %arg1: memref<64xf32, #hivm.address_space<gm>>) { 
+           4:  %c0_i32 = arith.constant 0 : i32 
+           5:  %cast = memref.cast %arg0 : memref<64xf32, #hivm.address_space<ub>> to memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<ub>> 
+           6:  %cast_0 = memref.cast %arg1 : memref<64xf32, #hivm.address_space<gm>> to memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>> 
+check:5'0                           X~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ error: no match found
+check:5'1                                                                                                                                                with "CAST" equal to "cast"
+check:5'2                                                                                                                                                with "CAST1" equal to "cast_0"
+check:5'3                                                                                                                                                with "C0" equal to "c0_i32"
+           7:  call @store_ubuf_to_gm_1d_float(%cast, %cast_0, %c0_i32, %c0_i32) : (memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<ub>>, memref<?xf32, strided<[?], offset: ?>, #hivm.address_space<gm>>, i32, i32) -> () 
+check:5'0     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+check:5'4      ?                                                                                                                                                                                                                       possible intended match
+           8:  return 
+check:5'0     ~~~~~~~~
+           9:  } 
+check:5'0     ~~~
+          10: } 
+check:5'0     ~~
+          11:  
+check:5'0     ~
+>>>>>>

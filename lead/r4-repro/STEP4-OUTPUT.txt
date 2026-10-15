@@ -1,0 +1,9 @@
+### L1 (verifier only, Ascend950, plain memref + cache4):
+   L1 rc=0   <-- ACCEPTED (no shape conjunct in the verifier)
+### L2 (convert-hivm-to-std):
+   error: store l2_cache_mode=4 requires a provably DMA-only store: ... Any other shape
+   can take the scalar fallback, which stores with a hardcoded cache 0, so the policy
+   would be silently dropped
+   L2 rc=1
+### repo test tree already asserting that string: grep -rln 'provably DMA-only' bishengir/test/ -> 1 hit
+   (only the comment inside store-l2-cache-mode-lowering.mlir itself, line 8 -- NOT a RUN assertion)
