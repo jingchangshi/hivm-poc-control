@@ -14526,3 +14526,28 @@ P4-C 已因用户授权**解锁设备前提**，但仍待 Implementor 完成 P4-
 **（4）我的独立复核**（不止采信其自述）。我直接测：新鲜 console 六个 sha256 **逐一等于**其声称值；冻结父 console 六个**均未被动**（对快照哈希相同）；battery 掩去指针后与冻结版**完全相同**；host_rows 的 diff **仅**自指枚举；c2 的 `import re` 缺失**属实**；E6 的 union 最大成员 `reserved[4]`=16 B **属实**；冻结摘要仍 `65d3158a…`（16 行）；控制仓 clean。**另记**（notes [6]，我自己的仪器缺陷）：我先前用朴素 `"  OK"` grep 数 battery 只得 61 行、与声明 `PASS: 64` 差 3——那 3 行是真的，是**我的字面量**漏掉了（打印器把标签补齐到 66 列后仅剩一个空格，长标签恰好是三条 CR-REJ-1）；按 **token** 计数 = **64/0/0**，与声明一致。
 
 **（5）钉字节与下一步**。身份锚重生成至 **46** 行（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-0-IDENTITY-ANCHOR.txt`，sha `8a3dc496d717c5944c0a4514755939d3a0d0020cd69e89c4dce98857102cad9d`/17490 B），**新增** verify-4 裁决与冻结台账两个 subject；前代（44 行）存 `gen14-44rows-superseded.txt`。闸门 G43 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `d138715f13502ec3f163e7c01e9cfad3f73a978a56b58597612126461284d3c3`/171704 B）。**范围**：本裁决**仅**覆盖 P4-B。**下一步**：P4-C（真实设备数值，device 0，已授权）与 P4-D（负例、老路径回归、Challenger 九点终审）；**仍未开始任何 P4-C 设备工作**。**未主张**：P4-C/P4-D 已验证（**未**）；CR-FI-1(b)/CR-LD-1 实机行为（**未**，属 P4-C）。
+## 追加 289 — P4-D **独立验证完成**：verify-6 交 PASS-WITH-BLOCKED-REGRESSION-ROWS，**276 执行行 PASS / 0 FAIL**、3 行 BLOCKED；Lead 逐字节独立复核一致
+
+**阶段**：P4-D（负例 N-1..N-9 + 路由负例 + 旧 Backend 回归）独立验证。**结果：所有**已执行**的负例与路由检查 PASS（0 FAIL）；两条旧 Backend 回归行为 BASELINE_BLOCKED（缺 `ptodsl`）；一条设备 Runtime E2E 行 BLOCKED（按目标 5.3.8 只用 Mock）。** **性质**：裁决 + 独立复核 + 冻结代际。
+
+**（1）verify-6 的裁决**。有界验证者（verifier-haiku，与 P4-C 的 verify-5 **独立**）把负例与回归写成 12 个自持脚本（每个绑定 `<script>.script.sha256.txt`），裁决存 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/verify/RUN-D/P4-D-VERDICT.txt`（sha `f85b439826f5f1d2b3cbf899dafba33a37ab78299fedde007f8bae178a0a7c91`/31864 B）。**总判 PASS-WITH-BLOCKED-REGRESSION-ROWS**：
+
+- **276 执行行 PASS / 0 FAIL / 0 NOT_RUN**（在已执行脚本内），逐脚本计数：d1=64、d1b=27 OK、d1c=23 OK、d2=15、d3=30、d4=11、d5=20、d6=42、d7a=8、d7b=3、d7c=8、d9=25。
+- **3 行 BLOCKED/BASELINE_BLOCKED**：设备 Runtime E2E（**未**发起任何真机调用）、PTO Runtime（无 PTO 二进制可载）、PTO compile（缺 `ptodsl`）。**NOT_RUN 不是 PASS**：无一行被计为通过。
+- **设备纪律**：错误 magic/故障类负例**全部**用 `acl_mock.so`（身份 `p4b-acl-mock-v1`）拦截；**未**在共享设备上制造故障；**device 1 从未触碰**；`npu-smi` 仅在 host 只读。
+
+**（2）九条负例**。N-1 错误 SHA → 按名拒绝（"HIVM PREBUILT binary identity check FAILED"），flip/截断/同尺寸异文件三变体在 battery 内；N-2 旧缓存不能覆盖新二进制（`cache_reusable=False` 到达每个闸，HIVM 不查盘载入 loads=0）；N-3 错误符号 → 契约闸拒绝；N-4 FunctionInfo 元数/次序/类型 → 命名拒绝，`loader_calls=0`；N-5 tag 缺失/错误/次序 → "should be the last tag" 路径确实触发；N-6 错误 grid/UB → 契约闸拒绝（**新增** grid-128/ub-65536/ub-0 三值，已覆盖值不重标）；N-7 错误/缺失 magic → Stub 观测到（`numOpt`/`type`/`value`）；N-8 序列化往返保留 loader 策略（直建与从字节恢复**均**选 VECTOR_CORE；AscendC 路径**不**带 magic options）；N-9 错误 ABI 在任何 load 之前被拒（负控 TU 编译失败并**点名**故意写错的断言）。
+
+**（3）路由负例与旧 Backend 回归**。冻结路由表重跑（15 行 / 10 distinct measurements，`inputs_matched_two_or_more=NONE`）；三方互斥成立（无一行匹配 ≥2 后端）；PTO+HIVM 同现**抛异常**并命名冲突；HIVM 仅开 `tvm_ffi`（cython/pto 抛）。CR-REG-1：`rt_mod_ascend.cc` 的**唯一**被删行是注册续行 `BuildTileLangAscendWithoutCompile);`，三个旧入口函数体**逐字节等于 HEAD**；CR-NF-4：非 HIVM 目标**从不**进入 PREBUILT 入口（`prebuilt=0`）；CR-REG-3：13 个冻结 subject 全部复现、P3 树 ctime 普查零 offender。
+
+**（4）Lead 的独立复核**（不止采信自述）。我把裁决从原始字节重测，记录于 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4D-LEAD-CORROBORATION.txt`（sha `b0bb0577c6bc0a1b4653005c6563c9cf80e8c73e2e7b178fff297b4206584358`/3473 B）：
+
+- **脚本绑定 12/12 MATCH**：每个 `<script>.script.sha256.txt` 的十六进制 == 盘上 `.py` 的 sha256。**首次读出 "MISMATCH" 是我自己的 parser 缺陷**——记录字段字面是 `sha256=<hex>`，`awk '{print $1}'` 把前缀一并捕获；改用 64-hex 的 `sed` 后 12/12 相符（近误报类，照记）。
+- **token 计数独立复现** 64/27/23/15/30/11/20/42/8/3/8/25；**每个 console 的唯一 "FAIL" 匹配行都是汇总字面量 "FAIL: 0"**——**零**真失败（裸 `grep -c FAIL` 会在每个 console 读成 1 个 FAIL，即覆盖率反转的字面量类）。
+- **生产源**：我自己的 `git diff HEAD -- src/ascend/codegen/rt_mod_ascend.cc` 与 d7c 一致。
+- **P3 树未动**：我自己的 ctime 普查 universe=930、offender=0；**控制仓漂移** = {`docs/p4-goal-1016.md`,`docs/status.md`} 仅此、worktree clean。
+- **冻结钉**：pin 自带 `--check` 报 13 subject 全部复现（rc=0）；kernel.o `2c4247c3…`/4448 B；oracle `32d48852…`/16168 B。
+- **PTO BASELINE_BLOCKED 非 P4 回归**：PTO 入口在 `src/ascend/codegen/rt_mod_pto.cc`，**不在** P4 差异内；`find_spec('ptodsl')` 在容器内为 **None**（从未安装）。既有环境缺口，正确记为 BASELINE_BLOCKED 而非 FAIL。
+- **loader magic**：d3 mock log 是真实拦截证据——生产 HIVM 载入带 `OPT type=2 magic=0x41415246`（VECTOR_CORE）；`aibin` 分支带 `options=NULL` 且**零** OPT 行；每个错误/缺失 magic 相位 `dev=0 launch=0`。
+
+**（5）钉字节与下一步**。闸门 **G45** 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `b53dda04d67e304fccdfe7acca987b4f9649b92ac1153724c89187c09216f64e`/178778 B；前代存 `.pre-G45.snapshot.txt`，其 sha 复现为 `088d026f…`）。**范围**：本裁决**仅**覆盖 P4-D 的负例与旧 Backend 回归——**不含**任何 P4-C 行（属 verify-5，仍在飞行）、不含 Challenger 终审。**下一步**：verify-5 交 P4-C 真机裁决（device 0、串行）后，派 Challenger 九点终审（工单已写：`lead/CHALLENGER-P4-FINAL-REVIEW-WORK-ORDER.txt`）。**未主张**：P4 整体通过（**未**）；P4-C 已验证（**未**）；设备 Runtime E2E（**未**，Mock-only）；Challenger 已裁（**未**）。
