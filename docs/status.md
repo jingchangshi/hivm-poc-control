@@ -14494,3 +14494,18 @@ P4-C 已因用户授权**解锁设备前提**，但仍待 Implementor 完成 P4-
 **（3）item D（R15 checker）仍悬**。Challenger 独立把冻结 checker 的三条谓词对一条合成的 `NOT_ROUTED` 记录（`matches=["hivm"]`、无 resolver、无显式拒绝）求值：**三条全 true**。真实 RUN-B4 的 R15 记录**确含**显式 `norm_raised` 拒绝，故该观察成立；未来 checker 须要求显式拒绝证据。
 
 **（4）持久化与钉字节**。裁决**逐字节**持久化于 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/challenger/CHALLENGER-P4-A-ITEMC-V31-VERDICT.txt`（sha `bf5ba516cd0a19837f9231dab70370ab17325a8ad0d3bfd28752629f027872a6`/7590 B）。身份锚重生成至 **44** 行（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-0-IDENTITY-ANCHOR.txt`，sha `a88d2fd533c122045868f65befd53b48ed13617d13ec10b9e95c579bc471bc73`/16028 B），**新增**裁决 subject；前代（43 行）存 `gen13-43rows-superseded.txt`。闸门 G42 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `cf1b48422a07ef92a1ce5f52913140a787f9855caa11127c3bc60784d26d7ea2`/164730 B）。**范围**：本批准**仅**覆盖 item C 的**源绑定**——不含编译/ABI/数值/运行时/硬件或整体 P4-A 验收。**下一步**：verify-3 交最终 P4-B 裁决（仍欠）；P4-C 仍闸住。
+
+## 追加 287 — Lead 补全 **283 未处置完的 FAIL 集**：那次 battery 的 6 个 FAIL 属**两簇**，283 只点了 3 个（record-not-repair）
+
+**阶段**：P4-B 独立验证的裁决记录订正。**结果：FAIL 集的覆盖被补全；两簇**均**属 verify-3 自有仪器缺陷，无生产缺陷。** **性质**：record-not-repair——不改 283 的字节，只追加并**取代其覆盖范围**。
+
+**缺陷（我的，在封存记录里）**。**283** 写 verify-3 的 tier-2 battery 打印 "33 PASS / 6 FAIL / 3 NOT_RUN"，然后只处置 "**3 个契约 FAIL**"（`msg="module 'tvm' has no attribute 'tir'"` 那三条）。对**六条中的另外三条**它**沉默**——这是对**一个集合**的覆盖主张却只点了其中一部分。**实测**（自 verify-3 自己的 transcript 重抽取那次 33/6/3 的 console），六条 FAIL 分**两簇**：
+
+- **构造器簇（4 行）**：`REFUSES grid 64→32`、`REFUSES dyn_shared_memory_buf 196608→131072`、`REFUSES readonly [0,1]→[0,2]`（三条 `msg=module 'tvm' has no attribute 'tir'`）**加上**它们的汇总 `4/7 contract mutations refused`。
+- **Mock 簇（2 行）**：`mock is resolvable from the python process  FAIL | undefined symbol: p4b_mock_identity`，及其下游 `exactly one load option was recorded  FAIL | n=0`。
+
+**Mock 簇的机理（一手证据）**。`nm -D` 显示那次运行的 mock 库把身份符号导出为 **C++ 改编名** `_Z17p4b_mock_identityv`，故 `ctypes` 解析**裸名**失败（`undefined symbol: p4b_mock_identity`）；下游 load-option 普查因该通道未建立而读到 **n=0**。修法是给该符号加 **`extern "C"`** 守卫（现 `acl_mock.c` 有之，`nm -D` 现导出裸名 `p4b_mock_identity`），并给 ctypes 设 `restype=c_char_p`（中途一度 `got -283447277`，即未设 restype 的整数截断指针）。**均为 verify-3 自有 mock 仪器的缺陷，非生产缺陷**。
+
+**不变的部分**。**283** 对那三条构造器 FAIL 的裁定**正确**（本分支 IR 包是 `tvm.tirx`；Lead 自己的探针用正确模块名重放，三条全被 `CheckFixedProgramContract` 拒绝、`loader_calls=0`）。**本追加不**撤回该裁定，只**补全**其覆盖：六条 FAIL **全部**归属仪器，无一条指向生产。**283** 的字节**不改**；被点名的字面量原文保留于上。
+
+**未主张**：283 的构造器裁定有误（**无误**）；那次 battery 有生产缺陷（**无**）；最终 battery（64/0/0）与那次（33/6/3）**逐行相同**（**不同**——见 286/verify-3 最终裁决）。
