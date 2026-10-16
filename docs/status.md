@@ -14599,3 +14599,97 @@ P4-C 已因用户授权**解锁设备前提**，但仍待 Implementor 完成 P4-
 **（4）Lead 的独立九点复测（先于读到终审，存 `lead/scratch/lead-independent-7point-notes.txt`，`51438a39…`/10385 B）**：九点均从源码/字节自测，结论与终审一致；另**修正两处**——(i) **"R-4 已知缺口"应撤回**：实测 `tilelang.compile(..., pass_configs={"tl.hivm_prebuilt_binary_path": <corrupt>})` **在 sha 处拒绝**、`<nonexistent>` **在 open 处拒绝**，故该覆盖**确实**经 `pass_configs` 贯通；仅**外层 `PassContext`** 不携带（`ser-repro/R4-FINDING.txt`，`83bdf101…`/3083 B）。(ii) 序列化覆盖边界**已亲自复现**（对照可判别：改 fmt token 被拒、改 code 一字节被接受；M′ 持污点字节 `80454c46`，code sha `4b828dfd…`≠pin，标签仍报 pin；`ser-repro/FINDING.txt`，`40a425a1…`/4548 B）。
 
 **（5）门禁与下一步**。闸门 **G48** 已记（`lead/P4-GATE-TRANSITIONS.txt`，`c46f88b8a9540ca112b93f6b2d94495674c88e76929aa6e29d40fb855ac9637b`/185150 B；前代 `.pre-G48.snapshot.txt`），其正文记 `OVERALL VERDICT: REVISE`。修复工单 **R1** 已发（`lead/REPAIR-WORK-ORDER-R1-jit-cache-guard.txt`，`aac8407a…`/4534 B；implementor 执行，TileLang-only，须经 `scripts/in-container.sh` 重建）。**未主张**：P4 CLOSED（**未**，待 R1 落地 + 复审）；终审 APPROVE（**未**，是 REVISE）；DeviceCodeGen E2E（**未**，PREBUILT-only）。
+## 追加 293 — P4 终审 REVISE 的处置：R1 修复 + R2 再加固，独立验证 PASS-WITH-CAVEATS；Lead 另测出并处置一条**新代码中的假注释**
+
+**阶段**：P4 收尾（终审 → 修复 → 复验）。**授权**：`docs/p4-goal-1016.md`（§7 要求 Challenger 终审；
+§8 完成标准）。
+
+**背景（追加 292）**：Challenger 终审 = **REVISE**，唯一必修为 `tilelang/jit/__init__.py:519` 的
+默认 target JIT cache 守卫 fail-open（`create_backend_context(None)` 抛错被吞 → 返回 `True`；
+而编译从 `TILELANG_DEFAULT_TARGET` 解析 `None`）。Lead 已独立复现并确认，且证明 **P4-C 验收路径
+（模块级 `tilelang.compile`）不经该守卫**，故 P4-C 裁决不受影响。
+
+**R1 修复**（`impl-r1/`，仅 `tilelang/jit/__init__.py`，TileLang-only）：守卫在问 backend 前先按编译
+同样方式解析 `None`（`env.get_default_target()`），`except→True` 仅保留给**真正无法解析**的 target。
+Lead 用**不同仪器**（拦截 `create_backend_context`）独立复测：默认装饰器 + `hivm` → `False`；
+显式 `target="hivm"` → `False`；`auto`/未设 → `True`；且**守卫解析与编译解析一致**。
+
+**R2 再加固**（`impl-r2/`，同文件）：Lead 在审 R1 diff 时另发现——
+1. R1 **新增**了一条**假注释** `no per-call cost is paid on reusable backends`（`git show HEAD` 无此串，
+   证明是 P4 新代码）；实测 reusable 路径 **64.17 µs/call**（HEAD 此路径为 **0**），归因于
+   `create_backend_context('auto')` 63.08 µs（内含 `auto_detect_target()` 42.67 µs，未 memo）。
+2. `determine_target('auto')` **依赖环境上下文**（`Target.current()`：无→ascend、`with Target('llvm')`→llvm），
+   故**朴素 memo key 会重新引入 fail-open**。Lead 已就此**更正 R2 工作单**（ADDENDUM A1）。
+见 `lead/FINDING-R1-COST-AND-FALSE-COMMENT.txt`、`lead/FINDING-guard-context-dependence.txt`。
+
+**R2 落地结果**（`impl-r2/R2-REPAIR-EVIDENCE.txt`，`cbc54fa9…`/19153 B）：**假注释已改正**（`grep -c "per-call cost"` = 0），
+改为陈述**实测**成本的 COST 块；**memo 化被拒**（工作单自身的逃生分支），并给出**行为级**反证：提议的
+key 下 TRUE 随环境上下文 True→False→True 而 **key 恒定**（`memo_staleness_probe.py`，含显式 target 的
+**负对照**），memo 模式下第 2 次调用**复用**了本地缓存（`memo_failopen_probe.py` MODE=memo → FAIL-OPEN），
+`nomemo` 则**重编译**。Lead 就 memo key 发出 **ADDENDUM A1 更正**后，impl-r2 **实测了更正后的 key**并再次拒绝：
+documented **dict target 不可哈希**（`if key not in cache` 每次调用抛 `TypeError`），且仍漏掉可变的
+detector/normalizer/backend 注册表（`corrected_key_probe.py`）。故最终采纳**不 memo**、如实记录 ~64 µs/call。
+R2 相对 R1 为**纯注释**改动——Lead 用 **token 级** diff 独立证明（R1 重建文件 `git hash-object` = R1.diff
+后像 `ae73c72c`；R1→**最终**文件 代码 token 流**完全一致**，2954 = 2954（过滤
+COMMENT/NL/NEWLINE/INDENT/DEDENT/ENDMARKER；去 docstring 亦一致 2953=2953）；同一仪器对 HEAD→当前 报 2869 vs 2954
+（**能**报差异），**注**：R2 有两代（`65128bd8…`/29037 B 于 03:47:43 被**最终** `98bc0da1…`/29436 B/709 行取代）；
+两代均为纯注释，行为不变。
+
+**独立验证**：`verify/RUN-R1/`，工作单 `lead/VERIFIER-WORK-ORDER-R1R2.txt`。VERDICT: PASS-WITH-CAVEATS (verify/RUN-R1/R1R2-VERDICT.txt bbd0da7d924d8e32c25222dedd03e8bc6089ea82cb3d25e375cdd805265026bb/17264 B; 6 items + 6 caveats).
+
+**冻结件完整性（Lead 复测）**：P3 `kernel.o` `2c4247c3…`/4448 B、`golden_codegen_input.json`
+`576fa7a3…`/49638 B、Challenger verdict `5b8ef6c5…`/3939 B、G48 `c46f88b8…`/185150 B——**均未变**。
+control 仓 worktree clean。**未** commit、**未** push。
+
+**诚实性边界**：R1/R2 仅改 Python 热路径（`.py` 非构建输入），`libtilelang.so` `c0c9c584…`/28501448 B
+**不变**（`ninja: no work to do`）；本处置**不**重跑真机 E2E（P4-C 已验收，缺陷不在其路径）。
+**P4 标记 CLOSED 以本 REVISE 已解决为前提**；未获独立复评前不得宣称关闭。
+
+**下一动作**：独立复评 REVISE 是否解除；随后收尾 P4 终报与 `docs/current-state.md`（gen 12）。
+## 追加 294 — P4 终审 REVISE **已解除**（独立复评 RESOLVED-WITH-CAVEATS）；G49 落闸；**P4 = CLOSED**
+
+**阶段**：P4 收尾（独立复评 → 落闸 → 关闭）。**授权**：`docs/p4-goal-1016.md`（§7 Challenger 终审、§8 完成标准）。
+
+**复评工作单**：`lead/CHALLENGER-RE-REVIEW-WORK-ORDER.txt`（聚焦：G48 的唯一必修是否解除；不重跑其余八项确认）。
+**复评裁决**：`challenger/CHALLENGER-P4-REREVIEW-VERDICT.txt`（`bf9a5451…`/10994 B，由 Lead 逐字落盘），
+末行 **`RE-REVIEW VERDICT: RESOLVED-WITH-CAVEATS`** —— **必修项 RESOLVED**，R1/R2 增量**未引入新的可执行缺陷**。
+
+**复评的关键证据（Lead 已独立复算）**：
+- **最小判别实验**：在内存中**只**从函数 AST 删去新增的 None→env 解析分支 → 旧 fail-open 复现
+  （默认装饰器 + `hivm` 守卫 `True`）；修复后的函数体则 `False`。**根因确认**。
+- **热缓存行为**：修复后 default+hivm 两次调用 → 两个 compile 哨兵、对象不同、两个本地缓存均 0 条目；
+  旧函数体 → 编译 1 次、返回同一哨兵（call-form 与 kernel-cache 两条路径都复现旧故障）。
+- **非过度收紧**：显式 `llvm`/默认 `auto` 仍复用（`True`）。
+- **无 memo**：同一对象 env `hivm→auto→hivm` 得 `False→True→False`；5 次重复查询记录到 5 次真实解析。
+- **复核范围**：AST 级 R1↔当前**完全相同**（Lead 独立复算 `ast.dump` 相等），R2 仅注释。
+
+**复评另** **证伪**了验证器的一条 caveat（其 C4「环境上下文下的守卫翻转在本机不可构造」）：
+`Target("hivm")` 被 tvm 拒绝（`ValueError`），但**合法对象**是 `determine_target("hivm", return_object=True)`
+（`kind=ascend`、`keys=["hivm","ascend"]`）；在 `with Target(that)` 下守卫**确实翻转**（`True→False→True`，
+模块 `cpu→hivm→cpu`）。**Lead 已在容器内独立复现**。该发现**加强**了「不 memo」的结论：翻转可构造，
+故仅按环境变量做 key 的 memo 会陈旧。
+
+**独立验证（R1/R2）**：`verify/RUN-R1/R1R2-VERDICT.txt`（`bbd0da7d…`/17264 B，含 ADDENDUM）
+末行 **`R1 VERDICT: PASS-WITH-CAVEATS`**（6 项 + 6 条 caveat）；其两条承载性否定主张（假注释已消失、
+无 memo）Lead 用**自有仪器**复现。验证器事后追加 ADDENDUM 说明两代 R2 的判别；其全部测量本就针对**权威代**
+`98bc0da1…`/29436 B/709 行。
+
+**冻结件完整性（Lead 复测）**：P3 `kernel.o` `2c4247c3…`/4448 B、`golden_codegen_input.json` `576fa7a3…`/49638 B、
+`golden_codegen_input.tir` `4194733b…`/3338 B、`manifest.json` `42dda67a…`、`device_mod.tir` `0fc125b5…`、
+P4-C verdict `f0bee8aa…`/10980 B、Challenger 终审 `5b8ef6c5…`/3939 B——**均未变**；
+AscendNPU-IR HEAD `bfefe18011152cca671e7e6ddf03793afbacaa2a` **worktree clean**；`libtilelang.so` `c0c9c584…`/28501448 B **不变**。
+
+**闸门**：**G49 已落闸**，`lead/P4-GATE-TRANSITIONS.txt` `c46f88b8…`/185150 B → `e51aaef1…`/191558 B
+（前缀逐字节保持；G1..G49 append-only）。
+
+**P4 关闭结论**：设备验收 **P4-C = G47（17/17 PASS，5 族 × 3 run，device 0）**自始**不在**该缺陷路径上
+（模块级 `tilelang.compile` 不经 JITImpl 守卫）；终审唯一必修经修复、独立验证、独立复评**已解除**。
+故按 goal §8 完成标准，**P4 = CLOSED**。
+
+**诚实性边界（不得读作已证）**：本轮设备程序为**冻结的 P3 PREBUILT binary**，**非** DeviceCodeGen E2E
+（未运行 AscendC/PTO CodeGen，也未生成 HIVM TIR→Late MLIR）；`~64 µs/call` 的解析开销**如实记录、未缓存**；
+复评的 C1..C4 caveat（宽 `except→True` 仍在、execution_backend 解析差异、本复评未跑原生编译/设备数值、
+微秒数仅为本机 CPU 观测）**全部保留**。**未** commit、**未** push。
+
+**下一动作**：P5 门（正式 TIR → HIVM/HIVMAVE DeviceCodeGen）**READY 但未授权**——`lead/P5-CODEGEN-INPUT-INTERFACE-AND-READINESS.txt`
+（`b3224be8…`/6735 B）已备；按 goal §8 **在本轮不得开始**。

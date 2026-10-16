@@ -1,19 +1,20 @@
-# 当前状态：P2 Final Gate（已关闭）/ P3 独立 ACL 实机 E2E（已关闭，待 P4 授权）
+# 当前状态：P2 Final Gate（已关闭）/ P3（已关闭）/ P4（已关闭，P5 待授权）
 
-2026-10-16（gen 11）。本文件提供当前入口，历史原文保留在 `status.md` / `decisions.md`。
+2026-10-17（gen 12）。本文件提供当前入口，历史原文保留在 `status.md` / `decisions.md`。
 前十代均逐字节保留、均可复算（权威清单 `EV/resume-04/lead/CURRENT-STATE-MANIFEST.json`）：
 gen 1–9 快照在 `EV/resume-04/lead/current-state.gen<N>-pre-*.md`
 （`4307866895…`/6,112 B、`533b0b23…`/14,473 B、`008105d5…`/16,716 B、`fda6a40c…`/18,674 B、
 `d53d279d…`/19,496 B、`5a60ef88…`/20,532 B、`a8538bec…`/22,158 B、`d3a3c37c…`/23,122 B、`854069e7…`/24,222 B），
-gen 10 快照在 P3 证据树 `EV/p3-20261016/lead/current-state.gen10-pre-p3-update.md`（`e2a877be…`/25,050 B）。
+gen 10 快照在 P3 证据树 `EV/p3-20261016/lead/current-state.gen10-pre-p3-update.md`（`e2a877be…`/25,050 B）；
+gen 11 快照在 P4 证据树 `EV/p4-20261016/lead/current-state.gen11-pre-p4-update.md`（`2549eba5…`/35,696 B）。
 
 **一处历史缺陷（本轮登记，不改写历史）**：本文件表头自 gen 6 起一直写着"gen 6"，而清单已在 gen 7–10
 逐代前移——表头是**手写标签**，从未随代际更新，连续四代与清单不符（正文 §10(g) 却已在记 D137）。
-表头本轮改为 gen 11。清单与快照本身自始正确，故这不是身份缺陷，而是**标签漂移**。
+表头自 gen 11 起改为随代际更新（gen 11 → gen 12 本轮已同步）。清单与快照本身自始正确，故这不是身份缺陷，而是**标签漂移**。
 
 **结论：P2 有界接受（SCOPED APPROVE，限固定 Golden F32 VADD 的 Late→A5 Binary 编译范围）；
 P3-A/B/C/D 全部门禁通过，P3 独立 Binary 的实机 E2E 已由 Verifier 独立验收、Challenger APPROVE。
-P4 尚未授权，本轮停在 P3 门禁。**
+P4 已授权并**完成**（§12）；P5 门 READY 但未授权，本轮停在 P5 门禁。**
 
 ## 1. 最终 verdict
 
@@ -267,7 +268,9 @@ E1 相对 E0/E2/E4/E5 的判别（由 Implementor 的 experiment-r4 测得，本
 
 - P2：有界接受（SCOPED APPROVE）。不再有待修的 P2 缺陷。
 - P3：**全部门禁通过（A/B/C PASS，D APPROVE），P3 标记为 CLOSED。** 详见 §7。
-- **P4：READY，但未授权。** 授权前不得开始；本轮不自动进入 P4。
+- **P4：已授权并 CLOSED（§12）。** 设备验收 P4-C 17/17 PASS（device 0）；终审唯一 REVISE 经 R1/R2
+  修复、独立验证（PASS-WITH-CAVEATS）、独立复评**已解除**（RESOLVED-WITH-CAVEATS）。
+- **P5：READY，但未授权。** 正式 TIR → HIVM DeviceCodeGen 本轮**禁止**；授权前不得开始。
 - 未决的外部核对：served-model 审计 UNVERIFIED；IR 远端一致性 UNVERIFIED。
 - 历史记录（`status.md`/`decisions.md`）只追加，不覆盖。
 
@@ -399,3 +402,120 @@ P3 证据树内**不存在** P2 那种"同一世代 `cp -p` 两次"的孪生。
 （快照已做、替换亦已逐字记录），其可恢复性由**替换内容被逐字记录**保证，与 (a)/(d) 的判据一致。
 （`constants.0` 的 A=B=C_ref=全零与 `constants.1` 的 A=0、B=C_ref=3.25 都是 VADD 的正确语义，
 不是缺陷；此处登记的是**我自己的计数/措辞错误**，不是产物缺陷。）
+
+## 12. P4 轮次：正常 TileLang Host → HIVM Backend → TVM-FFI Runtime → 冻结 P3 Binary → 真机 device 0
+
+**授权**：`docs/p4-goal-1016.md`（13148 B，pin `bbf7902bacfa0e68a35be5af8544887f1deef6afd94e25424307044fdffaac0a`）。
+**目标（§8 完成标准）**：正常 TileLang 编译入口选择 HIVM Backend，经 Host CodeGen、FunctionInfo 和
+TVM-FFI Runtime，使用冻结的 P3 AIV Binary 在真实 NPU 上得到完整正确结果；**不存在** AscendC/PTO 或
+人工 ACL Launch 回退。**P5/P6（正式 TIR→HIVM DeviceCodeGen）本轮禁止。**
+
+**设备程序（冻结，goal §3）**：`kernel.o` `2c4247c3…`/4448 B、符号 `main_kernel`、A/B/C 三个 GM 指针、
+grid=64、dynamic UB=196608 bytes。**任何 Binary SHA 不匹配必须拒绝。**
+
+### 12.1 四个子阶段与独立裁决
+
+| 子阶段 | 内容 | 独立验证 | 裁决 |
+|---|---|---|---|
+| P4-A | HIVM Backend 路由（与 AscendC/PTO 互斥） | RUN-A/B + CR-RT-14 | 路由半 **YES**（CR-RT-14 对 R01..R05 的 `candidates` 字段豁免；其余 MEAS 字段逐字节相同） |
+| P4-B | PREBUILT 注入 + Runtime 集成（CR-ID/REJ/PB/CACHE/FI/LD/SER） | verify-4（verify-3 死于上下文溢出） | **PASS-WITH-CAVEATS**，七组全 PASS，**无生产缺陷** |
+| P4-C | 真机 E2E 验收（5 族 × 3 run = 15 次，device 0） | verify-5 | **OVERALL PASS**，17 行 PASS / 0 FAIL / 0 NOT_RUN，harness exit 0 |
+| P4-D | 负例 N-1..N-9 + 路由负例 + 旧 Backend 回归 | verify-6 | **PASS-WITH-BLOCKED-REGRESSION-ROWS**，276 执行行 PASS / 0 FAIL，3 行 BLOCKED |
+
+**P4-C 关键实测**（`verify/RUN-C/P4-C-VERDICT.txt`，`f0bee8aa…`/10980 B）：
+字面调用 `tilelang.compile(vector_add(524288, mode="simd"), target="hivm", out_idx=-1)`；
+解析到 `hivm` backend（`cache_reusable=False`）；`target.build.tilelang_ascend*`/`tilelang_pto*` 计数**全 0**；
+import payload sha == 冻结 kernel.o；`aclrtBinaryLoadFromData` **恰 1 次**（`size=4448 numOpt=1 type=2
+magic=0x41415246`，VECTOR_CORE）；15 次 launch 全 `numBlocks=64 argsSize=24 dynUBuf=196608`；
+`FunctionInfo.name=main_kernel`、3 指针参数、`launch_param_tags=['blockIdx.x','tirx.use_dyn_shared_memory']`；
+15/15 `compared=524288 mismatch=0 dev_nonfinite=0 ok=True`；oracle `sha(pre)==(post)==pin`。
+
+**Lead 逐字节独立复核**（`lead/P4C-LEAD-CORROBORATION.txt` `9f91a40a…`/7913 B；
+`lead/P4D-LEAD-CORROBORATION.txt` `b0bb0577…`/3473 B + ADDENDUM-1 `7cbcc4ca…`/2336 B）：
+脚本绑定复现、冻结身份重测、5/5 oracle ref 自报相符、行首锚定轨迹 `^LOAD=1 ^LAUNCH=15 ^UNLOAD=1`、
+末行 `TRACER_EXIT n_load=1 n_launch=15 n_real_fail=0 real_ok=1`、**device 1 前后皆空**（从未触碰）。
+
+**P4-D 关键实测**（`verify/RUN-D/P4-D-VERDICT.txt`，`f85b4398…`/31864 B）：九条负例全部按名拒绝或
+由 Stub 观测；错误 magic/故障类负例**全部**经 `acl_mock.so`（身份 `p4b-acl-mock-v1`）拦截，**未**在共享设备
+制造故障；CR-REG-1 证明 `rt_mod_ascend.cc` 唯一被删行是注册续行 `BuildTileLangAscendWithoutCompile);`，
+三个旧入口函数体逐字节等于 HEAD；CR-REG-3 的 13 个冻结 subject 全部复现、P3 树 ctime 普查零 offender。
+
+### 12.2 生产源码修改（仅 TileLang；AscendNPU-IR 不变）
+
+TileLang HEAD `cc56643de04a49db6f50875e26d904b0c69e71a6`，工作区 16 个改动文件（11 M + 5 新），
+`434 insertions(+), 43 deletions(-)`（终审前为 `403/43`；R1 守卫方法 + R2 注释块计 +31 行）。
+生产面：`src/ascend/codegen/rt_mod_ascend.cc`（PREBUILT 入口）、
+`src/ascend/runtime/ascend_module.cc`（VECTOR_CORE 加载配置 + ABI 静态断言）、
+`tilelang/ascend/{target,backend,codegen,execution_backend}.py`、`tilelang/backend/module.py`、
+`tilelang/cache/{__init__,kernel_cache}.py`、`tilelang/jit/__init__.py`；
+新增头文件 `src/ascend/codegen/{hivm_prebuilt_contract.h,sha256.h}`、
+`src/ascend/hivm_prebuilt_identity.h`、`src/ascend/runtime/acl_rt_types.h`。
+**AscendNPU-IR HEAD `bfefe18011152cca671e7e6ddf03793afbacaa2a`，worktree clean，本轮零改动。**
+`tilelang-mlir-ascend` 保持只读。
+
+### 12.3 门禁
+
+闸门记录 `lead/P4-GATE-TRANSITIONS.txt`（G1..G49，append-only）。**P4-C 闸门 = G47**
+（`1eec630a8564e0dab61f45aff8dc82788ddc76d3459b542f91191a47d0842c17`/183418 B）。
+**P4-D 闸门 = G45**（`b53dda04d67e304fccdfe7acca987b4f9649b92ac1153724c89187c09216f64e`）+ **G46** 补录。
+**Challenger 终审 = G48**（`c46f88b8a9540ca112b93f6b2d94495674c88e76929aa6e29d40fb855ac9637b`/185150 B，
+裁决 **REVISE**）。**G49 已落闸**：R1 修复 + R2 再加固经独立验证（`bbd0da7d…`/17264 B）、
+REVISE 经独立复评**已解除**（`bf9a5451…`/10994 B）；闸门文件 `c46f88b8…`/185150 B → **`e51aaef1e20ebfa0ad005b681ba454377aa7037522168d87715baee248ad9664`/191558 B**
+（前缀逐字节保持；追加 293/294 记录）。
+
+### 12.4 终审 REVISE 与处置（**已解除 → P4 关闭**）
+
+Challenger 终审（`challenger/CHALLENGER-P4-FINAL-VERDICT.txt`，`5b8ef6c5…`/3939 B，由 Lead 逐字落盘）
+九项确认 **1–7、9 = CONFIRMED**；**第 8 项 CONFIRMED 但独立的 cache-identity 义务失败**；
+**OVERALL = REVISE**。唯一必修：`tilelang/jit/__init__.py:519` 的**默认 target JIT cache 决策**——
+装饰器默认 `target=None` 时守卫调用 `create_backend_context(None)` 抛错、被裸 `except` 吞掉返回 `True`（fail-open），
+而编译会从 `TILELANG_DEFAULT_TARGET` 解析 `None`；故 `TILELANG_DEFAULT_TARGET=hivm` 可选中 HIVM 而**外层 JIT cache
+直接返回旧 kernel、不再走 binary 准入**。
+
+**Lead 独立复现**（`lead/scratch/r1-guard/lead_r1_probe.py`，**不同仪器**：拦截 `create_backend_context` 记录
+每次解析到的 backend）：默认装饰器 + `hivm` → 守卫 `True`（缺陷）；显式 `target="hivm"` → `False`；
+并证明 **P4-C 验收路径不受影响**——`tilelang.compile` 是**模块级** `jit.compile`（`:94`），**不**经 JITImpl 守卫，
+`None` 由 `_resolve_cache_dispatch`（`cache/__init__.py:53`）正确解析。故 **P4-C 裁决不受此缺陷影响**。
+
+**R1 修复**（`impl-r1/`，仅 `tilelang/jit/__init__.py`）：守卫在问 backend **之前**先按编译同样方式解析 `None`
+（`env.get_default_target()`）。复测：翻转成立，且**守卫解析与编译解析一致**（皆 → backend `hivm`，reuse=False）；
+`auto`/未设仍 `True`。
+
+**R2 再加固**（`impl-r2/`，同文件）：Lead 发现 R1 的 diff **新增**了一条**假注释**
+（`no per-call cost is paid on reusable backends`；实测 reusable 路径 **64.17 µs/call**，HEAD 此路径为 **0**）并引入
+逐调用开销；且实测 `determine_target('auto')` **依赖环境上下文**（`Target.current()`：无上下文→ascend，
+`with Target('llvm')`→llvm），故**朴素 memo key 会重新引入 fail-open**。R2 更正注释并在安全前提下消除该开销。
+见 `lead/FINDING-R1-COST-AND-FALSE-COMMENT.txt`、`lead/FINDING-guard-context-dependence.txt`。
+
+**独立验证**：`verify/RUN-R1/`（工作单 `lead/VERIFIER-WORK-ORDER-R1R2.txt`）。VERDICT: PASS-WITH-CAVEATS (verify/RUN-R1/R1R2-VERDICT.txt bbd0da7d924d8e32c25222dedd03e8bc6089ea82cb3d25e375cdd805265026bb/17264 B; 6 items + 6 caveats).
+**独立复评**（工作单 `lead/CHALLENGER-RE-REVIEW-WORK-ORDER.txt`，只读、不跑设备）：**必修项 RESOLVED**，
+R1/R2 增量**未引入新的可执行缺陷**；最小判别实验为「在内存中只删去新增的 None→env 解析分支 → 旧 fail-open 复现」。
+复评另**证伪**验证器 C4（环境上下文守卫翻转"不可构造"）：合法对象 `determine_target("hivm", return_object=True)`
+下守卫**确实翻转** `True→False→True`（Lead 已独立复现）。RE-REVIEW VERDICT: RESOLVED-WITH-CAVEATS (challenger/CHALLENGER-P4-REREVIEW-VERDICT.txt bf9a5451ad7f934d4aef061d79fd1c166a426fa08fca2bc0d5b96153f22c480b/10994 B; the required revision is RESOLVED; C1..C4 caveats in the verdict).
+**故 P4 = CLOSED**（设备验收 P4-C 自始不在该缺陷路径上：模块级 `tilelang.compile` 不经 JITImpl 守卫）。
+
+### 12.5 P4 的诚实性边界（不得读作已证）
+
+- **PREBUILT，非 DeviceCodeGen E2E**：本轮设备程序是**冻结的 P3 Binary**；**没有**运行 AscendC 源码
+  CodeGen、PTO CodeGen 或 HIVM TIR→Late MLIR 生成。P4 证明的是**运行时能消费**一个预构建 binary，
+  **不**证明 P5 的 TIR→Binary 生成。
+- **15 行 ≠ 15 份互异载荷**：5 个 case × 3 run；每族内 3 次运行是**同一输入**（oracle 设计如此），
+  15 行落在 **5 个互异载荷**上。
+- **设备-对-参考的相等**由 harness 的**进程内**比较承载（设备字节**未落盘**），故**无**独立的设备 dump
+  字节 diff；Lead 的 A+B 重算佐证的是 **oracle 自洽**，不是设备。
+- **P4-D 一条设备 Runtime E2E 行 BLOCKED**（按 goal §5.3.8 只用 Mock）；**PTO 两条 BASELINE_BLOCKED**
+  （缺 `ptodsl`，非 P4 回归：PTO 入口 `rt_mod_pto.cc` **不在** P4 差异内）。
+- **R-4 更正（原记录为「已知缺口」，经实测为误）**：`tl.hivm_prebuilt_binary_path` 覆盖**经
+  `pass_configs=` 贯通** `tilelang.compile()`（`compile(..., pass_configs={"tl.hivm_prebuilt_binary_path":
+  <坏拷贝>})` 在 sha256 处**拒绝**，路径不存在则在 open 处**拒绝**）；只有**外层** `tvm` `PassContext`
+  不携带该覆盖（外层 context 在编译中被替换）。故「损坏 binary 负例」**可以**经生产编译入口驱动；
+  P4-D 的直接驱动偏保守，但建立在一条**错误前提**上。见 `ser-repro/R4-FINDING.txt`。
+- **序列化覆盖边界**（本轮 host-only 实测，非生产缺陷）：冻结 binary 的 sha256+size pin 在 **PREBUILT 入口**；
+  从序列化字节**恢复**的 Module **不会重新 pin**，其重建的诚实标签**仍**打印冻结 sha。复现：翻转内嵌
+  device code 的**一个字节**在恢复时**被接受**；恢复后的 Module **持有**被污染字节、其 code sha256 **≠** pin，
+  但其标签**仍**打印冻结 sha 并仍以 VECTOR_CORE 到达 loader。裁定为**覆盖边界**而非生产缺陷：无生产路径
+  产生被污染字节（编译入口总是 pin；kernel cache 因 `cache_reusable=False` 既不服务也不持久化 HIVM 条目）。
+  见 `ser-repro/FINDING.txt`。**结转**：若 HIVM 后端将来变为 cache-reusable，恢复路径需自带完整性检查。
+- **P4-A Challenger 复核结转**：item D（R15 checker 的谓词接受一条合成的 NOT_ROUTED 记录而无显式拒绝证据）
+  仍 **OUTSTANDING**；runner `:454-456` 的 `startswith` 放宽是**有界**的未来 runner 收紧项。
+- **device 0 后置外部进程** `218304`（host 侧同名，非本 run 所有）；G31 记为共享状态。
