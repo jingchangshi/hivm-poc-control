@@ -14202,3 +14202,260 @@ ACL `1.17.0`；driver `25.7.0`（`npu-smi 25.7.0`，`ascendhal_version=7.35.23`�
 **性质**：本追加不改任何已批准的 P2 身份，不改任何冻结工件。P3 只证明独立 Binary 在真实硬件上
 按可观测契约正确运行；**不证明 TileLang Runtime 已接通，也不证明 TIR → HIVM DeviceCodeGen 已实现**。
 **P4 READY 但未授权，本轮不进入 P4。**
+
+## 追加 274 — P4-0 完成：验收条件冻结 + RUN A 基线；P4-A/P4-B 释放，P4-C 未开
+
+**阶段**：P4-0（`docs/p4-goal-1016.md` §2 顺序的第 1、2 步）。**结果：P4-0 PASS；实现门禁已开。**
+
+**门禁顺序（逐项落实 goal §2）**：Verifier 冻结验收 → Challenger 架构预审 → Implementor 启动。
+前两步**都已履行**，第三步方才打开。
+
+**Verifier 交付物与其身份**：四个文件在 `EV/p4-20261016/verify/`（`P4-ACCEPTANCE-CRITERIA.txt`、
+`gen-p4-acceptance-criteria.py`、`p4_routing_truth.py`、`RUN-A-baseline.txt` 及其 stderr/exitcode 旁置），
+其报告逐字存于 `EV/p4-20261016/lead/VERIFIER-P4-0-REPORT.txt`。**本追加刻意不转录这些哈希**：
+验收条件按其自身 CR-X-14 **允许冻结后只增行**，把一代的值写进追加式记录就会变成"可被引作错误世代"的锚
+（D134）。身份改由证据树锚文件 `EV/p4-20261016/lead/P4-0-IDENTITY-ANCHOR.txt` 承载，由
+`gen-p4-0-anchor.py` 生成：**任一行不从文件自身字节复现即拒绝写出**，并可用 `--check` 复核
+（本追加写入时 rc=0，9 行全部逐字节复现）。该锚文件里**没有任何一个哈希是人工键入的**——写入时实测、
+复核时重测。若 Verifier 按 CR-X-14 加行，该锚即**被取代**（不是被证伪），须重新生成。
+
+**复核方式（不是"信生产者"）**：(1) 报告**不是**从消息文本抄的——它由 Verifier 自己的 transcript
+（`subagents/agent-averify-2-*.jsonl` 的 tool_use 块）**逐字抽取**写盘，两次发送正文逐字节相同；
+(2) 锚中每行由我自己的脚本从磁盘重算，九个全部复现；(3) 验收条件可由其生成器**逐字节重放**
+（唯一差异是打印出来的路由脚本 PATH）；(4) 生成器的**拒绝写出路径是被执行过的**，不只是读过——
+在副本里把 `'sizeof_option': '20'` 改成 `'24'` 后得到 REFUSAL / rc=1 / 未写文件；
+(5) RUN A 由我自己的解析器独立重解析，得到同样的 `rows=15 distinct_measurements=11` 与同样的
+verdict 计数（BASELINE 8 / MISMATCH 5 / NOT_ROUTED 2）；(6) 验收条件里 11 个互异的 64-hex 字面量
+全部解析到真实文件；(7) CR-LD-4 断言的每一条 ABI 字面量，由我自己的翻译单元对真实 CANN 头文件重测，
+全部复现（原始输出 `EV/p4-20261016/lead/probes/p4_abi_ld4_recheck.out`）。
+
+**RUN A（基线）实测**：`rows=15 distinct_measurements=11`，rc=0；stderr 78 B **非空**，内容只有
+tilelang 加载横幅。5 行 MISMATCH 是**本 HEAD 的需求缺口，按测量记录、未做任何调参**：
+R07/R08/R09（带 hivm 键的 target 静默路由到 backend=`ascend`，即 D1）、R11/R12（pto+hivm 静默解析为 pto，
+即 D2）。没有任何合法输入匹配到两个及以上 backend（exit 2 路径未触发）。**RUN A 记录现状，只有 RUN B 能翻转。**
+
+**我在冻结合同里量到的覆盖缺口（已发 Verifier 要求作答，未阻塞实现）**：goal §7 有四个 bullet
+**没有任何一行的判定会在违反时失败**——G-1 kernel 符号错误、G-2 FunctionInfo 元数/顺序/类型、
+G-3 缺失或错序的 launch tag、G-4 错误的 grid/dyn-UB。其中 G-2 恰是 Challenger 的 BC-2，
+**无论合同里有没有行，它都对实现有约束**。另有 L-1（RUN A 只按 PATH 绑定路由脚本，CR-X-12 要求记录前后
+sha）、L-2（req 1 与 req 9 被测量但不出现在任何行的 `reqs` 元组里）、L-3（R06 的 exec 列在 RUN A 读 NA）
+三条。**这些在 Verifier 作答前保持 OPEN；若它以加行作答，锚即被取代。**
+
+**Challenger 预审**：`VERDICT: REVISE`，五条绑定条件 BC-1..BC-5，已随工作令下发给 Implementor 并**优先于**
+工作令正文中与它们冲突的部分。裁决文件本身才是权威，工作令里的摘要是我的压缩。BC-1 最尖锐：
+只在新 build 函数里做 SHA 校验**不充分**——`KernelCache._generate_key`（`tilelang/cache/kernel_cache.py:269-284`）
+不把预编译二进制的 SHA 计入 key，且内存命中（:374-383）与磁盘路径（:395-412）都在 builder 之前返回。
+裁决全文 `EV/p4-20261016/challenger/CHALLENGER-P4-PREREVIEW-VERDICT.txt`（其身份在锚中）。
+
+**释放范围**：`EV/p4-20261016/lead/IMPLEMENTOR-WORK-ORDER.txt` 的 STATUS 由 DRAFT 改为 RELEASED
+（改动只触及 STATUS 块，块**之后**每一字节写入前后断言逐字节相同，上一代字节存于
+`IMPLEMENTOR-WORK-ORDER.txt.pre-release.snapshot.txt`；其身份在锚中）。**本次释放只覆盖 P4-A / P4-B（不碰设备）。
+P4-C 未开**——按 goal §6（其读法已在 `EV/p4-20261016/lead/P4-GATE-TRANSITIONS.txt` G15 更正为
+"已分配**且**空闲"的合取），真机启动前我必须先与用户核对 device 0 现场授权。G16/G17 记录本阶段门禁转换。
+
+**性质**：本追加不改任何已批准的 P2/P3 身份，不改任何冻结工件，**不转录任何活工件的哈希**。
+P4-0 只证明**验收合同已冻结、基线已测量**；**不证明** HIVM backend 已实现，**不证明**任何真机数值结果，
+**不证明** P4-C 可运行。
+
+
+## 追加 275 — CR-X-14 增补件落地并冻结；身份锚由 9 行重建为 14 行以绑定它
+
+**阶段**：P4-0 的补章（goal §2 第 1 步的收尾）。**结果：增补件与锚均已落盘；P4-A/P4-B 仍在实现中，P4-C 未开。**
+
+**发生了什么**。追加 274 记下的"Verifier 冻结验收"完成后，我按 CR-X-14（"冻结后可**加行**，既有行不得削弱"）
+要求 Verifier 把四条覆盖缺口（G-1..G-4）与三条方法缺口（L-1..L-4）作答。它**没有重新生成基础合同**，
+而是产出了一份**独立增补文件** `EV/p4-20261016/verify/P4-ACCEPTANCE-CRITERIA-ADDENDUM-1.txt`：
+基础合同 `P4-ACCEPTANCE-CRITERIA.txt` **逐字节未变**（其行仍在锚中、仍复现），增补件**只加 7 行**
+（CR-RT-11/12/13、CR-REJ-3、CR-FI-7/8/9），并把 CR-X-14 与 CR-RT-1 两段**逐字引文**（我从基础文件字节
+独立核对：两段引文在基础文件与增补件中都逐字节存在——引文若被杜撰或偷改，此核对即失败）。
+
+**为什么是增补而不是重生成**。重生成需要一棵干净树；当时树上有 Implementor 的 13 项改动，
+重生成要么被生成器前置条件拒绝、要么把一句"EMPTY git status --porcelain"**假话**焊进冻结合同——那是
+"一个无法触发的检查读起来像覆盖"。增补不需要干净窗口，基础合同那句关于 gen-1 冻结的声明**仍然为真**。
+
+**一次活工件就地改写（记录，不修复）**。增补件在 Verifier 迭代期间是**活工件**，共出现**三代**：
+gen1 的字节**已不在盘上**（我在整个证据树里找过，只有它的 sha/大小残留在生成器控制台行与门禁记录里）；
+gen2 的字节**被保住了两处**（生成器自己在覆盖前快照、我也另存一份）；gen3 为**冻结代**。
+gen2→gen3 修掉的是 Verifier **在自己产物里**查出的**四处**缺陷（覆盖图的"九个 bullet/十条目"措辞、
+CR-RT-12 里"R01..R14 打印 kind==ascend"在 RUN A 为假（R06 打 `kind: NA`）、表头片段改为**从基础文件字节抽取**、
+把手打的"359"改为**从两份文件重新推导**：361 行、2 行不同、359 行逐字节相同）。这四处我**独立复现过**，
+确认为真修复而非粉饰。此后 Verifier 的生成器**先快照上一代再写**——正是补上 D-类"活工件不能自携哈希"的
+那个缺口。
+
+**锚重建（本条的动作）**。P4-0 锚文件的**自身范围声明**写着：若验收条件按 CR-X-14 加行，本锚即**被取代**
+（不是被证伪），**须重新生成**。增补件已落地并冻结，故我重建锚：上一代存于
+`P4-0-IDENTITY-ANCHOR.gen1-superseded.txt`（保留），新锚 **14 行**，其中**新增 5 个主体**绑定增补件
+与 CR-X-12/CR-RT-11 所指的仪器（增补件本体、其生成器、路由身份 runner、runner 自测身份、增补件验证套件）。
+**为什么必须做**：否则这份冻结增补件**没有任何外部锚**——日后改它、或改 CR-X-12 具名的那个 runner，
+**不会触发任何哈希检查**。这正是"可修正文件里的 oracle 需要外部锚"的同一类，只是对象换成了增补件本身。
+本追加写入时 `gen-p4-0-anchor.py --check` **rc=0**，14 行全部逐字节复现。
+
+**验证套件**。Verifier 把它的检查落成**可复跑的套件**并在容器内执行：命令与退出码在盘上，
+控制台 **46 PASS / 0 FAIL**，退出码 **0**，末行 "ALL CHECKS PASSED (every check asserted)"。
+**本追加同样不转录任何哈希**：身份由锚文件承载（"活工件不能自携哈希"，追加 262/264）。
+
+**门禁记录**：G24（增补件落地、add-only 由字节证明）、G25（更正 G24 所钉的**已被取代**的世代；登记
+gen1 字节丢失的搜索范围）、G26（增补件冻结、锚重建）三则写入
+`EV/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`（纯追加，每则均断言前缀逐字节不变）。
+
+**未主张**：增补件的任何行**都未被执行**（7 行全部 **NOT_RUN**）；**RUN B 尚未通过 CR-X-12 的 runner 取得**
+（Implementor 在 07:33Z **直接**跑过一次，另记，**它不是 CR-X-12 合规的记录运行**）；P4-A/P4-B **未完成**。
+P4-C **仍关闭**——真机启动前我必须先与用户核对 device 0 现场授权（goal §6）。
+
+**性质**：本追加不改任何已批准的 P2/P3 身份，不改任何冻结工件，**不转录任何活工件的哈希**。
+它只证明**增补件已落地且只增行、锚已重建并可复核**；**不证明** HIVM backend 已实现，**不证明**任何真机数值结果。
+
+
+## 追加 276 — P4-A 路由阶段：RUN B 取得、Challenger 裁决、用户两项决定、RUN B2 当代绑定
+
+**阶段**：P4-A（HIVM Backend 选择）的路由验收。**结果：路由行为已被独立批准；CR-RT-1 字面问题经用户授予狭窄例外后待落行；P4-A 尚未整体 PASS。P4-C 的设备前提已由用户澄清。**
+
+**RUN B（CR-X-12 合规）**。用冻结脚本经 v1 runner 原样执行、写入新目录 `EV/p4-20261016/verify/RUN-B/`：
+脚本 sha256 **before=after=冻结钉**、`script_changed_mid_run=NO`、退出码 **0**。判决：R01..R05 仍 BASELINE；R06 NOT_ROUTED→MATCH；
+R07..R09 MISMATCH→MATCH（现解析到 hivm）；R11/R12 由 MISMATCH→**resolver 抛出显式冲突 ValueError**。`inputs_matched_two_or_more=NONE`。
+**R01..R05 唯一变动字段是 `candidates`**（因 CR-RT-3 要求登记第三个 backend 而 append 到 kind 索引），其余（backend name、keys、allowed、
+五个 exec 解析、matches、kind、norm）**全部逐字未变**。RUN A 三件套与 runner 自测**未被覆盖**。**Implementor 07:33Z 直接跑的 RUN B 不是记录运行**。
+
+**Challenger 裁决（ES 闸门）**。我未自裁：CR-RT-1 的字面句（"any drift = FAIL, whatever the requirement text says"）与增补件 CR-RT-11
+的"按括号枚举判"冲突，属架构闸门，已升级 review-2。裁决（逐字存于 `EV/p4-20261016/challenger/CHALLENGER-P4-A-ROUTING-RUN-B-RULING.txt`，
+sha256 见该文件、本追加不转录）：**(1) BLOCK** CR-RT-11 的宽豁免——它不只豁免 `candidates`，还丢掉了 norm/kind/matches/context 等**真实**保护
+（Challenger 在内存中只把 R01 的 `max_vector_bits` 64→128，括号判接受、逐字段判拒绝）；并**自我更正**其早先"只比四个具名字段"的建议为"过宽"。
+**(2) APPROVE** R11/R12：权威面是 **resolver 以具因拒绝**，原始 NOT_ROUTED 标签来自冻结分类器、**不得改**。**(3) APPROVE** R06..R09 非空：
+R07..R09 保留旧 keys 正是受控对比（同输入由 Ascend 改判 hivm），req 2/5/9 通过，req 8 另有源码证据。**它同报 RUN B 为 15 行、10 个不同测量**
+（R06≡R08 等），我独立重解析**一致**——但同仪器不算互证，故只作测量记录。
+
+**Challenger 指出我的缺陷（已记录，不就地修补）**。我写的 RUN B "源代绑定"文件是**运行结束后 6 分钟**才抓的（run end 09:24:33Z vs 抓取 09:30:46Z），
+属**事后观测而非同时代钉**。这是真缺陷。**补救＝新增 v2 runner**（v1 被锚钉住，不编辑）：`verify/run_routing_identity_v2.py` 在自己的进程里、
+在子进程**前后各测一次**路由面源码。**RUN B2** 由此取得：脚本 before=after=钉、`sources_changed_mid_run=NONE`（11 个路由面文件全 STABLE）、退出码 0，
+且 stdout 与 RUN B **仅 `utc=` 行不同**（361 行/361 行）。交叉核对：RUN B 事后 sidecar 与 RUN B2 当代绑定**共同的 7 个路由面全部逐字节一致**——
+故路由源码在那段窗口内**未移动**。**残余如实说明**：这是用可复现的重跑做的**重建**，不是对 RUN B 本身的追溯钉；同时代钉**自 RUN B2 起**才存在。
+
+**用户两项决定（权威，见 G31）**。(a) **设备**：用户确认 **device 0 仍归本项目且可共享**，据此**取代** goal §6"已分配且空闲"的前提（G27 已记录该前提不成立：
+device 0 当时有另一用户 v60125785 的 4 个常驻进程）。**不授权触碰 device 1**；我方真机测试仍**串行**。(b) **契约**：用户**授予狭窄例外：仅豁免
+`candidates` 字段**。据此 R01..R05 的括号面 5/5 PASS，而**其余任何字段跨 RUN 漂移仍为 FAIL**——这正是 Challenger 在 G29 给出的补救措辞。
+**这不是对 CR-RT-1 的"澄清"**（该框架已被 Challenger 否决，本追加不复活它），而是**契约所有者的例外授权**；CR-RT-1 字节**不变**。
+
+**机制的落点（欠账，未落）**：例外须落在验收条件族（CR-X-14 只可加行），故正确去处是**新增 addendum-2 的一行**（addendum-1 已冻结、不编辑），
+由 **Verifier** 具名权威撰写、把 `candidates` 范围钉死、旁附 CR-RT-1 逐字引文。该行**尚未写出**；已下指令。**行落地前，P4-A 路由不作 PASS**。
+addendum-2 冻结后我将**重建 P4-0 身份锚**（其自身范围声明说 add-only 增补即取代它），并顺带绑定 v2 runner（G30 欠账）。
+当前锚仍 14 行（未绑定 addendum-2/v2），addendum-1 冻结态 18999 B、基础合同 35577 B。
+
+**实现侧**：Implementor 仍在 P4-B（其 C++ 树仍在动：`ascend_module.cc` 现 20652 B，与 RUN-B sidecar 记录值不同——该文件**不在**路由面，不影响 RUN B 结论）。
+P4-C 已因用户授权**解锁设备前提**，但仍待 Implementor 完成 P4-B，且真机测试须串行。
+
+**未主张**：P4-A 整体 PASS；例外行已存在；P4-C 已开始；任何真机测试已运行。**性质**：本追加不改任何冻结工件、不改验收条件、不转录活工件哈希；
+身份的绑定由锚文件承担。
+
+
+## 追加 277 — addendum-2 冻结（CR-RT-14：用户授予的狭窄 `candidates` 例外）与 P4-0 身份锚重建
+
+**阶段**：P4-A 路由验收的**契约机制**落地。**结果：例外的落点已存在且经两件独立仪器核验；P4-A 路由仍未整体 PASS（例外尚未被"施加"于任何运行），Challenger 尚未复审 addendum-2。**
+
+**机制落地（G31 欠账已清）**。用户在 G31 授予的"仅豁免 `candidates` 字段"的狭窄例外，按其自身要求落为**新 addendum 中的一行**：
+`EV/p4-20261016/verify/P4-ACCEPTANCE-CRITERIA-ADDENDUM-2.txt`，**新增恰好一行 CR-RT-14**（addendum-1 已冻结、不编辑；基础合同与 addendum-1 二者**逐字节未变**——我独立复测 base 35577 B、addendum-1 18999 B）。
+该行做满 G31 升级所要求的三件事，且**均可从字节核验**：(1) **逐字节引用** CR-RT-1 自己的判定句（171 B）与其括号字段枚举（88 B）——二者皆由我从**该 addendum 自身字节**中提取、再到 **base 字节**中搜索命中，非转述；(2) **保留** RUN B 的字面 FAIL（5/5 遗留行、仅 `candidates` 漂移）为 FAIL——不重贴标签、不视为无意义，且**不复活** CR-RT-11 来把它称作 pass；(3) 把豁免**钉死为恰好一个字段、恰好 R01..R05**，其余每个 MEAS 字段仍要求跨 RUN 一致，R06..R15 明确在例外之外，权威具名为**用户 G31 授权**（非澄清、非 Lead 推断、非 Challenger 裁决），并自标 **NOT_RUN**（"权威不等于证据"）。
+
+**两件独立仪器核验（非同一 grep 跑两遍）**。
+- **Lead**：`lead/scratch/verify_addendum2.py` — **25/25 PASS**。两处引文由 addendum 字节提取后到 base 字节中命中；授权串在闸门记录中**恰好出现 1 次**；该行引用的 delta 引文与 RUN B / RUN B2 sidecar 皆被复测；文件在 8 秒间隔上**确认静止**。
+- **Verifier**：`verify/addendum-2-verify.py` — **48/48 PASS，exit 0**；另把持久化的 Challenger 裁决（5286 B）与其被引用的 61 B 补救句一并绑住。Verifier 还将其 addendum-1 套件在事后重跑入**新文件名**（46/46 PASS），run-of-record 控制台未动。
+
+**我自己的检查缺陷（记录，不修补工件）**。我的首轮报 1 FAIL"未重贴标签"——**是我的字面量**：我钉的子串横跨**换行**（文件里 "it is not \n relabelled a pass"），原样子串搜索因此漏计、读作缺失；按空白归一后通过。与"子串字面量带尾分隔符导致漏计"同类：**字面量里的换行会让一个本可命中的守卫读成真失败**。已修检查，工件未动。同一类缺陷 Verifier 的套件也中过一次（它期望 RUN B vs RUN B2 有 2 行 diff，真值是 1 行——两个 `utc=` 头是同一处改动），它自诊断自修，工件正确。我直接复测：两 stdout 均 **34504 B / 361 行**，plain `diff` 恰为**一处 `utc=` 改动**——故 G30 的措辞（"唯一不同的内容行是 utc= 头"）**成立**。
+
+**冻结前的三轮迭代，全部留痕**。addendum-2 冻结前经历三轮，**无任何被取代的字节被丢弃**：生成器第 1 次**自拒**（差分解析）且**未写任何文件**；内容第 1 版复述了 Challenger **已否决**的"字节不变⇒未削弱"逻辑，Verifier 改写为以**所有者例外授权 + Challenger 自己的补救句**为据，首版字节留存 `…prev-2da40109fd7d1fd6.txt`（8256 B）；检查器 1-FAIL 那次留存 `…attempt1-1fail.*`。生成器在冻结钉复现、引文唯一之前**拒绝写入**。
+
+**身份锚重建（14 → 20 行）**。P4-0 锚是**单代绑定**，而 addendum-2 是 add-only 增补，故旧锚按**其自身范围声明**被**取代**（非被证伪），已按设计重建，`--check` **rc 0**（"every anchor row reproduces byte-for-byte from disk"）。除原 14 项外，新绑定：addendum-2、其生成器、其检查器、**v2 路由 runner**（**当代源绑定**仪器——v1 runner 那一行**不覆盖**它，此即 G30 欠账），以及 CR-RT-14 所引用的 RUN B / RUN B2 身份 sidecar。锚内每个 digest 皆由脚本**测量**、无一处手打。前一代留存 `P4-0-IDENTITY-ANCHOR.gen2-14rows-superseded.txt`（4044 B）。**注意**：锚与文档的绑定仍由锚文件承担，本追加不转录活工件哈希。
+
+**未主张 / 欠账**：**P4-A 路由未整体 PASS**——CR-RT-14 是**权威**（其自身文字如此），把它**施加**到一次运行上是**另一项仍待做的评测**；**Challenger 尚未复审 addendum-2 与 v2 runner**（欠账）；P4-B 仍在 Implementor 手上（其 C++ 树在动）；**未跑任何真机测试**；P4-C 因 G31 设备授权原则解锁、但仍受 P4-B 阻塞。**性质**：本追加不改任何冻结工件、不改验收条件、不转录活工件哈希。
+
+
+
+## 追加 278 — CR-RT-14 施加：P4-A 路由半通过；CR-RT-1 字面仍保留为 FAIL；身份锚重建
+
+**阶段**：P4-A 路由验收的**评测**完成。**结果：路由半在 CR-RT-14 下 PASS；CR-RT-1 字面句在同一数据上仍 FAIL（如实保留）；但 P4-A 作为"验收"尚未关闭——Challenger 未复审 addendum-2 / CR-RT-14 / v2 runner / 本判决，此项欠账即下一道闸门。**
+
+**评测（G32 欠账已清）**。"施加例外"是与"记录例外"分离的一步评测，由 Verifier 对**既有的 RUN A / RUN B 对**完成：`EV/p4-20261016/verify/RUN-AB-CRRT14/P4-A-ROUTING-VERDICT.txt`（14577 B，与其自身 stdout 逐字节相同，旁附 12 行测量身份 sidecar）。施加器**自带解析器**读**原始 stdout**，未导入我的 delta 工具；**未新跑任何运行**。
+
+**判决两部分（判决本身同时写明，二者不合并）**：(a) **P4-A 路由半在 CR-RT-14 下 PASS**——R01..R05 的 CR-RT-14 闸门 5/5：`candidates` 是**唯一**不同字段且正是契约驱动的扩展 `["ascend","pto"]→["ascend","pto","hivm"]`，其余每个 MEAS 字段跨 RUN A/B **逐字节相同**；R06..R15 的**可判定**自查项全 PASS（R06..R09 现解析到 hivm 且 `allowed==["tvm_ffi"]`；R11/R12 抛出显式 pto+hivm 冲突；R15 未变）。它标注 **NOT_DECIDABLE_HERE** 的项——CR-RT-7(a)/(c)（源码层）与 CR-RT-9（diff/runtime 普查）——**未被声称为通过**，也**不是**路由面的失败，属**别处欠账**。(b) **CR-RT-1 字面句仍 FAIL**（5/5 遗留行漂移，仅 `candidates`）。CR-RT-14 **不能也不应**改变该结果：它是**契约所有者授予的例外**，非重新解释。判决**记录该 FAIL**，而非 pass——正是 Challenger 在 G29 要求的形态。
+
+**我独立重导（不同仪器）**。Verifier 读自己的解析不算互证，故我用**另一个解析器**（`lead/scratch/recheck_p4a_verdict.py`，按花括号配对从原始字节切出每个 MEAS 对象）复测四项承重事实，**全部 CONFIRMED**：R01..R05 仅 `candidates` 不同；R11/R12 `resolver=='RAISED'` 且 `resolver_exc` 含 `both 'pto' and 'hivm'`、`ctx_exc` 含冲突前缀；R06..R09 解析 hivm 且 `allowed==["tvm_ffi"]`；5/5 的 candidates 漂移成立。规模独立重导：**RUN A 15 行 / 11 个不同键，RUN B 15 行 / 10 个不同键**（B 的 10 与 G29 记录一致；A 的 11 为 RUN-A 专有，此前未记）。
+
+**判决的自身撤回尝试（记录，不隐去）**。attempt 1 曾判路由半为 NO，**根因是 Verifier 的检查字面量而非工件**：冻结脚本把"抛出"记为**哨兵字符串** `resolver=="RAISED"` + 异常文本置于 `resolver_exc`，而该检查在**错误的嵌套层**用 `resolver is None` 与 `'both ...' in resolver_exc` 断言，于是**真实抛出读作未抛出**。已按**实测编码**更正（`resolver in (None,'RAISED')` + 异常文本含该短语），首版字节留存 `P4-A-ROUTING-VERDICT.attempt1.txt`（14216 B）。这是本会话**第 5 次**检查字面量类缺陷，**第 3 次**"工件正确、检查错误"。具名以使模式可见，非为其开脱。
+
+**身份锚重建（20 → 24 行）**。新增四subject：判决、其身份 sidecar、施加器、被取代的 attempt-1。`--check` **rc 0**，每行逐字节复现。前一代留存 `P4-0-IDENTITY-ANCHOR.gen3-20rows-superseded.txt`。锚内 digest 全由脚本**测量**、无手打；本追加不转录活工件哈希。
+
+**未主张 / 欠账**：**P4-A 仍未作为"验收"关闭**——其 PASS 现依托 addendum-2 中的**用户授予例外**，而 **Challenger 未复审 addendum-2 / CR-RT-14 / v2 runner / 本判决**（欠账，即下一闸门）；判决自身的范围声明如此。**未触及 P4-B**（Implementor 仍在跑）与 **P4-C**（未跑任何真机测试）；CR-RT-1 字面在记录中**仍为 FAIL**。**性质**：本追加不改任何冻结工件、不改验收条件、不转录活工件哈希。
+
+
+## 追加 279 — P4-A 独立复审：CR-RT-14 判为 SOUND、路由结论 CORRECT、v2 源绑定判为 INADEQUATE（欠账=新增 v3 仪器）；并证伪"纯 Python 路由"一句话
+
+**阶段**：P4-A。**结果：CR-RT-14 与路由结论已获独立批准；P4-A 整体仍不 CLOSE——被"C 源绑定不足"与"另属的验收条件"两项阻断。** 并新增一个 **Lead 自建、未经复审** 的仪器，**部分证伪** G29 的 UNPROVEN 句。
+
+**Challenger 裁决（已逐字存 `EV/p4-20261016/challenger/CHALLENGER-P4-A-RULING-CRRT14-V2BINDING.txt`，sha256 由锚承担、本追加不转录）**。它声明：未改任何文件、未重跑两个路由主体、未构建、未用 NPU；且**未**审 P4-B/P4-C/运行期/编译。四项：
+
+- **(A) CR-RT-14 = SOUND（在 G31 用户授权之下）**。它独立重算：请求的 addendum 身份 **MATCH**；base / addendum-1 / 前次裁决身份 **MATCH**；G31 记录代前缀收据 **MATCH**。CR-RT-1 被引的判决句是 base 中**唯一、逐字节一致**的 **171 字节**跨度，其括号枚举是**唯一、逐字节一致**的 **88 字节**跨度。它**明言：CR-X-14 本身并不授权该放宽**——授权来自契约所有者的 G31 授予——**这正是它避开先前被判 BLOCK 的 CR-RT-11 缺陷的原因**。
+- **(B) 路由判决 (a)/(b) 均 CORRECT**（限于其自陈的观测面）。独立解析：每 run **15 行**，A **11** 个不同测量键、B **10** 个。对每个 R01..R05，**恰好移除那段被转义的 candidates 扩展**后，**原始 MEAS 行与 RUN A 逐字节一致**；把 R01 的归一化 `max_vector_bits` 改成 128 则**产生非豁免漂移**——故判别用例仍成立。R06..R09 解析为 hivm（kind=ascend、matches=[hivm]、allowed=[tvm_ffi]、cython/pto 抛错）；R11/R12 记 resolver/context=`RAISED`、具显式双选择器因、并**保留原始 NOT_ROUTED 标签**。B2 的 **15 条 MEAS 行与 B 逐字节一致**；判决的 manifest **独立重算 12/12**。`NOT_DECIDABLE_HERE` 清单**诚实**。
+- **(C) v2 源绑定 = INADEQUATE，BLOCK**。缺陷精确：`run_routing_identity_v2.py` 的 `measure()/main()` **只比快照**；子进程**从不使用 `--root`**、**无 import-origin 收据**；且**缺失源记为 ABSENT 却不进入 `changed_sources`**——检查**失败开放（fail-open）**。其最小判别实验（**纯内存执行真实 `main`**，喂入记录的成功子进程结果与内存输出槽，**未写盘、未重跑子进程**）：返回 **0**、`sources_changed_mid_run=NONE`、11 行全 **ABSENT**。**这证明的是仪器缺陷，不是 RUN B2 真的用了错的树**（B2 有 11 条 STABLE 记录、身份 MATCH；11 个源哈希中 **9 个至今仍一致**，`ascend/backend.py`、`backend/module.py` 其后已改）。**要求的修订**：保留冻结的 v2，**新增 v3 仪器**——(i) 任一源缺失即**拒绝**；(ii) 记录并断言**子进程真实的 routing 模块 import origin 落在被测量 root 之下**。
+- **(D) R15 检查器 = REVISE**。`apply_cr_rt_14.py` 的 R15 判据用 `NOT_ROUTED` + resolver 缺失推断拒绝，**能接受合成记录**（`matches=[hivm]`、无 resolver）。**实际 R15 工件带有对 `{"kind":"hivm"}` 的显式 `norm_raised` 拒绝**，故本次结论成立——**只记录该局限，不修补冻结证据**；未来仪器须要求显式拒绝证据。
+
+**Lead 的编译导入探针（新仪器，答 G29 的 UNPROVEN 句）**。G29 曾把"路由路径不加载任何编译模块"记为 **UNPROVEN**。本探针**按冻结脚本自身的导入链逐步隔离**测出：导入 `tilelang.ascend.target`（会执行 `tilelang/__init__.py`）**加载了 `build/lib/tilelang_cython_wrapper.abi3.so`**，其后两个导入步 **新增 0 个 .so**。原始输出存 `EV/p4-20261016/lead/probes/P4-LEAD-COMPILED-IMPORT-PROBE.out`（身份由锚承担）。**探针自陈局限**：它扫 `sys.modules`，故经 **ctypes/FFI 加载的原生对象**（其 Python 模块文件未必以 `.so` 结尾）**对它不可见**——**可能少报**。故它**只证明"纯 Python"表述为假，不枚举该路径映射的全部原生对象**。**此句经我自建、Challenger 未见的仪器得出，非自证**——其后需独立复审。
+
+**机制与欠账**。P4-0 身份锚已 **24 → 27 行**（绑定裁决与探针；逐行复现 CHECK OK）；旧 24 行代存 `gen4-24rows-superseded.txt`。闸门 G34 已记（**133728 → 139808 B**，前缀逐字节保持）。**欠账**：(1) 由 Verifier 新增 **v3 runner**（保留 v2）并取其当代绑定；(2) Challenger **复审** `tilelang_cython_wrapper.abi3.so` 是否属于**路由面**（若属于，则 RUN B 的行为依赖一个编译模块；若属惰性导入，v2/v3 应只绑路由面源码）；(3) 对 apply_cr_rt_14 的 R15 局限**记录化**（不修补）。
+
+**未主张**：P4-A 已 CLOSE；v3 已存在；R15 已修补；编译对象结论已获独立复审；P4-C 已开始。**性质**：不改任何冻结工件与验收条件、不转录活工件哈希。
+
+## 追加 280 — Challenger 追加裁决：编译 wrapper 不是路由决策依赖；并点出 v2 绑定两处新遗漏；我自己的探针被它查出一处"行数当文件数"缺陷（已改）
+
+**阶段**：P4-A 复审追问。**结果：wrapper 被定性为"包初始化期依赖、无路由决策角色"；结论不变（C 仍 INADEQUATE）；P4-B 已冻结待验。**
+
+**Challenger 追加裁决（逐字存 `EV/p4-20261016/challenger/CHALLENGER-P4-A-FOLLOWUP-COMPILED-WRAPPER.txt`，sha256 由锚承担）**。它就"编译 wrapper 是否属路由面"作答（它声明：未编辑、未执行导入、未重跑冻结脚本、未构建、未用 NPU）：
+
+- **定性**：`tilelang_cython_wrapper.abi3.so` 是**包初始化期的 eager 依赖**（正常非 light 导入分支下；链为 `__init__.py:158-200 → jit/__init__.py:27 → jit/kernel.py:13 → jit/adapter/__init__.py:3 → jit/adapter/cython/adapter.py:26`），但**冻结真值脚本只调"策略解析"**：`BackendModule.resolve_execution_backend:180-206` 用 `spec.matches/is_available`，**从不构造 adapter/wrapper**（wrapper 只在 `adapter.py:167/231` 的 `__init__/from_database` 里构造）。故 wrapper **无被证明的直接路由决策角色**；应归类为**"被导入的原生依赖"**，**不是**cython 执行后端跑过的证据。**wrapper 本身不推翻 A/B 观测或 CR-RT-14**；**(C) 仍 INADEQUATE**。**源码/二进制 provenance 与 RUN B 历史导入身份，被其判为"从现有文件 NOT_DECIDABLE"**。
+- **两处新遗漏（比 wrapper 更强）**：(i) **Python 面**：v2 的 `ROUTING_SURFACE` **未列 `tilelang/backend/execution_backend.py`**，而它的 `ExecutionBackendSpec.matches/_always_available` **正是被测量到的 allowed/exec 解析直接调用**的——须补入。(ii) **原生缝**：`ascend/target.py:37-39` `target_is_ascend → _ffi_api.init_ffi_api("tl") → 原生 tl.TargetIsAscend`（`src/ascend/target_utils.cc:13-28`）；且 `tilelang/__init__.py:191-198` 用 **ctypes 加载原生 TileLang 库**——**两者对 `sys.modules` 扫描均不可见**。故须**记录原生库路径/身份**（及 wrapper 的实际 origin+sha+size）作为直接依赖；**单钉 wrapper 不足以让 11 文件绑定完整**。它还警示：**不要**为了缩小 census 而**移除 eager 导入**——保留常规环境、**记录**依赖。
+
+**我自己的探针缺陷，由 Challenger 查出，已改**。我的 v1 把 `sys.modules` 的**行数**写成标签"distinct .so"（v1：**60 行 vs 49 个不同路径**——`torch._C`/`torch_npu._C` 各有多别名共享同一文件）。这是**"行数当作测量数"**类缺陷：标签谎报了它计的是什么。探针已重写（**行数与不同路径分别报**、补入被漏的模块、经 `tilelang._LIB_PATH` 记录 ctypes 原生库），重跑，v1 输出转为旧代数（存 `probes/P4-LEAD-COMPILED-IMPORT-PROBE.out.gen1-superseded.txt`）。改正后测出：**58 个扩展模块行 / 47 个不同 .so 路径**；其后两个导入步**新增 0**；原生库为 `build/lib/libtilelang.so`（其 sha256/size 在探针输出里，本追加不转录）。**结论比 v1 更强而非更弱**：路由路径**同时**依赖一个编译 Python 扩展**和**一个 ctypes 加载的原生库。
+
+**机制与欠账**。P4-0 身份锚已 **27 → 28 行**（含追加裁决与改后探针；CHECK OK）；旧代存 `gen5/gen6-27rows-superseded.txt`。闸门 G35 已记（**139808 → 144303 B**，前缀逐字节保持）。**欠账**（并入 v3 指令）：(1) v3 的 `ROUTING_SURFACE` **补 `tilelang/backend/execution_backend.py`**；(2) v3 **记录**原生库路径+身份与 wrapper 的 origin+sha+size；(3) 不靠删 eager 导入来缩表。
+
+**并行**：**P4-B 已冻结**——`impl/P4B-FREEZE-RECORD.txt`（16 文件：11 改 + 5 增）我**独立按字节重算 16/16 一致**，文件集与 `git status --porcelain` **完全相同**，且其 quiescence 摘要 `65d3158a…354` 仍等于当前树（HEAD `cc56643d`）。已令 Implementor **宣告冻结为 FINAL 并停改生产代码**，并给出**它自己**的编译导入测量（不同仪器）。
+
+**未主张**：v3 已存在；编译/原生依赖**改变**了任何路由观测（裁决为**不改变**）；RUN B 期原生库历史身份已知（NOT_DECIDABLE）。**性质**：不改冻结工件与验收条件、不转录活工件哈希。
+
+## 追加 281 — P4-B 冻结为 FINAL：16 文件即全部生产面（独立复算为证）；G29 的"纯 Python 路由"UNPROVEN 句被独立仪器答为 YES
+
+**阶段**：P4-B 冻结。**结果：生产树冻结、边界证明、编译导入问题有答案；P4-B 的独立验证刚派出，尚未裁决。**
+
+**冻结 FINAL**。Implementor 宣告 P4-B **FREEZE FINAL**：**16 个生产文件**（11 改 + 5 增），此后不再改。**我独立按字节重算** `impl/P4B-FREEZE-RECORD.txt`：**16/16** 行 sha256+size 一致，且其文件集与 `git status --porcelain -uall` **完全相同**（双向差集皆空）；写入本追加时**活树摘要仍等于冻结摘要**（`65d3158a…354`，16 行）——冻结后无生产文件移动。
+
+**"16 即全部面"——被证明而非断言**。`impl/PRODUCTION-SURFACE-CENSUS.txt` 的宇宙是 **`git status --porcelain -uall`**（**故意用 `-uall`**：默认 git status 会把未跟踪**目录**折叠成一行 `dir/`，从而掩盖 5 个新增中的 4 个、让 census"以错误的理由"通过）。我**独立复现该宇宙**：16 行，与声明的 16 双向差集**皆空**。census 还**具名列出**（而非省略）tilelang 根下三个被 gitignore 的非源条目（`.git_commit.txt` 40B、`.pytest_cache/`、`.cache/clangd/` ctime 2026-10-09，早于本轮）。Implementor **自报其 census `--check` 首版有 bug**（`dict()` 以 path 为键，把 16 行塌成 2 个键，**行数不变故计数守卫抓不到**），已修并**验证能触发**（改 STATUS→rc=1；删一行→rc=1"声明 16 却只有 15"）。
+
+**G29 的 UNPROVEN 句：答案 YES**。`impl/p4b-audit-routing/AUDIT-MANIFEST.txt`（11 行，我复算 11/11）。跑**未改动的冻结路由脚本**，进程内被映射 **6 个 build-root 共享对象**：`libtilelang.so`、`libtvm_compiler.so`、`libtvm_runtime.so`、`tilelang_cython_wrapper.abi3.so`，**外加** `libstub_ascendcl.so`、`libstub_hip.so`——后两者是 `libtilelang.so` 的**传递 NEEDED 依赖**，**不触发任何 Python 级事件**（故仪器带 `/proc/self/maps` 通道：Python 通道见 4，maps 见 6）。触发点由 trigger probe 钉在 **`import tilelang.env`**。**阳性对照**证明仪器对刻意加载器**会触发**。另测出两件与直觉相反的事实：该运行 **dlopen 了 `libascend_hal.so`（CANN HAL）** 并导入 torch/torch_npu——**"避开 torch 的导入路径"今天并不成立**。这**部分证伪了我自己早先的解读**（env.py 只"准备路径"）：`sys.path.insert` 本身不加载，但**同一个 import 随后把扩展拉了进来**。我自建探针**方向一致、幅度少报**（它只能看见 Python 注册为模块的对象）；**maps 通道是更强的仪器**。记录的定性是：**我的仪器少报原生对象**；**Implementor 的四通道审计为记录答案**，**待 Challenger 独立复审**。
+
+**并行（欠账）**：(1) **已派独立 Verifier（verify-3）** 逐条验 P4-B（BC-1..BC-5 / CR-ID / CR-REJ / CR-PB / CR-CACHE / CR-FI / CR-LD / CR-SER），其裁决**欠**；(2) **v3 路由绑定 runner**（verify-2，含 Challenger 追加的两条要求：补 `execution_backend.py`、记录原生库/wrapper 身份）**欠**；(3) **Challenger 复审**编译/原生依赖是否属路由面已在 G35 给出（答复：非决策依赖，只记录）。
+
+**机制**。P4-0 身份锚 **28 → 31 行**（绑定冻结记录、census、审计 manifest；CHECK OK）；旧代存 `gen7-28rows-superseded.txt`。闸门 G36 已记（**144303 → 148854 B**，前缀逐字节保持）。
+
+**未主张**：P4-B 已验证（**未**——verify-3 裁决欠）；冻结树可构建或可运行（本轮无构建、无 NPU）；被加载的原生对象**改变**任何路由决策（裁决为**不改变**）；P4-C 已开始。**性质**：不改冻结工件与验收条件、不转录活工件哈希。
+
+## 追加 282 — Lead 更正自己封存记录里一条**被证伪的论证**：`-uall` 宇宙不变，但"默认会隐藏 5 个新增中的 4 个"是**误**（实测隐藏 0）
+
+**阶段**：P4-B（独立验证进行中）。**结果：我自己的记录里的论证被推翻并撤回；宇宙、行、裁决、哈希全部不变。** **性质**：record-not-repair——不改封存件字节。
+
+**缺陷**。G36（`P4-GATE-TRANSITIONS.txt`）与**本追加之前的 281**都这样论证 census 的宇宙 `git status --porcelain -uall`：默认 `git status --porcelain` 会把未跟踪**目录**折叠成 `dir/`，从而**隐藏 5 个新增中的 4 个**。**实测**（git git version 2.25.1，树 /home/s00653124/workspace/tilelang）：默认 **16 行**、`-uall` **16 行**、**双向差集 0 行**——**两者完全相同，默认隐藏 0 个**。折叠的前提是**整目录未跟踪**，而每个新增文件的父目录**都已有已跟踪文件**（src/ascend/codegen=8, src/ascend/codegen=8, src/ascend=85, src/ascend/runtime=2, testing/cpp=1），故那条一般机制为真、但**在此树不触发**。
+
+**归属**。该句由 Implementor 的生成器 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/impl/gen_production_surface_census.py`（164–166 行）**首次写出**，**由我复制**进 G36 与 281。**记录中的缺陷是 Lead 的**：我把一条看似合理的一般规则，带着一个**未经测量的具体后果**，封存进了记录。
+
+**处置——记录，不修补**。census 是**写一次**件且被 P4-0 锚绑定，且**独立验证闸门（verify-3）正在进行中**，故**不动其字节与其生成器**，只追加本更正。会**再生成**该句的生成器**列为闸门关闭后的后续项**，**不得靠改写已封存 census 来"修"**。更正件：`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/LEAD-CORRECTION-uall-rationale.txt`。**独立观察**：Verifier 自己的集合差探针（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/verify/P4B-VERIFICATION/tier1_setdiff.txt`）**打印了同一事实**——`plain git status --porcelain (no -uall) rows: 16 -> would hide: []`——即**第二个、非我的仪器**也得到 hidden=0。
+
+**未主张**：census 的任何**行/裁决/哈希**有错（**无**——`--check` 仍通过，`SET DIFFERENCE IS EMPTY: True`）；应弃用 `-uall`（**否**——它是无害的**严格超集**）；**16 个冻结文件**携带该句（**否**——对 16 文件做严格短语 grep 为空；早先宽松 `uall` grep 的 7 处命中是**子串假阳性**："textually"/"mutually"）；P4 五项前提已变（**未**——P3 binary、路由脚本的 sha+size 与三个 HEAD 本窗全部复测一致）。
+
+**机制**。闸门 G37 已记（148854 → 152076 B，前缀逐字节保持，旧代存 `pre-G37.snapshot.txt`）；更正件 sha256 `8d7b2cfd0ed593d918f73a10978e9644ea3411ab9264ba51a8d8660d730c458b`/3590 B；census `b33502821bbadca477bcaadbdd65872622d6457818efc0517982fe0d1aa8e80a`、生成器 `b1a029a6ce74446f0622a5934b0b30b661267aa5f55acbb80f4f757c325ec5de`（均已按字节测量并绑进更正件）。
+
+## 追加 283 — Challenger 对 v3 的 item-C 裁决 = **BLOCK**（原文已持久化）；Lead 判定 verify-3 的 3 个契约 FAIL 属**仪器缺陷**而非生产缺陷
+
+**阶段**：P4-A 源绑定（item C 复验）+ P4-B（独立验证进行中）。**结果：item C 仍未闭合（v3 不足以闭合）；verify-3 的聚合 `RESULT: FAIL` 已分离为仪器缺陷。** **性质**：裁决持久化 + 判别实验。
+
+**（1）Challenger-v3 裁决——BLOCK**。原文已从它的 transcript 机械抽取、逐字节持久化于 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/challenger/CHALLENGER-P4-A-ITEMC-V3-VERDICT.txt`（sha256 `54d9d651679f5ed222c23e099f7797a756540c76079094c11b43ec2c53bccbb2`/9663 B，未经任何重打）。它**批准** v3 的两项修复（缺源/非目录根 exit 10；镜像根 exit 11），但以**三条**理由**阻止** item-C 闭合：**（a）未强制"子进程真实来源"绑定**——它在内存中运行 v3 的真实 `main`，保留真实 probe JSON 与子进程 stdout，仅把子进程 stderr 中的被测根路径替换为 `/unmeasured/challenger-other-tree`（**2555 处**），保留模块名与 loader 类；v3 仍返回 **0**、写 `origin_containment=PASS` / `loader_match=11/11`。**loader 类可以服务不同的路径**——类一致**不**把子进程绑到被测树。**（b）缺 `tilelang/backend/execution_backend.py`**——v3 的 `ROUTING_SURFACE`（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/verify/RUN-B3/run_routing_identity_v3.py`，sha `8ed187109e018b3b1cc93060fe9c5799bdb49e4dbe37c48d168ee97842b12306`/29754 B）与 v2 **逐字节相同**且遗漏该模块；子进程确实导入它（`RUN-B3.stderr.txt:7777-7779`），`BackendModule` 调用其中定义的 `spec.matches`/`is_available`。（注：元组在 `:117` **确实**列了 `tilelang/ascend/execution_backend.py`——**另一个文件**；Challenger 指的是 `backend/` 那个。）**（c）未记录原生 TileLang 库与 wrapper 的身份（sha+size）**——Implementor 的 audit 只记 mapped **路径**，无法回溯补出 RUN B3 的原生身份。**item D（R15 checker）**仍悬。**未**含任何编译器/ABI/数值/硬件验收。
+
+**（2）Lead 判定——verify-3 的 3 个契约 FAIL 是仪器缺陷**。verify-3 的 tier-2 battery 打印 `RESULT: FAIL`（33 PASS / 6 FAIL / 3 NOT_RUN），其中 3 个契约 FAIL 的 `msg="module 'tvm' has no attribute 'tir'"`。**实测**：本 TileLang 分支的 IR 包是 **`tvm.tirx`**，**不是** `tvm.tir`（`3rdparty/tvm/python/tvm/__init__.py:52` 导入 `tirx`；**不存在** `tvm/tir/` 目录）。battery 的变异构造器调用 `tvm.tir.IntImm`（`t2_prebuilt_battery.py:457/463/466`），**lambda 在 guard 被触达之前**就抛 `AttributeError`——那几行测的是**构造器**，不是 guard。**Lead 自己的仪器**（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/probes/replay_contract_mutations.py`，sha `1fe2ce4bdb9cdd791da5436a674f2b88bc529cad78ca14275a8f82fc330769c7`/5933 B；输出 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/probes/P4-LEAD-CONTRACT-MUTATION-REPLAY.out`，sha `548ee89308a93306b5815fa0bfd42627f77ba1bd99a1995e933f5ee7aa8a6a6b`/894 B）用**正确模块名**（`tvm.tirx.IntImm`）重放同样三条变异：三条**全部**被 `CheckFixedProgramContract` **拒绝**，且 `loader_calls=0`（拒绝先于任何 ACL 加载）。故 guard 在 grid/UB/readonly 上**无缺口**；verify-3 的 3 个 FAIL 属仪器缺陷。3 个 NOT_RUN 是真实仪器限制（此分支 `Module` 无 `save_to_bytes`），如实记 NOT_RUN 而非 PASS。**未主张**：verify-3 整个 battery 无误（**有误**——需改模块名，verify-3 正在改）；P4-B 已验证（**未**——verify-3 的最终裁决仍欠）。
+
+**（3）后果——P4-B 仍未验证，P4-C 仍闸住**。item-C 的补救转入 **RUN-B4（v3_1）**：Lead 已指示 verify-2 **强制子进程来源相等**，依据子进程 stderr 中**真实存在的路径回执**（`# code object from <绝对路径>` 与 `<pyc> matches <绝对路径>` 两种形式，在 `RUN-B3.stderr.txt` 实测 **848 / 2844** 条 tilelang 行），而非 loader 类一致。冻结 v1/v2/v3 保留。闸门 G39 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `5a6244a8d94baffc16ab20f8408ecb481dab08dc38225bbc800d9910a82604cb`/159141 B）。**下一步**：verify-2 交 RUN-B4；verify-3 交最终 P4-B 裁决；Challenger 复审 v3_1。
