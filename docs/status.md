@@ -14078,3 +14078,127 @@ sha256 与字节数，没有路径**（本次修复前 37 行全部如此）。�
 **顺带记下我自己的同类错误**：第一版读者视角复核脚本的正则把**两行静默丢弃**，报 33 行而非 35 行
 （当时的行格式）。我把"未解析的行"当作不存在——这正是"枚举胜过计数"的反面。
 修正后的脚本**先打印所有未解析行**再统计，才看到真实行数。**任何解析式复核都必须报告未匹配项，而不是忽略它们。**
+
+
+## 追加 271 — P3-0：封存 P2 最终源代码（提交 `bfefe18`）
+
+**阶段**：P3-0（`docs/p3-goal-1016.md` §3）。**结果：完成。**
+
+**执行前核对（与 goal §3 逐项对照）**：`git status` 显示工作区恰有两处 `M`——
+`regbase/LateInputVerifier.cpp`、`regbase/CMakeLists.txt`；无其他改动。
+`LateInputVerifier.cpp` 的 SHA-256 实测为 `e19080ab1bd772fac2c5b790b22d4c62d1b62857f3be4ce941e044fc07b387bf`，
+与 goal §3 给出的值**逐字符相同**；`CMakeLists.txt` 为 `6961d21a…`（1944 B）。
+diff 规模实测 491 insertions / 68 deletions（`LateInputVerifier.cpp`）与 6 insertions（`CMakeLists.txt`），
+与 D128 审查范围一致。**未发现任何额外修改，故按 goal §3 继续提交。**
+
+**提交**：
+
+| 项 | 值 |
+|---|---|
+| 仓库 | `/home/s00653124/workspace/AscendNPU-IR-1` |
+| 分支 | `feat/tilelang-hivm-late-pipeline` |
+| 父提交（提交前 HEAD） | `82f3ad088ab3cea0e81fa6627e0487a93e5317ef` |
+| 新 HEAD（提交后） | `bfefe18011152cca671e7e6ddf03793afbacaa2a` |
+| 提交信息 | `P2 Final Verifier fix: freeze approved regbase Late input verifier` |
+| 暂存范围 | **仅**上述两个文件（`git diff --cached --name-only` 恰两行） |
+
+**执行后核对**：提交后两个文件的内容哈希与提交前**逐字节相同**（未做格式化、未重排代码）；
+`git status` 干净；该仓库**没有 upstream 分支**，故本轮不存在 push 动作，也未改远端配置。
+
+**为什么不推翻 P2 产物身份**（goal §3.5、§3.6）：P2 的 SCOPED APPROVE 以**内容哈希**绑定修复，
+提交只是把已批准内容持久化，不是再次实施修复。冻结的 P2 `kernel.o`（`2c4247c3…`/4448 B）本轮**未重建、未覆盖**。
+HEAD 从 `82f3ad088` 前移到 `bfefe18` 属预期内的持久化，不改变任何已批准的客体身份。
+
+**性质**：本追加不改任何 verdict、计数或二进制身份。`kernel.o`、P2 fixture 与全部冻结工件保持不变。
+
+## 追加 272 — P3-A / P3-B 门禁记录，以及 P3-C 当前的 r9 状态（不是 PASS）
+
+**执行顺序**（goal §2）：Verifier 冻结验收条件 → Challenger 审查设计 → Implementor 开发 → Verifier 独立执行 → Challenger 最终审查 → Lead 汇总。本轮已走到第 5 步并回退到 Implementor 修订。
+
+**P3-A（独立 ACL Loader/Lookup）= PASS。** 冻结 ELF `2c4247c3…`/4448 B 经真实 `aclrtBinaryLoadFromData` + `aclrtBinaryGetFunction("main_kernel")` 成功，rc=0、句柄非空、二进制 SHA 正确、释放可解释。已在 19 个 staged 仪器上复现。
+
+**P3-B（独立 Kernel Launch）= PASS，但用的是判别实验 E1 的配置，不是首版配置。**
+首版（与 TileLang runtime 一致的最小 launch 配置）在冻结配置上**实测设备故障 507015**（28 核、pc `0x120041000108`），不是超时。一次事先声明的有界判别实验定位到 loader MAGIC：E1/E3（`MAGIC id=2 value=0x41415246` = VECTOR_CORE）sync_rc=0，E0/E2/E4/E5 sync_rc=507015。Challenger 裁定 **APPROVE E1 为 P3-B 的配置记录**（冻结标准 :285 不要求 null options；设计 :32 预授权该同 ELF 实验）。E1 的 launch/sync rc 均为 0，grid=64、dynamic UB=196608 生效。
+
+**P3-C（全量数值正确性）= NOT_RUN。** 尚未在设备上跑任何数值用例。
+
+**Challenger r8 终审 = REVISE P3-C readiness。** 原文存于
+`hivm-poc-evidence/p3-20261016/review/CHALLENGER-R8-VERIFICATION-RULING.txt`（6762 B，`eea18e92…`）。
+r8 已**关闭**最初的 P3-C D2H/cleanup 假 PASS，自检**确实**驱动生产函数（共享接缝为真，非平行副本）。
+Challenger 自己复跑：r8 自检 rc 0、13 行 OK、stderr 空；九个 staged mutant 全部 rc 26。它明确说明这**只证明这九个被抓住，不等于完整覆盖**。
+
+**r8 遗留三项**（Lead 已逐条在源码中独立复核）：
+1. **stage A 仍会在释放失败后 PASS**（真实缺陷）：P3-A 门禁行在释放**之前**写出（`:1401-1406`），A 分支记录却**忽略**释放 rc，随后无条件输出 stage PASS 并 `return kExitOk`（`:1408-1421`）。这违反**冻结标准本身**：`:279-284` 把"资源释放可解释"列为 P3-A PASS 的**条件**（"PASS only if all hold"）。
+2. **门禁测试覆盖缺口**：两处注入的 `JudgeStageGate` 都传 `work_ok=true`（`:658`/`:677`），因此变异 `v.pass = cv.ok;`（丢掉 work_ok）**按代码审阅即可存活**，会让"数值失败但清理干净"的 C 门禁 PASS。Challenger 明确标注这是**被证明的覆盖缺口，不是实测存活变异体**；生产合取式 `:422` 本身正确。
+3. **传输失败的退出码分类丢失**：P3-C 的 D2H 失败在 `:1719` 置 `overall=kExitDataTransferFail`(29)，但清理干净后的最终 return `:1874` 对所有失败的 C 结果都返回 25，丢弃了先前的分类。
+
+**Lead 动作**：已发出**合并的 r9 工单**（`lead/P3-R9-WORK-ORDER.txt`，7789 B，`febaa0b2…`），仅覆盖上述三项，且是**纯主机修订**（无设备动作）。r9 需经 Challenger 复核 APPROVE 后，P3-C 才允许上机。界外项（Challenger 自己设的界）：不做新的 loader-magic 实验、不改编译器、不替换冻结 ELF、不回退 P2。
+
+**Lead 决定（已记录）**：冻结的 E1 运行报告 `experiment-r4/E1_magic_vector_core/report.jsonl`（`fbc98f5b…`）内仍含已撤回的措辞"the raw ELF has no core-type field"。**不修改该冻结文件**——它是当时所作声明的诚实记录；为让日志与后来的撤回一致而重跑，属于"改记录去迁就结论"。撤回由 r8 addendum（`2f8bbd91…`，其中 :177-184 逐字点名路径、sha 与该措辞）承载。
+
+**性质**：本追加不改任何已批准的 P2 身份，不改任何冻结工件。P3-C 的 PASS 尚未存在，此处不得读作 PASS。
+
+## 追加 273 — P3-A/B/C/D 全部通过；P3 标记 CLOSED；P4 READY 但未授权
+
+**阶段**：P3 收官（`docs/p3-goal-1016.md` §5–§10）。**结果：P3 全部门禁通过。**
+
+**执行顺序**（goal §2 逐项落实）：Verifier 冻结验收条件 → Challenger 审查 Loader/Launch 设计 →
+Implementor 开发 → Verifier 独立执行 → Challenger 最终审查 → Lead 汇总。
+
+| 子门禁 | 状态 | 关键实测 |
+|---|---|---|
+| P3-0 源码封存 | 完成 | 提交 `bfefe18011152cca671e7e6ddf03793afbacaa2a`，仅两文件，提交后内容哈希不变 |
+| P3-A Loader/Lookup | **PASS** | `aclrtBinaryLoadFromData`(4448 B, sha==`2c4247c3…`) rc=0；`aclrtBinaryGetFunction("main_kernel")` rc=0 |
+| P3-B Launch/Sync | **PASS（E1）** | launch_rc=0、sync_rc=0；grid=64、DYN_UBUF_SIZE=196608 生效 |
+| P3-C 全量数值 | **PASS** | 15/15 行；每行 compared=524288、mismatches=0 |
+| P3-D 独立终审 | **APPROVE** | Verifier 报告 + Challenger verdict 均落盘 |
+
+**运行目录（只写一次）**：`EV/p3-20261016/verify/p3c-run-20261015T190259Z/`
+（`EV` = `/home/s00653124/workspace/hivm-poc-evidence`）。墙钟 `19:18:29Z`→`19:18:47Z`（18 s），
+容器 rc=0，`stderr.txt` 0 字节。E1（**仅** `--loader-magic=vector-core`，非 E3）是该轮唯一设备调用。
+
+**身份（全部实测，非转录）**：kernel.o `2c4247c3b2ce11f79ad15415eb06d4ce1d5523a0c19c91ad3743bc08e7b8c4c9`/4448 B
+（== goal §4 钉值）；harness 二进制 `e2298095b5f51d576165ab62010f57dc44e90c1328119fc2a0495c767995e24d`/192752 B；
+harness 源码 `p3/p3_harness.cc` `26b01e38…`/103817 B（**未跟踪**，故以内容哈希绑定，不用 git id）；
+正式 `libascendcl.so` `4b270e62…`/259976 B。
+
+**真实返回值**：`acl.log` 139 条记录 **rc 全 0**；`aclrtBinaryLoadFromData` 1 次、`aclrtBinaryGetFunction` 1 次、
+`aclrtLaunchKernelWithHostArgs` 15 次、`aclrtSynchronizeStreamWithTimeout` 15 次，释放链
+（3×Free / BinaryUnLoad / DestroyStream / DestroyContext / ResetDevice / aclFinalize）齐全。
+故冻结标准 `:279-284` 的"释放可解释"是**测量**，不是断言。
+
+**数值与 guard**：15 行（5 case × 3 次）全部 PASS；mismatches=0、sentinel 残留=0、NaN/Inf=0、max_abs_err=0、
+64 个 block 失配计数全 0、A/B 回读未修改、六个 guard 区未破坏；1,920 个持久化边界点设备位 == 冻结参考位。
+`report.jsonl` 的 `preservation_measured`/`guards_measured`/`sentinel_residue_measured` 15/15 为 true
+（未测量写 null，不写 0）。
+
+**未独立测得的 7 项**（Verifier 显式列出，不得读作已证）：(1) "NPU 确实执行了 kernel"——
+launch_rc=0 + sync_rc=0 + C 与参考一致，**无法**排除一个在回拷时伪造 C 的运行时，信任边界在 CANN 与硅片；
+(2) "每行全部 524288 个元素在设备上一致"——设备 C 字节未落盘，进程内比较后只留失配计数与 128 个边界样本；
+(3)–(7) A/B 设备侧未修改、窗口内无并发干扰、运行中无 ECC 错误、E1 相对 E0/E2/E4/E5 的判别、
+运行内核处 ABI 布局——均为前后采样或他轮证据，本轮未重测。
+
+**本轮新增记录（不改任何 verdict / 计数 / 二进制身份）**：
+
+1. **`docs/current-state.md` 的 gen 6 表头漂移**：表头自 gen 6 起一直写"gen 6"，而清单已前移到 gen 10，
+   连续四代不符。表头改为 gen 11；清单与快照本身自始正确，故属**标签漂移**而非身份缺陷。
+2. **P2 身份普查的唯一活行按设计失效**：`EV/resume-04/lead/IDENTITY-SWEEP-FINAL-gen3.txt` 把
+   `docs/current-state.md` 列为一行，就地改写后该行必然 FAIL。goal §9 禁止重生成 P2 清单，故**不重跑**；
+   已在 P3 证据树留锚 `EV/p3-20261016/lead/P3-IDENTITY-SUPERSESSION.txt`（由
+   `p3-anchor-supersession.py` 生成，**任一行不复现即拒绝写出**），使读者见到那唯一一行 FAIL 时读作
+   **取代**而非篡改。P2 的 37 行中其余 36 行为冻结客体，本轮未触碰。
+3. **`current-state.md` 中两处被 P3 取代的 P2 轮次表述按"记录不修复"就地加注**（§1 的
+   "硬件数值正确性仍为 NOT_RUN"、§3 的"修复留在工作区、未提交"），原文一字未改。
+4. **一处未做因果归因的观测**：device 0 的 HBM 前后 6005→6010 MB。**不声称"无泄漏"、不作归因**——
+   窗口内只有前后两个采样点；同窗口 device 1（他人作业）HBM 由 6745 升到 39445 MB。
+   可断言者仅：前后 health 均 OK，本进程释放链 rc 全 0。
+5. **设备卫生**：仅用 device 0（Ascend950PR，前后 idle、无进程）；device 1 全程未触碰；
+   未做任何破坏性 reset，未清理他人 context/进程/日志。
+
+**真实环境**：设备 Ascend950PR（board `A310-50-C00MM304A1`，NPU Name `9579`，Chip Version V100，
+PCIe `0000:55:00.0`）；CANN `9.2.0-beta.2`（`ASCEND_HOME_PATH=/data/pri/cann-9.2.0/cann-9.2.0-beta.2`）；
+ACL `1.17.0`；driver `25.7.0`（`npu-smi 25.7.0`，`ascendhal_version=7.35.23`）。
+
+**性质**：本追加不改任何已批准的 P2 身份，不改任何冻结工件。P3 只证明独立 Binary 在真实硬件上
+按可观测契约正确运行；**不证明 TileLang Runtime 已接通，也不证明 TIR → HIVM DeviceCodeGen 已实现**。
+**P4 READY 但未授权，本轮不进入 P4。**

@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Generate p3_frozen_constants.h from the FROZEN acceptance criteria file.
+
+Rationale: the criteria file is the machine-checkable contract. Transcribing its
+numbers into C++ by hand is a transcription risk, so every constant below is
+extracted from the criteria text by regex and the generator REFUSES to write the
+header if any required value is not found exactly once.
+
+This generator does NOT compute any oracle value; it only copies literals that
+already exist in the frozen contract.
+
+Usage:
+  python3 gen_frozen_constants.py <P3-ACCEPTANCE-CRITERIA.txt> <out.h>
+"""
+import re
+import sys
+
+REQUIRED = [
+    # (name, regex, expected literal form check)
+    ('KERNEL_SHA256', r'^\s*sha256\s+([0-9a-f]{64})\s*$'),
+    ('KERNEL_BYTES', r'^\s*size\s+(\d+)\s+bytes\s*$'),
+]
+
+
+def main(argv):
+    if len(argv) != 3:
+        sys.stderr.write(__doc__)
+        return 2
+    crit_path, out_path = argv[1], argv[2]
+    with open(crit_path, 'r', encoding='utf-8') as fh:
+        text = fh.read()
+
+    found = {}
+    for name, rx in REQUIRED:
+        hits = re.findall(rx, text, re.M)
+        # de-dup while preserving order
+        uniq = []
+        for h in hits:
+            if h not in uniq:
+                uniq.append(h)
+        if len(uniq) != 1:
+            sys.stderr.write('FATAL: %s: expected exactly 1 distinct match, got %d: %r\n'
+                             % (name, len(uniq), uniq))
+            return 1
+        found[name] = uniq[0]
+
+    # geometry / policy constants: (cpp name, regex, c++ type)
+    geo = [
+        ('kGrid', r'CR-LCH-1\.\s*gridDim\s*/\s*numBlocks\s*=\s*(\d+)\s*\(exactly\)', 'uint32_t'),
+        ('kDynUbBytes', r'CR-LCH-2\.\s*dynamic UB\s*=\s*(\d+)\s*bytes', 'uint32_t'),
+        ('kPayloadBytes', r'per-array payload\s*(\d+)\s*bytes', 'size_t'),
+        ('kGuardBytes', r'CR-MEM-2\.\s*(\d+)-byte guard regions', 'size_t'),
+        ('kGuardByte', r'initialized to the byte\s*0x([0-9a-fA-F]{2})', 'uint8_t'),
+        ('kSentinelU32', r'NaN BIT PATTERN\s*0x([0-9a-fA-F]{8})', 'uint32_t'),
+        ('kSyncTimeoutMs', r'aclrtSynchronizeStreamWithTimeout\(stream,\s*(\d+)\)', 'int32_t'),
+        ('kWatchdogSec', r'outer process watchdog:\s*finite, default\s*(\d+)\s*s', 'unsigned'),
+    ]
+    for name, rx, _t in geo:
+        hits = re.findall(rx, text)
+        uniq = []
+        for h in hits:
+            if h not in uniq:
+                uniq.append(h)
+        if len(uniq) != 1:
+            sys.stderr.write('FATAL: %s: expected exactly 1 distinct match, got %d: %r\n'
+                             % (name, len(uniq), uniq))
+            return 1
+        found[name] = uniq[0]
+
+    # N and elements/block come from CR-GEO-1/CR-GEO-2
+    m = re.search(r'CR-GEO-1\.\s*N\s*=\s*(\d+)\s*elements', text)
+    if not m:
+        sys.stderr.write('FATAL: CR-GEO-1 N not found\n')
+        return 1
+    found['kElems'] = m.group(1)
+    m = re.search(r'CR-GEO-2\.\s*(\d+)\s*blocks x\s*(\d+)\s*elements', text)
+    if not m:
+        sys.stderr.write('FATAL: CR-GEO-2 not found\n')
+        return 1
+    found['kBlocksFromGeo'] = m.group(1)
+    found['kElemsPerBlock'] = m.group(2)
+
+    if int(found['kBlocksFromGeo']) != int(found['kGrid']):
+        sys.stderr.write('FATAL: CR-GEO-2 block count != CR-LCH-1 grid\n')
+        return 1
+    if int(found['kElems']) != int(found['kGrid']) * int(found['kElemsPerBlock']):
+        sys.stderr.write('FATAL: N != grid * elems_per_block\n')
+        return 1
+    if int(found['kPayloadBytes']) != int(found['kElems']) * 4:
+        sys.stderr.write('FATAL: payload bytes != N*4\n')
+        return 1
+
+    # CR-DATA-7 frozen payload identity table (case, slug, sha256, bytes)
+    rows = re.findall(r'^(\S+)\t(\S+)\t([0-9a-f]{64})\t(\d+)\s*$', text, re.M)
+    if len(rows) != 15:
+        sys.stderr.write('FATAL: CR-DATA-7 table: expected 15 rows, got %d\n'
+                         % len(rows))
+        return 1
+    seen = set()
+    for case, slug, sha, nbytes in rows:
+        key = (case, slug)
+        if key in seen:
+            sys.stderr.write('FATAL: duplicate CR-DATA-7 row %r\n' % (key,))
+            return 1
+        seen.add(key)
+        if int(nbytes) != int(found['kPayloadBytes']):
+            sys.stderr.write('FATAL: CR-DATA-7 row %r bytes %s != payload bytes\n'
+                             % (key, nbytes))
+            return 1
+    cases_in_order = []
+    for case, _slug, _sha, _n in rows:
+        if case not in cases_in_order:
+            cases_in_order.append(case)
+    if len(cases_in_order) != 5:
+        sys.stderr.write('FATAL: expected 5 distinct cases in CR-DATA-7, got %d\n'
+                         % len(cases_in_order))
+        return 1
+    for case in cases_in_order:
+        got = sorted(s for c, s, _h, _n in rows if c == case)
+        if got != ['A', 'B', 'C_ref']:
+            sys.stderr.write('FATAL: case %s slugs %r != [A,B,C_ref]\n' % (case, got))
+            return 1
+
+    lines = []
+    lines.append('// GENERATED by p3/gen_frozen_constants.py from the FROZEN acceptance')
+    lines.append('// criteria file. DO NOT EDIT BY HAND. Regenerate instead.')
+    lines.append('// source: %s' % crit_path)
+    lines.append('#pragma once')
+    lines.append('#include <cstddef>')
+    lines.append('#include <cstdint>')
+    lines.append('')
+    lines.append('namespace p3 {')
+    lines.append('')
+    lines.append('inline constexpr const char* kKernelSha256 = "%s";' % found['KERNEL_SHA256'])
+    lines.append('inline constexpr size_t kKernelBytes = %s;' % found['KERNEL_BYTES'])
+    lines.append('inline constexpr uint32_t kGrid = %s;' % found['kGrid'])
+    lines.append('inline constexpr uint32_t kDynUbBytes = %s;' % found['kDynUbBytes'])
+    lines.append('inline constexpr size_t kElems = %s;' % found['kElems'])
+    lines.append('inline constexpr size_t kElemsPerBlock = %s;' % found['kElemsPerBlock'])
+    lines.append('inline constexpr size_t kPayloadBytes = %s;' % found['kPayloadBytes'])
+    lines.append('inline constexpr size_t kGuardBytes = %s;' % found['kGuardBytes'])
+    lines.append('inline constexpr uint8_t kGuardByte = 0x%s;' % found['kGuardByte'])
+    lines.append('inline constexpr uint32_t kSentinelU32 = 0x%s;' % found['kSentinelU32'])
+    lines.append('inline constexpr int32_t kSyncTimeoutMs = %s;' % found['kSyncTimeoutMs'])
+    lines.append('inline constexpr unsigned kWatchdogSec = %s;' % found['kWatchdogSec'])
+    lines.append('inline constexpr size_t kAllocBytes = kGuardBytes + kPayloadBytes + kGuardBytes;')
+    lines.append('')
+    lines.append('// Case matrix, in the frozen order (CR-DATA-4). Short ids C1..C5 map in this')
+    lines.append('// order; p3_oracle.py CASE_MAP is the authoritative mapping.')
+    lines.append('inline constexpr const char* kCases[] = {')
+    for case in cases_in_order:
+        lines.append('    "%s",' % case)
+    lines.append('};')
+    lines.append('inline constexpr size_t kNumCases = sizeof(kCases) / sizeof(kCases[0]);')
+    lines.append('')
+    lines.append('// Frozen payload identities (CR-DATA-7), little-endian float32 byte streams.')
+    lines.append('struct PayloadIdentity {')
+    lines.append('  const char* case_name;')
+    lines.append('  const char* slug;')
+    lines.append('  const char* sha256;')
+    lines.append('  size_t bytes;')
+    lines.append('};')
+    lines.append('inline constexpr PayloadIdentity kPayloadIdentities[] = {')
+    for case, slug, sha, nbytes in rows:
+        lines.append('    {"%s", "%s", "%s", %s},' % (case, slug, sha, nbytes))
+    lines.append('};')
+    lines.append('inline constexpr size_t kNumPayloadIdentities =')
+    lines.append('    sizeof(kPayloadIdentities) / sizeof(kPayloadIdentities[0]);')
+    lines.append('')
+    lines.append('}  // namespace p3')
+    lines.append('')
+
+    with open(out_path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines))
+    sys.stderr.write('WROTE %s\n' % out_path)
+    for k in sorted(found):
+        sys.stderr.write('  %-18s %s\n' % (k, found[k]))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

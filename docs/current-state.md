@@ -1,15 +1,19 @@
-# 当前状态：P2 Final Gate / P3 交接
+# 当前状态：P2 Final Gate（已关闭）/ P3 独立 ACL 实机 E2E（已关闭，待 P4 授权）
 
-2026-10-15（gen 6）。本文件提供当前入口，历史原文保留在 `status.md` / `decisions.md`。
-前九代均逐字节保留、均可复算（权威清单 `EV/resume-04/lead/CURRENT-STATE-MANIFEST.json`，其 6 行自校验通过）：
-gen 1（门禁中途稿）`…/current-state.gen1-pre-rewrite.md`（`4307866895…`，6,112 B）、
-gen 2（含 D129 归属更正前措辞）`…/current-state.gen2-pre-correction.md`（`533b0b23…`，14,473 B）、
-gen 3（含 D129 更正、无 §10）`…/current-state.gen3-pre-loss-note.md`（`008105d5…`，16,716 B）、
-gen 4（有 §10、但清单身份说法有误）`…/current-state.gen4-pre-anchor-note.md`（`fda6a40c…`，18,674 B）、
-gen 5（更正 D131 表述、未含本 §10(c)）`…/current-state.gen5-pre-generator-defects.md`（`d53d279d…`，19,496 B）。
+2026-10-16（gen 11）。本文件提供当前入口，历史原文保留在 `status.md` / `decisions.md`。
+前十代均逐字节保留、均可复算（权威清单 `EV/resume-04/lead/CURRENT-STATE-MANIFEST.json`）：
+gen 1–9 快照在 `EV/resume-04/lead/current-state.gen<N>-pre-*.md`
+（`4307866895…`/6,112 B、`533b0b23…`/14,473 B、`008105d5…`/16,716 B、`fda6a40c…`/18,674 B、
+`d53d279d…`/19,496 B、`5a60ef88…`/20,532 B、`a8538bec…`/22,158 B、`d3a3c37c…`/23,122 B、`854069e7…`/24,222 B），
+gen 10 快照在 P3 证据树 `EV/p3-20261016/lead/current-state.gen10-pre-p3-update.md`（`e2a877be…`/25,050 B）。
 
-**结论：P2 可被有界接受（SCOPED APPROVE，限固定 Golden F32 VADD 的 Late→A5 Binary 编译范围）；
-P3 的设计与 Binary/ABI/Launch 交接已完成，但 P3 实机执行尚未授权，本轮停在 P3 门禁。**
+**一处历史缺陷（本轮登记，不改写历史）**：本文件表头自 gen 6 起一直写着"gen 6"，而清单已在 gen 7–10
+逐代前移——表头是**手写标签**，从未随代际更新，连续四代与清单不符（正文 §10(g) 却已在记 D137）。
+表头本轮改为 gen 11。清单与快照本身自始正确，故这不是身份缺陷，而是**标签漂移**。
+
+**结论：P2 有界接受（SCOPED APPROVE，限固定 Golden F32 VADD 的 Late→A5 Binary 编译范围）；
+P3-A/B/C/D 全部门禁通过，P3 独立 Binary 的实机 E2E 已由 Verifier 独立验收、Challenger APPROVE。
+P4 尚未授权，本轮停在 P3 门禁。**
 
 ## 1. 最终 verdict
 
@@ -24,6 +28,10 @@ Challenger 正式 verdict 原文（verbatim，由 Lead 代为落盘；Challenger
 普通 RegBase SIMD 完整 ELF 仍为 **BASELINE_BLOCKED**；硬件数值正确性仍为 **NOT_RUN**。
 该裁决解除 P2 技术审查阻塞，但本身不授权 P3 执行，也不主张硬件正确。
 
+> **本节为 P2 轮次的历史记录，原文不改。** 其中"硬件数值正确性仍为 NOT_RUN"一句**已被 P3 取代**：
+> 截至 gen 11，固定 Golden F32 VADD 的设备数值正确性为 **PASS**（§7）。
+> 上句的适用范围是 **P2 轮次结束时的状态**，不是本文件的当前结论。
+
 ## 2. 仓库、工具与身份
 
 HEAD：IR `82f3ad088ab3cea0e81fa6627e0487a93e5317ef`；TileLang `cc56643de04a49db6f50875e26d904b0c69e71a6`；
@@ -32,6 +40,26 @@ control 起点 `3cc7646b52a6fff9bfec141a784839c899db72b6`。IR 相对 staged-sou
 IR 的 `origin` 查询超时，远端一致性 UNVERIFIED，未改远端配置。
 served-model 审计仍 UNVERIFIED（未找到直接 Magpie 请求日志），见
 `EV/resume-01/lead/model-audit-limitation.json`。
+
+**P3 轮次（gen 11）新增/前移的身份**：
+
+| 客体 | SHA-256 | bytes |
+|---|---|---:|
+| IR HEAD（P3-0 提交后，当前） | `bfefe18011152cca671e7e6ddf03793afbacaa2a`（commit id，非内容哈希） | — |
+| control 仓 HEAD（P3 收官时，未再提交） | `b8ec55eef28d805b6845e590db571fd1b8f27e52`（commit id；其父 `3cc7646`，提交信息为 "update P2 docs"——**不是** P3 提交） | — |
+| `p3/` 交付目录 | **未跟踪**（`git ls-files p3/` 为空）→ 无 git 身份，故 harness 以**内容哈希**绑定 | — |
+| P3 Harness 源码 `p3/p3_harness.cc`（**未跟踪**，故无 git 身份，以内容哈希绑定） | 26b01e381bb5b2bdd595cb67c772868b1218ef9d191d3f17f2a2cba2e689fd4c | 103817 |
+| P3 Harness 二进制（r9，已 staged） | e2298095b5f51d576165ab62010f57dc44e90c1328119fc2a0495c767995e24d | 192752 |
+| `p3/p3_frozen_constants.h` | bab59c83dab56975e94e29b3e332dbf70b7eb24ad62d468adbee5c1581eebf7f | 3264 |
+| 冻结验收标准 `P3-ACCEPTANCE-CRITERIA.txt`（Verifier 冻结，未改） | 6a321d7150b43ab6f18727c82c0d6c8d0abcc99afe067255b9aa446e8290d656 | 26678 |
+| 独立 Oracle `p3_oracle.py`（Verifier，harness 只消费不重算） | 32d48852b1c69a31e479652809d19aad0ef59dac72b04242a6fa8134b0008a06 | 16168 |
+| 正式 `libascendcl.so`（实机链接客体） | 4b270e626aad5d6a1e2b5444c60203185cf4684e06843573afb78e539b385fb2 | 259976 |
+| Verifier P3-D 独立报告（现行） | 5044021d0e7a81bb698b697c1e0f0883199dd850613afc4a2fccb9f48c35df3e | 23741 |
+| └ 其 gen1（4 行外观差异，已取代） | b63857c2e54561def89b9437e24473b8a92f66c2281d9772472e90db95117c59 | 23741 |
+| Challenger P3-D 终审 verdict（verbatim 落盘） | e95bd0a1da4a3df174beeb414828f606b889cb26b521148a0903a40f186f7b47 | 9281 |
+| 运行目录 `report.jsonl` / `acl.log` | d49158328b37172991ec3376d051f53725845e8a3687bfca62ff1017e4cebf06 / e47b481bec5da4075d3c82a5b3246934f927d4d868bf3b2de84f5c2b43aa6eb4 | 150522 / 29582 |
+
+上表全部为**实测值**（本次由 Python 逐字节计算），非转录。P3 轮次未 push、未改远端、未改冻结工件。
 
 本轮修复后的生产客体（**新构建，非沿用旧 SHA**）：
 
@@ -97,6 +125,10 @@ Challenger 独立重算 13 项一致，并独立复现 manifest 4/4。
 | `new01_v5_functiontype_wrong_type.mlir` | dd32abe8f919c3d29dc36bc62c652f900c8d03b37ad516d15e0ec6fc29fedc53 | 接受（洞） | 拒绝，V5 诊断 |
 | `new02_v6_c_only_offset.mlir` | db730e165f3d4cd730b2ac63758ee5587ba23d627200a6e727c31f45269f260d | 接受（洞） | 拒绝，V6 诊断 |
 | `new03_v6_vmte3_pair_after_store.mlir` | af26e888444abd333cdc3f1e3041eb4e556fd3858cdd55276845ac91fe02bcce | 接受（洞） | 拒绝，V6 诊断 |
+
+> **§3 为 P2 轮次的历史记录，原文不改。** 其编号 3/4 项即 D128 审查范围的最终内容；
+> P3-0 已把该修复**提交持久化**为 `bfefe18011152cca671e7e6ddf03793afbacaa2a`（§7 表第 1 行），
+> 提交后内容哈希不变。§3 中"留在工作区、未提交"的表述属于 P2 轮次当时的状态。
 
 **计数诚实性（"一行不等于一次独立测量"）**：Implementor 另有一组 `x1/x2/x3`（`impl/inputs/`，ctime
 22:11:37），与上表**是同样三个变异**，不是另外三个：`x1` 与 `new01` **逐字节相同**（`dd32abe8…`）；
@@ -181,18 +213,48 @@ v4/v5 选中重跑取代相关行；v6 VOID；R1 为 A1 late 半的重复覆盖�
   3. 旧稿中的"468 insertions"只存在于 Lead 的工作小结，未进入任何工件；`fix.diffstat.txt` 本就为 497/68。
   证据：`EV/resume-04/lead/LEAD-CHALLENGER-RECORD-CORRECTIONS.txt`。
 
-## 7. P3 交接
+## 7. P3 独立 ACL 实机 E2E — 结果
 
 设计见 [独立 ACL Harness 设计](p3-acl-harness-design.md)。唯一设备程序为上表 `kernel.o`：
 ELF64 little-endian、ET_EXEC、machine `0x1029`、flags `0x990000`、导出 `main_kernel`（GLOBAL FUNC）；
 HostArgs = A/B/C 三个 64-bit GM 地址、24 bytes；grid=64；dynamic UB=196608 bytes；N=524288；
-UB 基址 0/65536/131072。
+UB 基址 0/65536/131072。**该身份在本轮实机运行中再次实测 MATCH（goal §4 钉值）。**
 
-CANN 9.2 头文件与正式 `x86_64-linux/lib64/libascendcl.so` 的五个所需 `aclrt*` 导出已核对，
-**真实 loader 尚未执行**。P3 首个子门禁必须是：加载同一份已验 SHA 字节并成功 lookup `main_kernel`，
-记录两个真实 ACL rc；失败即 `LOADER_BLOCKED` 并停止 launch，不得换用 AscendC/PTO 或旧 ELF 伪装成功。
-P4 必须经 `ExtractFuncInfo`/`AscendModuleCreate`/`launch_param_tags`/`aclrtLaunchKernelWithHostArgs`
+| 子门禁 | 状态 | 判据（实测） |
+|---|---|---|
+| P3-0 源码封存 | 完成 | `bfefe18011152cca671e7e6ddf03793afbacaa2a`；提交仅两文件；提交后内容哈希不变 |
+| P3-A Loader/Lookup | **PASS** | `aclrtBinaryLoadFromData`(4448 B, sha==kernel.o) rc=0；`aclrtBinaryGetFunction("main_kernel")` rc=0；释放链可解释 |
+| P3-B Launch/Sync | **PASS（E1 配置）** | launch_rc=0、sync_rc=0；grid=64、DYN_UBUF_SIZE=196608 生效；**E1 = 仅 `--loader-magic=vector-core`**，非 E3 |
+| P3-C 全量数值 | **PASS** | 15/15 行（5 case × 3 次）逐行 PASS；每行 compared=524288、mismatches=0 |
+| P3-D 独立终审 | **APPROVE** | Verifier 独立报告 + Challenger 终审，两者均落盘（见下） |
+
+**运行目录（只写一次）**：`EV/p3-20261016/verify/p3c-run-20261015T190259Z/`
+（`EV` = `/home/s00653124/workspace/hivm-poc-evidence`）。墙钟 18 s（`19:18:29Z`→`19:18:47Z`），
+容器 rc=0，`stderr.txt` 0 字节。E1 是该轮**唯一**的设备调用（`command.txt` 逐字记录，含为何不经 `run_stage.sh`）。
+
+**数值与内存保护结果**：524288 元素/行 × 15 行；mismatches=0、sentinel 残留=0、NaN/Inf=0、
+max_abs_err=0、64 个 block 失配计数全 0；A/B 回读未修改；六个 guard 区未破坏；
+1,920 个持久化边界点（15×128）设备位 == 冻结参考位。`report.jsonl` 15 行运行记录的
+`preservation_measured`/`guards_measured`/`sentinel_residue_measured` **全部为 true**（未测量的字段写 null，不写 0）。
+
+**资源释放**：`acl.log` 139 条记录 rc 全 0，含完整释放链
+（3× Free、BinaryUnLoad、DestroyStream、DestroyContext、ResetDevice、aclFinalize），
+故冻结标准 `:279-284` 的"释放可解释"是**测量**而非断言。
+
+**设备卫生**：仅用 device 0（Ascend950PR，前后 health OK、无进程）；device 1 是他人作业，全程未触碰。
+device 0 的 HBM 前后有 5 MB 漂移——**本文件不对其作因果归因**（见 §11）。
+
+**未独立测得的 7 项（Verifier 显式列出，不得读作已证）**：其中最要紧的两项是
+(1)"NPU 确实执行了 kernel"（launch_rc=0 + sync_rc=0 + C 与参考一致，**无法**排除一个在回拷时伪造 C 的运行时；
+信任边界在 CANN 与硅片）与 (2)"每行全部 524288 个元素在设备上一致"（设备 C 字节未落盘，
+进程内比较后只留下失配计数与 128 个边界样本；其余元素依赖 harness 的比较代码，不可由保留字节重推）。
+其余为：A/B 设备侧未修改（仅回读比较）、窗口内无并发干扰（仅前后采样）、运行中无 ECC 错误（仅前后采样）、
+E1 相对 E0/E2/E4/E5 的判别（由 Implementor 的 experiment-r4 测得，本轮未重跑反例臂）、
+运行内核处的 ABI HostArgs 布局（24/0/8/16 为自回显行）。
+
+**P4 前提**：P4 必须经 `ExtractFuncInfo`/`AscendModuleCreate`/`launch_param_tags`/`aclrtLaunchKernelWithHostArgs`
 自动传播 launch 配置；不得假定运行时消费 `hacc.block_dim`。
+**P3 只证明独立 Binary 在真实硬件上按可观测契约正确运行；不证明 TileLang Runtime 已接通，也不证明 TIR → HIVM DeviceCodeGen 已实现。**
 
 ## 8. 无需重建原 Binary 的证据
 
@@ -204,7 +266,8 @@ P4 必须经 `ExtractFuncInfo`/`AscendModuleCreate`/`launch_param_tags`/`aclrtLa
 ## 9. 待办与门禁
 
 - P2：有界接受（SCOPED APPROVE）。不再有待修的 P2 缺陷。
-- P3：设计与交接完成；**实机执行未授权**。本轮停在 P3 门禁。
+- P3：**全部门禁通过（A/B/C PASS，D APPROVE），P3 标记为 CLOSED。** 详见 §7。
+- **P4：READY，但未授权。** 授权前不得开始；本轮不自动进入 P4。
 - 未决的外部核对：served-model 审计 UNVERIFIED；IR 远端一致性 UNVERIFIED。
 - 历史记录（`status.md`/`decisions.md`）只追加，不覆盖。
 
@@ -285,3 +348,54 @@ sha256 逐字写进了记录——**这正是 D131 要终止、D132 已更正的
 并按**读者视角**独立复跑一遍（不借助生成器内部）：解析出 35 行，逐行重算，`35/35` 复现、`35` 个不同哈希、无孪生。
 顺带记下一次**我自己的复核脚本**的同类错误：第一版正则把两行**静默丢弃**（只解析到 33 行），
 因为我把"未解析行"当成不存在；修正后按"打印出所有未解析行"的方式复核，才看到 35 行。
+
+## 11. P3 轮次新登记的事件（含本文件自身的一处越界）
+
+**(a) 本文件的 gen 11 改写使 P2 的身份普查清单失效（登记，不修复）。** P2 的
+`EV/resume-04/lead/IDENTITY-SWEEP-FINAL-gen3.txt` 把 `docs/current-state.md` 列为**一行**
+（gen 10，`e2a877be…`/25,050 B）。本文件被就地改写后该行**必然 FAIL**——这是 P2 清单里
+**唯一一行活工件**，其余 36 行都是冻结客体。两条纪律在此冲突：
+P2 清单要求"任何被枚举工件在清单之后再被写入，清单即 STALE，必须重生成"，
+而 goal §9 明确要求"不要重新生成 P2 的复杂历史清单，所有冻结工件保持不变"。
+**本轮的裁定：服从 goal §9，不重跑 P2 生成器**；清单按设计陈旧（"living sidecar sealed by hash
+fails the previous manifest by design"），已在 P3 证据树留锚，读者不会把它读成篡改：
+`EV/p3-20261016/lead/P3-IDENTITY-SUPERSESSION.txt`（绑定 gen 10 快照与 gen 11 现行件的 sha256+bytes）。
+**未改动**：gen 1–9 快照、P2 索引、锚、普查——P2 的 37 行中只有 current-state 这一行随设计失效。
+
+**(b) 我**没有**重跑 P2 的生成器，也就**没有**用它去复核 gen 10 快照——该快照的复算是**另做**的、
+只用了 `sha256sum` 与 `cmp`（不借助任何 P2 脚本）：与改写前实测值逐字节相同，`cmp` 退出 0，
+且两者 inode 不同（`stat -c '%h %i'` 分别为 1/77207846 与 1/108901177），故不是同一 inode 的两个名字。
+"P2 生成器认可它"这句话本轮**不成立、也未写出**。
+
+**(c) 一处未做因果归因的观测。** device 0 的 HBM 前后为 6005→6010 MB。**本文件不对这 5 MB 作因果说明**，
+也不声称"无泄漏"：18 s 窗口内的采样点只有前后两个，中间态未采样；同一窗口内 device 1（他人作业）
+的 HBM 由 6745 升到 39445 MB——把 device 0 的位移归因于本进程或归因于他人都是**超出证据的推断**。
+可断言者仅：前后 health 均为 OK，且本进程的释放链 rc 全 0。
+
+**(d) "行数即测量数"在 P3 轮次核对：15 行是 15 次测量，但**并非** 15 份互异数据。**
+P3-C 的 15 行 = 5 个 case × 3 次运行，5 个 case 的 (A,B,C_ref) 三元组**两两不同**（实测 5 个不同三元组），
+故 15 行取 15 个不同的 (case, run) 组合、无孪生行，**行数即测量数**。
+但把"互异"说成 15 份**载荷**是错的：15 个载荷文件实测只有 **11 个不同 sha256**，因为
+`constants.0` 是 A=B=C_ref=**全零**、`constants.1` 是 A=0 而 B=C_ref=3.25——
+其中 A==C_ref、B==C_ref 这两处相等是 **VADD 的正确语义**（0+0=0；0+3.25=3.25），不是缺陷。
+**本条是我本轮自己犯的错误**：初稿写成"15 个 oracle 载荷两两不同"，该句**已删**（见 (e)）。
+故本文件此前的"15 行 = 15 次不同测量"表述应收紧为：
+**5 个互异 case 各 3 次运行 = 15 次测量；载荷层面只有 11 个不同摘要。**
+P3 证据树内**不存在** P2 那种"同一世代 `cp -p` 两次"的孪生。
+
+**(e) 上述错误发生在**本文件已写成之后**，故按"改写须逐字记录"处理（D134）。**
+(e) 与 (d) 的后半段是**同一次改写**加入的：我把 gen 11 的初稿
+（快照 `EV/p3-20261016/lead/current-state.gen11-pre-oracle-count-fix.md`，`e47fb4aa…`/33,326 B）
+在 §11(d) 处**就地改写**，替换为上面这段。改写是**局部替换**，其余字节不变；
+被替换的旧句逐字为：
+  "15 行取 15 个不同 `case`×`run` 组合，无孪生行；本轮 15 个 oracle 载荷 sha256 两两不同（已实测），
+   故 15 不是把一次测量算成两次。"
+**该句中的"两两不同（已实测）"是假的**，且更糟的是它**自称已实测**——实际是**未测量就断言**，
+正是本项目反复登记的那一类错误（"检查里的字面量是检查的一部分"）。改写后不再声称载荷两两不同。
+
+**改写可复算（已实测）**：把上面逐字记录的旧句施加于快照，得到 `snap[:i] + NEW`，
+其 sha256 与**当前文件**逐字节相同（`94fb8a98418bbea5…`），且替换点之前的 20,263 字节
+在快照与现行件之间**逐字节一致**。故这一代虽为"未先快照即改写"的**反向**情形
+（快照已做、替换亦已逐字记录），其可恢复性由**替换内容被逐字记录**保证，与 (a)/(d) 的判据一致。
+（`constants.0` 的 A=B=C_ref=全零与 `constants.1` 的 A=0、B=C_ref=3.25 都是 VADD 的正确语义，
+不是缺陷；此处登记的是**我自己的计数/措辞错误**，不是产物缺陷。）
