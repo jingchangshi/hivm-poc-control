@@ -14551,3 +14551,14 @@ P4-C 已因用户授权**解锁设备前提**，但仍待 Implementor 完成 P4-
 - **loader magic**：d3 mock log 是真实拦截证据——生产 HIVM 载入带 `OPT type=2 magic=0x41415246`（VECTOR_CORE）；`aibin` 分支带 `options=NULL` 且**零** OPT 行；每个错误/缺失 magic 相位 `dev=0 launch=0`。
 
 **（5）钉字节与下一步**。闸门 **G45** 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `b53dda04d67e304fccdfe7acca987b4f9649b92ac1153724c89187c09216f64e`/178778 B；前代存 `.pre-G45.snapshot.txt`，其 sha 复现为 `088d026f…`）。**范围**：本裁决**仅**覆盖 P4-D 的负例与旧 Backend 回归——**不含**任何 P4-C 行（属 verify-5，仍在飞行）、不含 Challenger 终审。**下一步**：verify-5 交 P4-C 真机裁决（device 0、串行）后，派 Challenger 九点终审（工单已写：`lead/CHALLENGER-P4-FINAL-REVIEW-WORK-ORDER.txt`）。**未主张**：P4 整体通过（**未**）；P4-C 已验证（**未**）；设备 Runtime E2E（**未**，Mock-only）；Challenger 已裁（**未**）。
+## 追加 290 — P4-D 补录：verify-6 的**事后**自检 d8（11 PASS / 0 FAIL）已独立复核，裁决与 G45 钉**未动**
+
+**阶段**：P4-D 证据集补全（record-not-repair）。**结果：d8 事后自检纳入已复核集；被封裁决字节不变。** **性质**：补录 + 独立复核 + 钉保持。
+
+**（1）为何补录**。verify-6 的完成消息点了一个 `d8_verdict_selfcheck`（11 PASS / 0 FAIL），而我在 G45 复核的**封存裁决文本里没有它**。为让 P4-D 证据集**完整**且该主张被独立检验，补录之——**不改**封存裁决、**不动** G45 钉。
+
+**（2）d8 是什么**。它是**事后**仪器：其 console mtime（02:22）**晚于**裁决的（02:17）。它是 verify-6 检查**自己刚交的裁决**，不是预先写定的验收行；其 11 行**不**计入裁决的 276（后者只数裁决前的已执行脚本）。**裁决文件字节不变**（sha `f85b439826f5f1d2b3cbf899dafba33a37ab78299fedde007f8bae178a0a7c91`，31864 B）== G45 封存代际，故 G45 钉**仍然有效**，无任何重写。
+
+**（3）Lead 的独立复核**（自原始字节）。d8 console sha `8fef82e0e35ee1537f700387ed69e499e4e4f534570032795c86cfa1f1601fe1`（**等于** verify-6 所报值）；exit 0、11 PASS / 0 FAIL；脚本绑定复现（`16366e3d…`）；sidecar universe = **24** == 所报；**独立** grep 裁决 + 全部 console 对 {DeviceCodeGen E2E, TIR->HIVM, P5, P6, CodeGen E2E} **零**命中（即无未否定的禁语主张，由**不同**仪器佐证 d8 自己的 `hits=0 un-negated=NONE`）；d8 attempt1 是同一 `check()` 元数仪器缺陷（`TypeError: check() takes from 2 to 3 positional arguments but 4 were given`），保留。补录存 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4D-LEAD-CORROBORATION-ADDENDUM-1.txt`（sha `7cbcc4ca024b9aed412686663e48474763e33295f06074ed915c9cf90cada282`/2336 B）。
+
+**（4）钉字节与下一步**。闸门 **G46** 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `fed041052b89eeaa5c247bec45e412b28bc9530a828f5c72ec53ed3425e9a721`/180618 B；前代存 `.pre-G46.snapshot.txt`）。**范围**：本补录**仅**补全 P4-D 证据集——不改裁决、不改 276 计数、不改 G45。**未主张**：P4-C 已验证（**未**）；Challenger 已裁（**未**）。
