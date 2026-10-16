@@ -14562,3 +14562,26 @@ P4-C 已因用户授权**解锁设备前提**，但仍待 Implementor 完成 P4-
 **（3）Lead 的独立复核**（自原始字节）。d8 console sha `8fef82e0e35ee1537f700387ed69e499e4e4f534570032795c86cfa1f1601fe1`（**等于** verify-6 所报值）；exit 0、11 PASS / 0 FAIL；脚本绑定复现（`16366e3d…`）；sidecar universe = **24** == 所报；**独立** grep 裁决 + 全部 console 对 {DeviceCodeGen E2E, TIR->HIVM, P5, P6, CodeGen E2E} **零**命中（即无未否定的禁语主张，由**不同**仪器佐证 d8 自己的 `hits=0 un-negated=NONE`）；d8 attempt1 是同一 `check()` 元数仪器缺陷（`TypeError: check() takes from 2 to 3 positional arguments but 4 were given`），保留。补录存 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4D-LEAD-CORROBORATION-ADDENDUM-1.txt`（sha `7cbcc4ca024b9aed412686663e48474763e33295f06074ed915c9cf90cada282`/2336 B）。
 
 **（4）钉字节与下一步**。闸门 **G46** 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `fed041052b89eeaa5c247bec45e412b28bc9530a828f5c72ec53ed3425e9a721`/180618 B；前代存 `.pre-G46.snapshot.txt`）。**范围**：本补录**仅**补全 P4-D 证据集——不改裁决、不改 276 计数、不改 G45。**未主张**：P4-C 已验证（**未**）；Challenger 已裁（**未**）。
+## 追加 291 — P4-C **独立验证完成**：verify-5 交 **PASS 17/17**（真机 E2E 验收），Lead 逐字节独立复核一致
+
+**阶段**：P4-C（正常 TileLang Host 编译 → HIVM Backend → TVM-FFI Runtime → 冻结 P3 AIV Binary → 真实 Ascend950PR device 0）。**结果：17 行全部 PASS（0 FAIL / 0 NOT_RUN）；设备 1 全程未触碰。** **性质**：裁决 + 独立复核 + 冻结代际。
+
+**（1）verify-5 的裁决**。有界验证者（verifier-haiku，与 P4-D 的 verify-6 **独立**）用自持 harness 在真实 device 0 上串行跑 5 族 × 3 run = 15 次；裁决由 harness 自身在运行结束写出：`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/verify/RUN-C/P4-C-VERDICT.txt`（sha `f0bee8aa4d268d9ca5d05119f298c78d690a55ec3d0cb40ae01cb4edc09669ee`/10980 B）。**总判 OVERALL PASS**：**17 行 PASS / 0 FAIL / 0 NOT_RUN**（CR-E2E-1..13 + CR-NUM-1..4）；harness 退出码 **0**。
+
+- **编译入口**（CR-E2E-1/2/4/5/13）：字面调用 `tilelang.compile(vector_add(524288, mode="simd"), target="hivm", out_idx=-1)`；解析到 `hivm` backend、`cache_reusable=False`；`target.build.tilelang_ascend*` 与 `tilelang_pto*` 计数**全为 0**（无 AscendC/PTO 入口）；import payload 的 sha **等于**冻结 kernel.o。
+- **载入与发射**（CR-E2E-7/8/9/10/11）：`aclrtBinaryLoadFromData` **恰 1 次**，`size=4448 numOpt=1 type=2 magic=0x41415246`（VECTOR_CORE）；15 次 launch 全部 `numBlocks=64 argsSize=24 dynUBuf=196608`；`FunctionInfo.name=main_kernel`、3 指针参数、`launch_param_tags=['blockIdx.x','tirx.use_dyn_shared_memory']`；每 iter 1 次 launch、15/15 sync 完成、零 rc 失败。
+- **数值**（CR-E2E-12 + CR-NUM-1..4）：5 族（`constants.0/1/2`、`mixed`、`per-block`）× 3 run，每次 `compared=524288 mismatch=0 dev_nonfinite=0 ok=True`；oracle `sha256(pre)==(post)==pin`；无子集比较（partials=0）。
+
+**（2）Lead 的独立复核**（不止采信自述）。存 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4C-LEAD-CORROBORATION.txt`（sha `9f91a40af14ffedb4dcb6ca1624093a25114302599b0d1dd9e9a6440b844ec5c`/7913 B）：
+
+- **冻结身份重测**：kernel.o `2c4247c3…`/4448 B；oracle `32d48852…`/16168 B（pre==post==pin）。
+- **脚本绑定复现**：harness `p4c_device_run.py` 实测 sha `20eacbf7…`/81279 B **等于**其 `script.sha256.txt` 记录——裁决确由它自述的脚本产生。**裁决是在 console/exitcode 仍在写出时生成的**（其自身 SIBLING 块记 `exitcode.txt exists=False`），故我**在进程退出后**重测：exitcode=**0**、console `e7d18a28…`/24301 B、stderr 238 B、acl_trace.log `c30e6b8d…`/29189 B。
+- **oracle 参考 vs 自报**（**不同**仪器）：我自行 hash 5 个盘上 `oracle/*.ref.bin`，与 console 的 `ORACLE_REF self_reported` 逐族比对 **5/5 MATCH**；`.ab.bin`=4194304 B（2N f32）、`.ref.bin`=2097152 B（N f32）；oracle 自检 rc=0。
+- **ACL 轨迹行首锚定**（裸 `grep LOAD` 会同时命中 UNLOAD）：`^LOAD`=**1**（`size=4448 sha256=2c4247c3… numOpt=1 type=2 magic=0x41415246 rc=0`）、`^LAUNCH`=**15**（distinct `numBlocks={64} argsSize={24} dynUBuf={196608}`，各**唯一值**、无漂移）、`^UNLOAD`=**1**；末行 `TRACER_EXIT n_load=1 n_getfunc=1 n_unload=1 n_getdevice=16 n_launch=15 n_errmsg=0 n_real_fail=0 kat=1 real_ok=1`。76 行 `^TRACER_START` 是每 fork 子进程继承 LD_PRELOAD 的预载，**非**额外设备操作。
+- **数值的另一仪器**：harness 在进程内比较、**不**把设备字节落盘，故无法做设备 dump 的字节 diff。我从字节做的是**重算 oracle 自身**：逐族在 host float32 上算 A+B 与 `.ref.bin` 全 524288 比对，mismatch 全 **0**、两侧非有限数全 0——**佐证 oracle 自洽**（其 ref 确为 ab 的 f32 和、规则无隐藏容差），**不**替代 harness 的设备-对-参考比较。设备侧相等由 15 行 `compared=524288 mismatch=0 ok=True`（每行 `acl_launch_lines=1`）承载。**此局限照记，不掩盖。**
+- **设备纪律**（目标 §6）：容器内 `npu-smi` **前**：NPU0/NPU1 均 `No running processes`；**后**：NPU0 `['218304' python3 303 NA]`、**NPU1 仍 `No running processes`**——**设备 1 前后皆空，从未触碰**。NPU0 后置 pid `218304` 是**外部** host 进程（host `npu-smi` 亦有），裁决自身已记此 caveat。
+- **首次尝试的拒绝**（守卫生效、保留不删）：`refusal-attempt-1/` console = `REFUSED: acceptance evidence already present … acl_trace.log`，exitcode **3**、stderr 0 B、其 `acl_trace.log` 为 `n_load=0 n_launch=0`（拒绝前无任何设备操作）——是 harness 自身的幂等守卫拒绝覆盖既有验收；**记录代**是第二次尝试（含 1 LOAD / 15 LAUNCH）。
+- **缓存/新鲜度**：`cache-fresh/` 仅空 kernel-cache 目录；`NEW_BINARY_ARTIFACTS=[]`、`PS_SAMPLER` 95 采样 **hits=0**（无 bishengir/hivmc 进程）——与 PREBUILT 诚实性 caveat 一致，本轮**无** CodeGen。
+- **控制漂移**：控制 HEAD `6e25f69e…`、worktree clean；tilelang HEAD `cc56643d…`。
+
+**（3）钉字节与下一步**。闸门 **G47** 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `1eec630a8564e0dab61f45aff8dc82788ddc76d3459b542f91191a47d0842c17`/183418 B；前代存 `.pre-G47.snapshot.txt`）。**范围**：本裁决**仅**覆盖 P4-C 真机验收（PREBUILT 冻结二进制路径，**非** DeviceCodeGen E2E）；P4-D 负例另在 G45/G46。**下一步**：派 Challenger 九点终审（工单已写：`lead/CHALLENGER-P4-FINAL-REVIEW-WORK-ORDER.txt`），随后出 P4 终报。**未主张**：P4 整体 CLOSED（**未**）；Challenger 已裁（**未**）；DeviceCodeGen E2E（**未**，PREBUILT-only）。
