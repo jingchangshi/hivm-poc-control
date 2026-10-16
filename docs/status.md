@@ -14509,3 +14509,20 @@ P4-C 已因用户授权**解锁设备前提**，但仍待 Implementor 完成 P4-
 **不变的部分**。**283** 对那三条构造器 FAIL 的裁定**正确**（本分支 IR 包是 `tvm.tirx`；Lead 自己的探针用正确模块名重放，三条全被 `CheckFixedProgramContract` 拒绝、`loader_calls=0`）。**本追加不**撤回该裁定，只**补全**其覆盖：六条 FAIL **全部**归属仪器，无一条指向生产。**283** 的字节**不改**；被点名的字面量原文保留于上。
 
 **未主张**：283 的构造器裁定有误（**无误**）；那次 battery 有生产缺陷（**无**）；最终 battery（64/0/0）与那次（33/6/3）**逐行相同**（**不同**——见 286/verify-3 最终裁决）。
+
+## 追加 288 — P4-B **独立验证完成**：verify-3 死于上下文溢出未交裁决；verify-4（新起、有界）交 PASS-WITH-CAVEATS，**七组全 PASS、无生产缺陷**
+
+**阶段**：P4-B（PREBUILT + Runtime）独立验证。**结果：七组判据（CR-ID/CR-REJ/CR-PB/CR-CACHE/CR-FI/CR-LD/CR-SER）全 PASS；独立验证者未发现生产缺陷。** **性质**：裁决 + 死因记录 + 冻结代际。
+
+**（1）verify-3 的死因（overflow，非"仍在工作"）**。它跑了 4.5h / 约 300 次工具调用，触发**四次**上下文溢出续接（13:12 / 14:32 / 15:23 / 16:20Z；transcript 5.4 MB），**未交出任何裁决**。**决定性证据**：我发给它的**两条指令均未送达**——transcript 里 user 型记录只有那四次溢出续接 + 一条 "your previous response had no visible output" 提示，grep 我的指令原文计数为 **0**。这正是"teammate 两种死法"里的**溢出**一类：**沉默不等于进展**。我已 TaskStop（`t5fo1uypu`）并**冻结**该代际（29 文件 sha256+size 台账见 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/verify/P4B-VERIFICATION.snapshot-pre-verify4/MANIFEST.txt`，sha `0f7163ba51b7c7cdff5568b5ad388e80001fe7b2b7360c66b0511fcd3b930962`/2713 B）。
+
+**（2）verify-4 的裁决——PASS-WITH-CAVEATS**。新起的**有界**验证者（verifier-haiku，约 40 次调用）把**六个产出脚本全部重跑**到隔离的 `verify4/`（容器内 `python3 -I -B`；mock 走 LD_PRELOAD），裁决存 `/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/verify/P4B-VERIFICATION/VERIFY-4-P4B-VERDICT.txt`（sha `cf8a6f10ac76a2bce34bb82c4568e732508a99bd880b44b68dce23f784e7cd0c`/14759 B）：
+- **七组全 PASS**：CR-ID、CR-REJ、CR-PB、CR-CACHE、CR-FI、CR-LD、CR-SER，各带一行实测依据（命令 + 观测值）。
+- **`no production defect found`**。
+- 新鲜 console 复现冻结 console：bc1/bc5/golden_attrs **逐字节相同**；battery 仅两个 ASLR 指针不同（PASS 64/0/0）；host_rows **仅**自指树枚举 13→18（增长即新产物自身）。pin 复测：kernel.o `2c4247c3…`/4448 B；冻结摘要 `65d3158a…`/16 行。CR-LD-4 镜像 TU 重编重跑（0 mismatch）。
+
+**（3）随裁决同行的 caveat**（我逐条独立复核）。（c1）run1 的 `t2_extra` console **已被取代**——其 15038 B 产出脚本在盘上不复存在（"pre-build snapshot 不描述下一次 build"）。（c2）现盘上 `t2_extra.py` 因缺 `import re` 在 `:292` 崩溃（NameError，rc=1），故 E5-tail/E6/E7 记 **NOT_RUN**——**每一行判据都在不依赖它们的前提下取证**。（c3）CR-FI-1(b) 活数据流与 CR-LD-1 真实调用 rc=0 属 **P4-C** 行，本轮**未主张**。run1 的三条 FAIL（E4/E5/E6）**全部**为验证者**仪器/预期**缺陷，逐条给 file:line：E6 的 "36/40" 字面量把 union 成员当 struct 字段相加（逐字复制的被删结构实测 **16/20/16**，与真实 CANN 头一致）——**假前提，应撤回而非改标 PASS**。
+
+**（4）我的独立复核**（不止采信其自述）。我直接测：新鲜 console 六个 sha256 **逐一等于**其声称值；冻结父 console 六个**均未被动**（对快照哈希相同）；battery 掩去指针后与冻结版**完全相同**；host_rows 的 diff **仅**自指枚举；c2 的 `import re` 缺失**属实**；E6 的 union 最大成员 `reserved[4]`=16 B **属实**；冻结摘要仍 `65d3158a…`（16 行）；控制仓 clean。**另记**（notes [6]，我自己的仪器缺陷）：我先前用朴素 `"  OK"` grep 数 battery 只得 61 行、与声明 `PASS: 64` 差 3——那 3 行是真的，是**我的字面量**漏掉了（打印器把标签补齐到 66 列后仅剩一个空格，长标签恰好是三条 CR-REJ-1）；按 **token** 计数 = **64/0/0**，与声明一致。
+
+**（5）钉字节与下一步**。身份锚重生成至 **46** 行（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-0-IDENTITY-ANCHOR.txt`，sha `8a3dc496d717c5944c0a4514755939d3a0d0020cd69e89c4dce98857102cad9d`/17490 B），**新增** verify-4 裁决与冻结台账两个 subject；前代（44 行）存 `gen14-44rows-superseded.txt`。闸门 G43 已记（`/home/s00653124/workspace/hivm-poc-evidence/p4-20261016/lead/P4-GATE-TRANSITIONS.txt`，sha `d138715f13502ec3f163e7c01e9cfad3f73a978a56b58597612126461284d3c3`/171704 B）。**范围**：本裁决**仅**覆盖 P4-B。**下一步**：P4-C（真实设备数值，device 0，已授权）与 P4-D（负例、老路径回归、Challenger 九点终审）；**仍未开始任何 P4-C 设备工作**。**未主张**：P4-C/P4-D 已验证（**未**）；CR-FI-1(b)/CR-LD-1 实机行为（**未**，属 P4-C）。
