@@ -519,3 +519,48 @@ R1/R2 增量**未引入新的可执行缺陷**；最小判别实验为「在内�
 - **P4-A Challenger 复核结转**：item D（R15 checker 的谓词接受一条合成的 NOT_ROUTED 记录而无显式拒绝证据）
   仍 **OUTSTANDING**；runner `:454-456` 的 `startswith` 放宽是**有界**的未来 runner 收紧项。
 - **device 0 后置外部进程** `218304`（host 侧同名，非本 run 所有）；G31 记为共享状态。
+
+## 13. P5 轮次：正式 TIR → HIVM DeviceCodeGen（P5-0..P5-3 完成，P5-4 待办）
+
+P5 已授权（范围 P5-0..P5-4；P6/P7 本轮**禁止**）。已完成 P5-0..P5-3，P5-4 未开始。
+提交落在 `feat/hivm-backend-poc`，远端 `6fe6f091`（本地与远端 `0 0` 一致）：
+
+- `4d84891b` 分离 GENERATED 与 PREBUILT 的 provenance
+- `d4f07c54` 真实 HIVM DeviceCodeGen（TIR → Late HIVM/AVE MLIR）与编译入口
+- `6fe6f091` 覆盖 emitter 文本与 binary 构建入口的测试
+
+证据：`evidence/p5/p5-2-p5-3/`（README + 4 份 receipt）。
+
+### 13.1 决定性结果
+
+从冻结 Golden 的 **prepared TIR** 出发，经本仓 emitter 生成 Late MLIR，再过 P2 的 Late 流水线，
+产出的 AIV binary 与**冻结 P3 binary 逐字节相同**：
+
+    sha256 2c4247c3b2ce11f79ad15415eb06d4ce1d5523a0c19c91ad3743bc08e7b8c4c9
+    size   4448 B
+
+该摘要只作为测试的**期望值**参与断言，**不**作为任何查找键；生产路径不读 P1 MLIR、不做字符串替换、
+不按 Golden 摘要返回预置文本。
+
+### 13.2 已实现的行为
+
+- emitter（`src/ascend/codegen/hivm_codegen.cc`）是 TIR visitor + MLIR 文本发射器，输入是
+  `_prepare_device_codegen_mod` 的输出。超出子集的节点**报错并给出节点类型与所属函数**，
+  无静默跳过、无部分输出。
+- 入口：`target.build.tilelang_hivm_source_only`（只发文本，无需编译器）、
+  `target.build.tilelang_hivm`（经 `tilelang_callback_hivm_compile` 走真实编译）。
+- 编译器路径由环境变量 `HIVM_COMPILER` 配置，**无**静默默认值；hook 缺失时构建入口**报错**，
+  **不**回退到冻结 PREBUILT binary。
+- 序列化恢复不再把生成产物说成 PREBUILT：标签重建改由 `FormatIsPrebuilt` 判定，
+  loader 策略仍由 `FormatUsesVectorCoreLoader` 判定（二者已拆开）。
+
+### 13.3 验证与已知边界
+
+- `testing/ascend/codegen/`：有编译器时 **21 passed**；`HIVM_COMPILER` 未设时 **17 passed / 4 skipped**，
+  4 个真实编译用例**诚实跳过**而非以更弱检查通过。
+- 回归基线：`testing/ascend/` 带改动 = 45 failed / 1145 passed；干净树（stash + 重建）= 45 failed / 1128 passed。
+  差异恰为 **17 个新用例**，两侧同为 45 个**既存** Bisheng 失败（`tilelang/contrib/bisheng.py:129`），
+  故 P5 **未引入回归**。
+- **sandboxDegraded=true**（无 sudo，见 alignment 的 SANDBOX-DEGRADED choice b）：本目录每份 receipt 均带该限制。
+- **生成 binary 的硬件执行与数值正确性本轮 NOT_RUN**：P5 是 codegen 阶段；设备工作仍受单独的设备规则约束。
+- 未扩大 AscendNPU-IR 固定 Late verifier 的支持范围（goal §8 非目标）。
