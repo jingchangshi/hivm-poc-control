@@ -1,0 +1,28 @@
+Clean-tree baseline for the P5 regression claim.
+
+Procedure actually executed (in this order):
+  1. git stash push -u  -- <the 6 P5 paths>            (tree returns to HEAD)
+  2. cmake -S . -B build                               (drop the stale file list)
+  3. docker_gate.py build                              -> {"exitCodeZero": true}
+  4. pytest testing/ascend -q                           -> 45 failed, 1128 passed
+  5. git stash pop                                     (P5 changes restored)
+  6. cmake -S . -B build && docker_gate.py build       -> {"exitCodeZero": true}
+  7. pytest testing/ascend -q                           -> 45 failed, 1145 passed
+
+Observed step 4 output, verbatim final line:
+
+    45 failed, 1128 passed, 14 warnings in 103.80s (0:01:43)
+
+Observed step 7 output, verbatim final line:
+
+    45 failed, 1145 passed, 4 skipped, 14 warnings in 103.80s (0:01:43)
+
+Interpretation: the same 45 tests fail in both runs, and the passing count rises by
+exactly the 17 new P5 tests (1128 + 17 = 1145). No previously passing test regressed.
+
+Note on the 45 failures: they are pre-existing Bisheng codegen failures
+(`tilelang/contrib/bisheng.py:129 RuntimeError`, emitted C++ rejected downstream).
+A sample failing test reproduces them on the clean tree, so they are not attributable
+to P5.
+
+Sandbox: sandboxDegraded=true.

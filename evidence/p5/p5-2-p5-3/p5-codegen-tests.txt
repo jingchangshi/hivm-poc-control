@@ -1,0 +1,31 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.17, pytest-9.1.1, pluggy-1.6.0 -- /home/s00653124/.conda/envs/s00653124_tilelang/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/s00653124/workspace/tilelang
+configfile: pyproject.toml
+plugins: platformdirs-4.12.4
+collecting ... collected 21 items
+
+testing/ascend/codegen/test_hivm_build.py::test_build_entry_exists PASSED [  4%]
+testing/ascend/codegen/test_hivm_build.py::test_build_without_hook_fails_rather_than_returning_a_prebuilt SKIPPED [  9%]
+testing/ascend/codegen/test_hivm_build.py::test_generated_binary_is_the_frozen_aiv_binary SKIPPED [ 14%]
+testing/ascend/codegen/test_hivm_build.py::test_generated_module_does_not_claim_prebuilt_provenance SKIPPED [ 19%]
+testing/ascend/codegen/test_hivm_build.py::test_restore_does_not_turn_a_generated_module_into_prebuilt SKIPPED [ 23%]
+testing/ascend/codegen/test_hivm_build.py::test_missing_compiler_is_reported_not_replaced PASSED [ 28%]
+testing/ascend/codegen/test_hivm_build.py::test_empty_mlir_is_refused PASSED [ 33%]
+testing/ascend/codegen/test_hivm_build.py::test_compiler_failure_is_not_swallowed PASSED [ 38%]
+testing/ascend/codegen/test_hivm_build.py::test_nonzero_exit_is_not_swallowed PASSED [ 42%]
+testing/ascend/codegen/test_hivm_build.py::test_kernel_cache_must_be_off PASSED [ 47%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_emit_entry_is_registered PASSED [ 52%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_emits_one_module_for_the_vector_core PASSED [ 57%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_grid_comes_from_the_tir PASSED [ 61%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_dma_stage_is_emitted_from_the_tir_offsets PASSED [ 66%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_per_block_gm_stride_comes_from_the_tir PASSED [ 71%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_sync_flags_are_emitted_in_tir_order PASSED [ 76%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_vector_function_is_outlined_and_looped PASSED [ 80%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_barrier_closes_the_entry PASSED [ 85%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_emission_is_deterministic PASSED [ 90%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_emission_does_not_key_on_the_golden_digest PASSED [ 95%]
+testing/ascend/codegen/test_hivm_codegen_late_mlir.py::test_generated_format_token_differs_from_prebuilt PASSED [100%]
+
+======================== 17 passed, 4 skipped in 0.04s =========================
