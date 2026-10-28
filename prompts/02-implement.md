@@ -1,5 +1,9 @@
 # Follow-up turn after approving P0
 
+> **历史文件（Historical — 2026-10-13 时代）。** 其中“创建 Claude Code 隐式团队 / 钉住模型别名 /
+> 确认 Magpie 路由”的指令已废弃；当前协作与门禁方式见根 `README.md`。
+> 分阶段推进（测试先行、独立验证、Challenger 审阅、只在 PASS 后前进）**仍适用**。
+
 Read the approved docs/late-ir-contract.md, docs/pass-cut.md, docs/acceptance.md and docs/status.md. Continue using the existing named teammates if available. If the old team no longer exists after a restart, create a fresh implicit team with the same agent definitions and pinned model aliases; do not reconstruct ~/.claude/teams by hand.
 
 Implement only the next unblocked phase from P1 to P6 in docs/goal.md. For each phase:

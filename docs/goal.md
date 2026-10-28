@@ -1,5 +1,9 @@
 # GOAL: TileLang -> Late HIVM/HIVMAVE -> Ascend950PR real kernel
 
+> **适用范围（2026-10-28）。** 本目标、阶段划分（§5）与硬门禁**仍然有效**，是全部轮次的不变基线。
+> 仅 §6 提到的容器名 `s00653124_tilelang` 与 `scripts/in-container.sh` 属历史环境快照：
+> 当前容器须用 `docker ps` 现场核验，机器门禁改用 AgentGates MCP（见根 `README.md`）。
+
 ## 1. Scope and completion criteria
 
 Build a minimal real DeviceCodeGen E2E POC for the existing TileLang F32 SIMD vector addition test:

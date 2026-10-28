@@ -1,5 +1,12 @@
 # Verified execution environment (2026-10-12)
 
+> **历史快照（Historical — 2026-10-12 实测）。** 本文不是当前运行说明：其中 `s00653124_tilelang`
+> 容器**现已退出**，当前运行的是另一个容器（2026-10-28 现场为 `s00653124-tilelang-hivm`）。
+> **不要固定使用此处的容器名、conda 环境名或路径**；执行前用 `docker ps` 与 AgentGates
+> `doctor`（workspace `tilelang` / adapter `tilelang-hivm` 与 `tilelang-hivm-npu`）现场核验。
+> 下文 § Baseline results 与 § Safe invocation 保留为历史方法与历史命令形态，
+> 其中 `./scripts/in-container.sh` 的 sha256 被历史证据引用，脚本内容不得修改。
+
 ## Repositories (host and Docker share /home)
 
 - TileLang: `/home/s00653124/workspace/tilelang`; `main` at `0e687c17bb3bd8a92bfeaa2bc8a5bdb37f6b3ca4`. The working tree now includes staged NEW Golden files and a changed freeze script; do not assume clean.

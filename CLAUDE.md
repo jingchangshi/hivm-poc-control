@@ -1,5 +1,14 @@
 # TileLang HIVM backend POC - permanent control rules
 
+> **身份说明（2026-10-28）。** 本文件最初是 Claude Code 会话的常驻规则。
+> **§ Team and models 已历史化**：Claude Code 隐式团队、Sonnet/Haiku/Opus 经 Magpie 的别名路由、
+> `.claude/agents/*.md` 子代理名与“最多两名执行中队友”的调度方式**均已不再使用**；
+> 当前运行时是 DeepSeek Harness + Agent Teams；**角色划分见 `README.md`，
+> 模型路由以运行时（Harness）会话配置为准，本仓不记录也不指定任何模型别名**；
+> served-model 审计历史见 `docs/current-state.md` §2。
+> **§ Nonnegotiable engineering controls 与 § Reproducibility 仍然有效**（除其中“写 status.md”
+> 与证据路径的表述外，它们仍是本项目的工程约束）。当前入口见 `README.md` 与 `docs/current-state.md`。
+
 Read docs/goal.md, docs/environment.md, docs/acceptance.md, and docs/status.md before doing work.
 Use ONLY evidence from current local repositories for exact compiler pass order, dialect names, CLI flags, and CMake targets.
 

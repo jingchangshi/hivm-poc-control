@@ -1,5 +1,20 @@
 # P5 — TileLang HIVM 真正 DeviceCodeGen 开发
 
+> **原文保留（Historical Harness 时代任务单，2026-10）。技术要求仍然有效。**
+> 需要历史化的只有“用哪套 Harness / 谁来执行”这一面：
+> - §任务身份 中“使用已安装的 `/engineering` 工作流”与“不得使用 Claude Code Agent Teams 或另一个
+>   多 Agent 框架代替 PiEngineeringHarness”的规定**已被当前轮取代**：本轮改由 **DeepSeek Harness +
+>   Agent Teams** 执行，机器门禁改由 **AgentGates MCP** 提供（见 `README.md` §2）。
+> - §1 的“预期基线（GitHub 已确认参考版本）”只是**时间快照**，本地实际 Git HEAD 才是执行身份。
+> - §2 的角色名（Explorer/Architect/Implementer/Validator/Challenger/Lead）在当前运行时下对应
+>   Agent Teams 的同名角色；**模型路由以运行时（Harness）会话配置为准，本仓不记录也不指定模型别名**。
+> - §3 的 P5-0 Adapter 准入（`bwrap`、`engineering-writer-guard`、Harness Runtime 兼容性）属旧执行器要求；
+>   当前对应义务是 AgentGates `doctor` 现场核验与提交前 `verify_requirements`。
+> - §7.1 “新增 P5 专用 Gate（`tilelang-hivm-codegen`）”与 §7.2 PackStore 重装流程是**该轮**的
+>   P5-4 计划项，须以现场 Adapter/Receipt 核验其是否已落地；不要仅凭本文断言其状态。
+>
+> **其余全部技术要求（§4–§6、§8 禁止项、§9 交付与 P5 关闭标准）逐条不变，必须继续遵守。**
+
 ## 任务身份
 
 你是 PiEngineeringHarness 的 Engineering Lead。
