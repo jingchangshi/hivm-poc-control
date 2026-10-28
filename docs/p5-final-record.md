@@ -8,18 +8,18 @@ P5 关闭需要下一轮机器门禁和独立裁决，P6 未启动。
 
 | 仓库 | HEAD | 工作区 |
 |---|---|---|
-| TileLang | `658e4cb762a492722771fd97cdb29a1e809f879d`（`feat/hivm-backend-poc`） | clean |
+| TileLang | `7184064f`（`feat/hivm-backend-poc`） | clean |
 | AscendNPU-IR | `bfefe18011152cca671e7e6ddf03793afbacaa2a` | clean（0 改动） |
 | 控制仓 | 本文件所在提交 | 见 `git log` |
 
-P5 这一轮在 `6fe6f091` 之上产生 5 个提交，改动 8 个文件、+1672/−130：
+P5 这一轮在 `6fe6f091` 之上产生 5 个提交，改动 8 个文件、+1672/−130。提交按依赖排序，每个提交单独检出时其引用的符号都已存在：
 
 ```text
-658e4cb7 [Ascend] Test backend routing, target agreement and TIR mutations
-51f109fa [Ascend] Resolve one kernel symbol and state the provenance limits
-7ca0cc13 [Ascend] Refuse TIR the HIVM emitter was silently reinterpreting
-12b9c711 [Ascend] Make the HIVM compile hook check the target and the artifact it returns
-78a778bd [Ascend] Bind the HIVM backend to the generated DeviceCodeGen
+7184064f [Ascend] Test backend routing, target agreement and TIR mutations
+6f7cb7b7 [Ascend] Resolve one kernel symbol and state the provenance limits
+7b0b5de2 [Ascend] Refuse TIR the HIVM emitter was silently reinterpreting
+d38c955d [Ascend] Make the HIVM compile hook check the target and the artifact it returns
+6c3f7050 [Ascend] Bind the HIVM backend to the generated DeviceCodeGen
 ```
 
 构建产物：`build/lib/libtilelang.so` sha256 `d240c0fd675ac4db9d1160956e5b8415beb5b3ed9010b89723a4e51624530f0c`。
